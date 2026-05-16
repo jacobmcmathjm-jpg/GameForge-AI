@@ -323,16 +323,55 @@ function commandExists(command) {
 }
 
 function detectCommonUnrealPaths() {
+  if (process.platform !== 'win32') return '';
+  const versions = ['5.7', '5.6', '5.5', '5.4', '5.3', '5.2', '5.1', '5.0'];
+  const drives = ['C:', 'D:', 'E:', 'F:'];
+  const roots = [
+    'Program Files\\Epic Games',
+    'Program Files\\UE_',   // bare version roots like C:\Program Files\UE_5.6
+    'Epic Games',
+    'Games\\Epic Games',
+    'Games'
+  ];
+  const subpath = 'Engine\\Binaries\\Win64\\UnrealEditor.exe';
   const candidates = [];
-  if (process.platform === 'win32') {
-    candidates.push(
-      'C:\\Program Files\\Epic Games\\UE_5.4\\Engine\\Binaries\\Win64\\UnrealEditor.exe',
-      'C:\\Program Files\\Epic Games\\UE_5.5\\Engine\\Binaries\\Win64\\UnrealEditor.exe',
-      'C:\\Program Files\\Epic Games\\UE_5.6\\Engine\\Binaries\\Win64\\UnrealEditor.exe',
-      'C:\\Program Files\\Epic Games\\UE_5.7\\Engine\\Binaries\\Win64\\UnrealEditor.exe'
-    );
+
+  for (const drive of drives) {
+    for (const ver of versions) {
+      const tag = `UE_${ver}`;
+      // Standard Epic Games path: C:\Program Files\Epic Games\UE_5.6\...
+      candidates.push(`${drive}\\Program Files\\Epic Games\\${tag}\\${subpath}`);
+      // Non-Epic root: C:\Program Files\UE_5.6\...
+      candidates.push(`${drive}\\Program Files\\${tag}\\${subpath}`);
+      // D:\Epic Games\UE_5.6\...
+      candidates.push(`${drive}\\Epic Games\\${tag}\\${subpath}`);
+      // D:\UE_5.6\...
+      candidates.push(`${drive}\\${tag}\\${subpath}`);
+      // D:\Games\UE_5.6\...
+      candidates.push(`${drive}\\Games\\${tag}\\${subpath}`);
+      // D:\Games\Epic Games\UE_5.6\...
+      candidates.push(`${drive}\\Games\\Epic Games\\${tag}\\${subpath}`);
+    }
   }
+
   return candidates.find(p => fs.existsSync(p)) || '';
+}
+
+function validateUnrealExePath(p) {
+  if (!p || typeof p !== 'string' || !p.trim()) {
+    return { valid: false, reason: 'No path provided.' };
+  }
+  const trimmed = p.trim();
+  // Extract basename handling both forward slash and backslash (Windows paths on any OS)
+  const basename = trimmed.replace(/\\/g, '/').split('/').pop() || '';
+  // Accept UnrealEditor.exe, UnrealEditorCmd.exe, UnrealEditor (Linux/Mac)
+  if (!/^unrealedit/i.test(basename)) {
+    return { valid: false, reason: `Selected file must be UnrealEditor.exe (got: "${basename}")` };
+  }
+  if (!fs.existsSync(trimmed)) {
+    return { valid: false, reason: `File does not exist at: "${trimmed}"` };
+  }
+  return { valid: true, path: trimmed };
 }
 
 function detectToolchain() {
@@ -4371,9 +4410,56 @@ Score: ${pkg.qualityReport?.score ?? 'N/A'}
 
 ipcMain.handle('toolchain-detect', async () => {
   try {
+    // First check user's saved path
+    const settings = gfReadSettings();
+    if (settings.unrealPath) {
+      const check = validateUnrealExePath(settings.unrealPath);
+      if (check.valid) {
+        const result = detectToolchain();
+        // Override with the user's saved path since it's valid
+        result.tools.unreal = { name: 'Unreal Engine', found: true, path: check.path, freeLegalUse: 'Free-to-start; obey Epic terms', source: 'user-configured' };
+        return result;
+      }
+    }
     return detectToolchain();
   } catch (error) {
     return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle('gf-validate-unreal-path', async (event, p) => {
+  try {
+    const result = validateUnrealExePath(p);
+    console.log(`[GameForge] Unreal path validation: "${p}" → valid=${result.valid}${result.reason ? ' reason=' + result.reason : ''}`);
+    return result;
+  } catch(e) {
+    return { valid: false, reason: e.message };
+  }
+});
+
+ipcMain.handle('gf-detect-unreal-path', async () => {
+  try {
+    // 1. Check user's saved path first
+    const settings = gfReadSettings();
+    if (settings.unrealPath) {
+      const check = validateUnrealExePath(settings.unrealPath);
+      if (check.valid) {
+        return { found: true, path: check.path, source: 'saved-settings' };
+      }
+    }
+    // 2. Scan common install locations
+    const detected = detectCommonUnrealPaths();
+    if (detected) {
+      return { found: true, path: detected, source: 'auto-detected' };
+    }
+    // 3. Try PATH
+    const fromPath = commandExists('UnrealEditor') || commandExists('UnrealEditor.exe');
+    if (fromPath) {
+      return { found: true, path: fromPath, source: 'PATH' };
+    }
+    return { found: false, scannedPaths: true };
+  } catch(e) {
+    return { found: false, error: e.message };
   }
 });
 
@@ -7666,12 +7752,19 @@ ipcMain.handle('gf-run-launch-check', async () => {
       ? checkResult('Settings file', true, `Found: ${GF_SETTINGS_FILE}`)
       : checkResult('Settings file', null, 'Settings file not found (will be created on first save)');
 
-    // Unreal Engine path
-    const unrealPath = settings.unrealPath || detectCommonUnrealPaths();
-    if (unrealPath && fs.existsSync(unrealPath)) {
-      checks.unreal = checkResult('Unreal Engine path', true, `Found: ${unrealPath}`);
-    } else if (unrealPath) {
-      checks.unreal = checkResult('Unreal Engine path', false, `Path set but not found: ${unrealPath}`);
+    // Unreal Engine path — use validateUnrealExePath for consistent logic
+    const configuredPath = settings.unrealPath || '';
+    const autoPath = configuredPath ? '' : detectCommonUnrealPaths();
+    const pathToCheck = configuredPath || autoPath;
+
+    if (pathToCheck) {
+      const validation = validateUnrealExePath(pathToCheck);
+      if (validation.valid) {
+        const source = configuredPath ? 'user-configured' : 'auto-detected';
+        checks.unreal = checkResult('Unreal Engine path', true, `✓ Valid (${source}): ${pathToCheck}`);
+      } else {
+        checks.unreal = checkResult('Unreal Engine path', false, `✗ ${validation.reason}`);
+      }
     } else {
       checks.unreal = checkResult('Unreal Engine path', null, 'Not configured. Set in Settings or install Unreal Engine.');
     }
@@ -7734,18 +7827,28 @@ ipcMain.handle('gf-run-auto-repair', async () => {
       repairs.push({ icon: '⚙️', title: 'Settings file', detail: `Settings write failed: ${e.message}`, status: 'err' });
     }
 
-    // 3. Detect Unreal if missing
+    // 3. Detect Unreal if missing, validate if present
     if (!settings.unrealPath) {
       const detected = detectCommonUnrealPaths();
       if (detected) {
-        gfWriteSettings({ ...settings, unrealPath: detected });
-        repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: `Auto-detected: ${detected}`, status: 'ok' });
+        const check = validateUnrealExePath(detected);
+        if (check.valid) {
+          gfWriteSettings({ ...settings, unrealPath: detected });
+          repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: `Auto-detected and saved: ${detected}`, status: 'ok' });
+        } else {
+          repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: `Found but invalid: ${check.reason}`, status: 'warn' });
+        }
       } else {
-        repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: 'Not found — set manually in Settings', status: 'warn' });
+        repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: 'Not found in standard locations — set manually in Settings after installing Unreal Engine.', status: 'warn' });
       }
     } else {
-      const exists = fs.existsSync(settings.unrealPath);
-      repairs.push({ icon: '🎮', title: 'Unreal Engine path', detail: exists ? `Path valid: ${settings.unrealPath}` : `Path set but file not found: ${settings.unrealPath}`, status: exists ? 'ok' : 'warn' });
+      const check = validateUnrealExePath(settings.unrealPath);
+      repairs.push({
+        icon: '🎮',
+        title: 'Unreal Engine path',
+        detail: check.valid ? `Valid: ${settings.unrealPath}` : `✗ ${check.reason}`,
+        status: check.valid ? 'ok' : 'warn'
+      });
     }
 
     // 4. Meshy key check

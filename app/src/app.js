@@ -123,6 +123,8 @@ function _applySettingsToUI() {
   if (s('settAIProvider')) s('settAIProvider').value = SETTINGS.aiProvider || 'none';
   if (s('settLogLevel')) s('settLogLevel').value = SETTINGS.logLevel || 'info';
   if (s('genOutputPath')) s('genOutputPath').value = SETTINGS.outputPath || '';
+  // Validate and display saved Unreal path status (async, non-blocking)
+  _validateAndShowSavedUnrealPath();
 }
 
 async function saveSettings() {
@@ -175,29 +177,88 @@ async function testMeshyKey() {
 
 async function detectUnrealPath() {
   const statusEl = document.getElementById('unrealPathStatus');
-  if (statusEl) { statusEl.textContent = 'Detecting...'; statusEl.style.color = 'var(--muted)'; }
-  gfLog('info', 'Auto-detecting Unreal Engine path...');
-  const result = await ipc('toolchainDetect');
   const pathEl = document.getElementById('settUnrealPath');
-  if (result && result.tools && result.tools.unreal && result.tools.unreal.path) {
-    const p = result.tools.unreal.path;
-    if (pathEl) pathEl.value = p;
-    SETTINGS.unrealPath = p;
-    if (statusEl) { statusEl.textContent = `✓ Found: ${p}`; statusEl.style.color = 'var(--success)'; }
-    gfLog('ok', 'Unreal Engine detected at:', p);
+  if (statusEl) { statusEl.textContent = 'Scanning common install locations...'; statusEl.style.color = 'var(--muted)'; }
+  gfLog('info', 'Auto-detecting Unreal Engine path...');
+
+  const result = await ipc('detectUnrealPathAuto');
+
+  if (result && result.found && result.path) {
+    if (pathEl) pathEl.value = result.path;
+    SETTINGS.unrealPath = result.path;
+    const src = result.source ? ` (${result.source})` : '';
+    if (statusEl) { statusEl.textContent = `✓ Found${src}: ${result.path}`; statusEl.style.color = 'var(--success)'; }
+    gfLog('ok', `Unreal Engine detected (${result.source || 'unknown source'}): ${result.path}`);
+    _updateDashUnrealStatus(true, result.path);
   } else {
-    if (statusEl) { statusEl.textContent = 'Not found. Install Unreal Engine or enter the path manually.'; statusEl.style.color = 'var(--warn)'; }
-    gfLog('warn', 'Unreal Engine not found in standard locations.');
+    if (statusEl) {
+      statusEl.textContent = 'Not found in standard locations. Browse for UnrealEditor.exe manually.';
+      statusEl.style.color = 'var(--warn)';
+    }
+    gfLog('warn', 'Unreal Engine not found in standard locations. Checked: C:\\Program Files\\[Epic Games\\]UE_5.x\\Engine\\Binaries\\Win64\\UnrealEditor.exe and common drive roots.');
+    _updateDashUnrealStatus(false, '');
   }
 }
 
 async function browseUnrealExe() {
-  const result = await ipc('browseForFile', { title: 'Select UnrealEditor.exe', filters: [{ name: 'Executables', extensions: ['exe'] }] });
-  if (result && result.path) {
-    const el = document.getElementById('settUnrealPath');
-    if (el) el.value = result.path;
-    SETTINGS.unrealPath = result.path;
-    gfLog('ok', 'Unreal path set to:', result.path);
+  const statusEl = document.getElementById('unrealPathStatus');
+  const result = await ipc('browseForFile', {
+    title: 'Select UnrealEditor.exe',
+    filters: [{ name: 'Unreal Editor', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
+  });
+
+  if (!result || result.cancelled || !result.path) return;
+
+  const p = result.path;
+  gfLog('info', `Browse selected: "${p}"`);
+
+  if (statusEl) { statusEl.textContent = `Validating "${p}"...`; statusEl.style.color = 'var(--muted)'; }
+
+  const validation = await ipc('validateUnrealPath', p);
+  gfLog('info', `Validation result: valid=${validation.valid}${validation.reason ? ', reason: ' + validation.reason : ''}`);
+
+  const pathEl = document.getElementById('settUnrealPath');
+  if (validation.valid) {
+    if (pathEl) pathEl.value = p;
+    SETTINGS.unrealPath = p;
+    if (statusEl) { statusEl.textContent = `✓ Valid UnrealEditor.exe: ${p}`; statusEl.style.color = 'var(--success)'; }
+    gfLog('ok', `Unreal path validated and set: ${p}`);
+    _updateDashUnrealStatus(true, p);
+  } else {
+    if (statusEl) { statusEl.textContent = `✗ ${validation.reason}`; statusEl.style.color = 'var(--danger)'; }
+    gfLog('warn', `Unreal path validation failed: ${validation.reason}`);
+  }
+}
+
+function _updateDashUnrealStatus(found, p) {
+  const el = document.getElementById('dashUnrealStatus');
+  if (!el) return;
+  if (found && p) {
+    el.textContent = 'Found';
+    el.title = p;
+  } else {
+    el.textContent = 'Not detected';
+  }
+}
+
+async function _validateAndShowSavedUnrealPath() {
+  const savedPath = SETTINGS.unrealPath;
+  const statusEl = document.getElementById('unrealPathStatus');
+  if (!savedPath) {
+    if (statusEl) { statusEl.textContent = 'Not configured — browse or click Detect.'; statusEl.style.color = 'var(--muted)'; }
+    _updateDashUnrealStatus(false, '');
+    return;
+  }
+  gfLog('info', `Validating saved Unreal path: "${savedPath}"`);
+  const validation = await ipc('validateUnrealPath', savedPath);
+  if (validation.valid) {
+    if (statusEl) { statusEl.textContent = `✓ Valid: ${savedPath}`; statusEl.style.color = 'var(--success)'; }
+    gfLog('ok', `Saved Unreal path is valid: ${savedPath}`);
+    _updateDashUnrealStatus(true, savedPath);
+  } else {
+    if (statusEl) { statusEl.textContent = `✗ ${validation.reason}`; statusEl.style.color = 'var(--danger)'; }
+    gfLog('warn', `Saved Unreal path invalid: ${validation.reason}`);
+    _updateDashUnrealStatus(false, '');
   }
 }
 

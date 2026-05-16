@@ -109,6 +109,8 @@ const gameforgeAPI = {
   readUnrealPathConfig: () => ipcRenderer.invoke('gameforge-read-unreal-path-config'),
 
   // ── New core workflow IPC methods (v6.8.2) ─────────────────────────────────
+  validateUnrealPath: (p) => ipcRenderer.invoke('gf-validate-unreal-path', p),
+  detectUnrealPathAuto: () => ipcRenderer.invoke('gf-detect-unreal-path'),
   meshyTestKey: (key) => ipcRenderer.invoke('gf-meshy-test-key', key),
   generateGameFolders: (config) => ipcRenderer.invoke('gf-generate-game-folders', config),
   generateUnrealStructure: (config) => ipcRenderer.invoke('gf-generate-unreal-structure', config),
