@@ -2,10 +2,15 @@
   "templateId": "survival_blueprint",
   "name": "Survival Blueprint Template",
   "engine": "UnrealEngine",
-  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "compatibleVersions": [
+    "5.4",
+    "5.5",
+    "5.6"
+  ],
   "projectMode": "BlueprintOnly",
   "requiresCpp": false,
   "requiresPlugins": [],
+  "templateLevel": "movement_base",
   "hasPlayableMap": false,
   "hasPlayer": false,
   "hasWeapons": false,

@@ -6,11 +6,12 @@
   "projectMode": "BlueprintOnly",
   "requiresCpp": false,
   "requiresPlugins": [],
+  "templateLevel": "movement_base",
   "hasPlayableMap": false,
   "hasPlayer": false,
   "hasWeapons": false,
   "hasEnemies": false,
   "hasHUD": false,
   "status": "not-installed",
-  "notes": "Place a working Blueprint-only Unreal 5 FPS project in this folder. Set status to 'stable' when ready. See README_TEMPLATE.md for required systems and folder structure."
+  "notes": "Set templateLevel to movement_base when player movement is confirmed. Set to fps_weapon_base once weapon/shooting/HUD content is present. Set status to 'stable' to activate. See docs/Template_Install_Guide.md."
 }

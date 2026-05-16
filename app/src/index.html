@@ -727,24 +727,28 @@
             <label style="margin-top:16px;">Output Type</label>
             <div style="margin-top:6px;display:flex;flex-direction:column;gap:8px;">
               <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">Project Shell / Environment Walkthrough (default)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Opens in Unreal with terrain and sky. Blueprint-only, no plugin errors. No gameplay systems installed — build in Unreal Editor.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">1. Project Shell / Environment Walkthrough</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Safe fallback — used automatically when no template is installed. Opens in Unreal with terrain and sky. Blueprint-only, no plugin errors. No gameplay systems. GameForge handled this automatically.</div>
               </div>
               <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:3px;">Playable Movement Template (movement_base)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Player movement confirmed. Maps and player content detected. Weapons, enemies, HUD not installed yet. Upgrade by adding weapon Blueprints.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:3px;">2. Playable Movement Template <span style="font-size:10px;font-weight:400;">(movement_base)</span></div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Auto-detected when player/map content found. Player/camera movement confirmed. No weapon, enemies, HUD, or health yet. GameForge classifies this automatically. <b>Not a full FPS game.</b></div>
               </div>
               <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;">FPS Weapon Template / Zombie Shooter Template</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Movement and weapons (fps_weapon_base), or movement, weapons and enemies (zombie_shooter_base). Press Play to test in Unreal Editor.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;">3. FPS Weapon Template <span style="font-size:10px;font-weight:400;">(fps_weapon_base)</span></div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Auto-detected when weapon/shooting/HUD content found alongside movement. Movement + weapon + crosshair/HUD. No enemies or health system yet.</div>
+              </div>
+              <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.2);border-radius:6px;padding:10px;">
+                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;">4. Zombie Shooter Template <span style="font-size:10px;font-weight:400;">(zombie_shooter_base)</span></div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Auto-detected when enemy/AI content found. Movement, weapons, enemies, health/damage loop, spawner, objective loop.</div>
               </div>
               <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">Playable Template Project (full_playable_template)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Player, weapons, enemies, and HUD all detected. Press Play immediately in Unreal Editor to test full gameplay.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">5. Playable Template Project <span style="font-size:10px;font-weight:400;">(full_playable_template)</span></div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Auto-detected when all systems found. Player, weapons, enemies, HUD — all present. Press Play immediately in Unreal Editor.</div>
               </div>
               <div style="background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px;">Packaged Build (future feature)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">A compiled Windows .exe — the final deliverable. Package from Unreal Editor after gameplay is complete.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px;">Packaged Build <span style="font-size:10px;font-weight:400;">(future)</span></div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Compiled Windows .exe — the final deliverable. Requires a user-controlled export step in Unreal Editor. Manual action required only at this stage.</div>
               </div>
             </div>
 

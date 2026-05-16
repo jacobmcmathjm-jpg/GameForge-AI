@@ -4,16 +4,50 @@
 
 GameForge generates playable Unreal Engine 5 game prototypes using a **template copy system**.
 
-There are three output levels:
+GameForge is designed to require **minimal human interaction**. You provide a game idea. GameForge automatically:
+- Checks for a local template
+- Copies the best matching template
+- Falls back safely to a Project Shell if no template is available
+- Classifies the output stage automatically
+- Prepares the next upgrade recommendation
 
-| Level | Description | What it means |
-|-------|-------------|---------------|
-| **Project Shell / Environment Walkthrough** | Blueprint-only Unreal project with correct folder structure, config, and docs | Opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems |
-| **Playable Template Project** | A real tested Unreal project copied and customised | Opens in Unreal and is immediately testable |
-| **Packaged Build** | A compiled Windows .exe | A downloadable playable game |
+**Manual action is only required when:**
+- A real Unreal template must be installed for the first time
+- An API key must be entered
+- Packaging requires a user-controlled export step in Unreal Editor
 
-GameForge currently generates **Project Shell / Environment Walkthrough** by default.
-To generate **Playable Template Project**, you must install a real Unreal template.
+---
+
+## Output Stages
+
+GameForge classifies output automatically based on what content is detected:
+
+| Stage | Label | What GameForge does |
+|-------|-------|---------------------|
+| No template installed | **Project Shell / Environment Walkthrough** | Safe fallback — used automatically |
+| Player + map detected | **Playable Movement Template** (movement_base) | Auto-classified — not a full FPS game |
+| Player + weapon/shooting/HUD | **FPS Weapon Template** (fps_weapon_base) | Auto-classified |
+| Player + weapon + enemies | **Zombie Shooter Template** (zombie_shooter_base) | Auto-classified |
+| All systems present | **Playable Template Project** (full_playable_template) | Auto-classified |
+| User packages in Unreal | **Packaged Build** | Manual step — user-controlled |
+
+---
+
+## Autonomous Pipeline
+
+```
+Game Idea
+→ Auto-select safest generation mode
+→ Check local templates
+→ Copy template if available, fall back if not
+→ Rename Unreal project
+→ Validate project structure
+→ Classify template level automatically
+→ Score stage readiness
+→ Report missing systems for next stage
+→ Prepare next upgrade recommendation
+→ Future: automated packaging
+```
 
 ---
 
@@ -36,7 +70,7 @@ If any check fails → GameForge generates a project shell (**Project Shell / En
 
 Every template folder must include a `template_manifest.json` file. This file tells GameForge whether the template is installed and valid.
 
-**Required fields:**
+**Required fields (movement_base example):**
 
 ```json
 {
@@ -47,10 +81,32 @@ Every template folder must include a `template_manifest.json` file. This file te
   "projectMode": "BlueprintOnly",
   "requiresCpp": false,
   "requiresPlugins": [],
+  "templateLevel": "movement_base",
+  "hasPlayableMap": true,
+  "hasPlayer": true,
+  "hasWeapons": false,
+  "hasEnemies": false,
+  "hasHUD": false,
+  "status": "stable"
+}
+```
+
+**FPS Weapon Template manifest (fps_weapon_base):**
+
+```json
+{
+  "templateId": "fps_blueprint",
+  "name": "FPS Weapon Blueprint Template",
+  "engine": "UnrealEngine",
+  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "projectMode": "BlueprintOnly",
+  "requiresCpp": false,
+  "requiresPlugins": [],
+  "templateLevel": "fps_weapon_base",
   "hasPlayableMap": true,
   "hasPlayer": true,
   "hasWeapons": true,
-  "hasEnemies": true,
+  "hasEnemies": false,
   "hasHUD": true,
   "status": "stable"
 }
@@ -67,14 +123,17 @@ Every template folder must include a `template_manifest.json` file. This file te
 | `projectMode` | `"BlueprintOnly"` | Must be BlueprintOnly — C++ templates not supported |
 | `requiresCpp` | `false` | Must be false |
 | `requiresPlugins` | `[]` | List any non-standard plugins (empty = no extra plugins) |
-| `hasPlayableMap` | `true` | Set to true once a .umap file is in Content/Maps/ |
+| `templateLevel` | `"movement_base"` / `"fps_weapon_base"` / `"zombie_shooter_base"` | Stage hint — GameForge also auto-detects from content scan |
+| `hasPlayableMap` | `true` | Set to true once a .umap file is present |
 | `hasPlayer` | `true` | Set to true once a player Blueprint is installed |
 | `hasWeapons` | `true` | Set to true once weapon Blueprints are installed |
 | `hasEnemies` | `true` | Set to true once enemy AI Blueprints are installed |
 | `hasHUD` | `true` | Set to true once a HUD Widget Blueprint is installed |
-| `status` | `"stable"` or `"ready"` | **Set this last** — this is what activates the template |
+| `status` | `"stable"` or `"ready"` | **Set this last** — this activates the template |
 
-**Important:** GameForge only uses the template if `status` is `"stable"` or `"ready"`. While you are building or testing, keep it as `"not-installed"` to avoid using an incomplete template.
+**Important:** GameForge only uses the template if `status` is `"stable"` or `"ready"`. While building or testing, keep it as `"not-installed"`.
+
+**Note on templateLevel:** GameForge also runs a recursive content scan to auto-classify the template level. The `templateLevel` field in the manifest is informational — GameForge will warn if there is a mismatch between what the manifest claims and what the content scan detects.
 
 ---
 
@@ -170,17 +229,70 @@ Open `app/templates/unreal/fps_blueprint/template_manifest.json` and:
 
 ## Required Systems Per Template
 
-### FPS Template
-- First-person player pawn (capsule, camera, spring arm)
-- First-person weapon (mesh, fire, reload, ammo)
-- Line trace damage system
-- Health component (player + enemies)
-- Basic AI enemy (patrol/chase/attack)
-- HUD (health bar, ammo counter)
-- Game Mode (win/lose conditions)
-- Starter map
+---
 
-### Zombie Shooter Template
+### Template v0.1 — Movement Base (movement_base)
+
+**Minimum required — GameForge detects this automatically:**
+- First-person or third-person player pawn (capsule collision)
+- First-person camera (spring arm + camera component)
+- Player Controller with input mappings (WASD, mouse look, jump)
+- At least one playable map (.umap file)
+- Blueprint-only (no C++ modules)
+- No non-standard plugins
+
+**GameForge will classify as:** `movement_base`
+
+**What pressing Play feels like:** Camera/movement mode — you can walk and look around, but there are no weapons, enemies, HUD, or gameplay systems.
+
+---
+
+### Template v0.2 — FPS Weapon Template (fps_weapon_base)
+
+**To upgrade from movement_base to fps_weapon_base, add:**
+- Visible weapon or weapon placeholder (mesh on arms/hands, or weapon actor)
+- Shooting mechanic (fire input, projectile or line trace)
+- Projectile or line trace damage system
+- Crosshair or basic HUD Widget Blueprint (reticle/crosshair overlay)
+- Ammo placeholder or weapon status display
+- Basic target/damage test (destructible actor or dummy target)
+- No C++ modules
+- No non-standard plugins
+
+**Folder/file naming that GameForge detects** (any of these trigger weapon detection):
+`weapon`, `gun`, `rifle`, `pistol`, `shoot`, `fire`, `projectile`, `bullet`, `ammo`, `crosshair`, `reticle`, `damage`, `target`, `muzzle`, `hud`, `widget`, `wbp_`
+
+**GameForge will classify as:** `fps_weapon_base`
+
+**What pressing Play feels like:** You can move, look, and shoot. Basic hit detection works. No enemies yet.
+
+**Template manifest for fps_weapon_base:**
+```json
+{
+  "templateId": "fps_blueprint",
+  "name": "FPS Weapon Blueprint Template",
+  "engine": "UnrealEngine",
+  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "projectMode": "BlueprintOnly",
+  "requiresCpp": false,
+  "requiresPlugins": [],
+  "templateLevel": "fps_weapon_base",
+  "hasPlayableMap": true,
+  "hasPlayer": true,
+  "hasWeapons": true,
+  "hasEnemies": false,
+  "hasHUD": true,
+  "status": "stable"
+}
+```
+
+**Install location:** `app/templates/unreal/fps_blueprint/`
+
+---
+
+### Template v0.3 — Zombie Shooter Base (zombie_shooter_base)
+
+**To upgrade from fps_weapon_base to zombie_shooter_base, add these on top of fps_weapon_base:**
 Everything in FPS, plus:
 - Zombie AI with sight/hearing perception
 - Behavior Tree: Patrol → Chase → Melee Attack

@@ -7648,9 +7648,12 @@ function copyDirRecursive(src, dest) {
 // Returns detection results that work for any Unreal folder layout (FirstPerson/, Blueprints/, etc.)
 function scanTemplateContent(projectPath) {
   const PLAYER_TERMS   = /player|character|pawn|firstperson|fp_|bp_fp|mannequin|hero|protagonist/i;
-  const WEAPON_TERMS   = /weapon|gun|rifle|pistol|shoot|fire|projectile|bullet|ammo/i;
+  const WEAPON_TERMS   = /weapon|gun|rifle|pistol|shoot|fire|projectile|bullet|ammo|crosshair|reticle|damage|target|muzzle/i;
+  const SHOOT_TERMS    = /shoot|fire|projectile|bullet|trace|raycast|muzzle|crosshair|reticle/i;
+  const HUD_TERMS      = /hud|widget|wbp_|crosshair|reticle|ammo_count|health_bar|overlay|viewport/i;
+  const DAMAGE_TERMS   = /damage|health|hit|hurt|pain|die|death|destruct/i;
   const ENEMY_TERMS    = /enemy|enemies|zombie|ai|npc|creature|monster|bot/i;
-  const UI_TERMS       = /hud|widget|ui|wbp_|menu|overlay|health_bar|ammo_count/i;
+  const UI_TERMS       = /hud|widget|ui|wbp_|menu|overlay|health_bar|ammo_count|crosshair|reticle/i;
   const BP_FOLDER_TERMS = /blueprint|bp_|firstperson|gameplay|characters|weapons|enemies|ui/i;
 
   const result = {
@@ -7660,10 +7663,16 @@ function scanTemplateContent(projectPath) {
     enemiesFolderExists: false,
     weaponsFolderExists: false,
     uiFolderExists: false,
+    shootingContentExists: false,
+    hudContentExists: false,
+    damageContentExists: false,
     detectedMaps: [],
     detectedBlueprintFolders: [],
     detectedPlayerContent: [],
     detectedWeaponContent: [],
+    detectedShootingContent: [],
+    detectedHUDContent: [],
+    detectedDamageContent: [],
     detectedEnemyContent: [],
     detectedUIContent: [],
   };
@@ -7693,6 +7702,18 @@ function scanTemplateContent(projectPath) {
             result.weaponsFolderExists = true;
             if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name);
           }
+          if (SHOOT_TERMS.test(nameLower)) {
+            result.shootingContentExists = true;
+            if (result.detectedShootingContent.length < 5) result.detectedShootingContent.push(entry.name);
+          }
+          if (HUD_TERMS.test(nameLower)) {
+            result.hudContentExists = true;
+            if (result.detectedHUDContent.length < 5) result.detectedHUDContent.push(entry.name);
+          }
+          if (DAMAGE_TERMS.test(nameLower)) {
+            result.damageContentExists = true;
+            if (result.detectedDamageContent.length < 5) result.detectedDamageContent.push(entry.name);
+          }
           if (ENEMY_TERMS.test(nameLower)) {
             result.enemiesFolderExists = true;
             if (result.detectedEnemyContent.length < 5) result.detectedEnemyContent.push(entry.name);
@@ -7710,6 +7731,18 @@ function scanTemplateContent(projectPath) {
         if (WEAPON_TERMS.test(nameLower)) {
           result.weaponsFolderExists = true;
           if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name + '/');
+        }
+        if (SHOOT_TERMS.test(nameLower)) {
+          result.shootingContentExists = true;
+          if (result.detectedShootingContent.length < 5) result.detectedShootingContent.push(entry.name + '/');
+        }
+        if (HUD_TERMS.test(nameLower)) {
+          result.hudContentExists = true;
+          if (result.detectedHUDContent.length < 5) result.detectedHUDContent.push(entry.name + '/');
+        }
+        if (DAMAGE_TERMS.test(nameLower)) {
+          result.damageContentExists = true;
+          if (result.detectedDamageContent.length < 5) result.detectedDamageContent.push(entry.name + '/');
         }
         if (ENEMY_TERMS.test(nameLower)) {
           result.enemiesFolderExists = true;
@@ -7733,20 +7766,45 @@ function scanTemplateContent(projectPath) {
 
 // Determines the template level from scan results
 // movement_base → fps_weapon_base → zombie_shooter_base → full_playable_template
+// fps_weapon_base requires: player + (weapon content OR shooting/HUD signals)
 function classifyTemplateLevel(scan) {
   const hasMap      = scan.mapsHasFiles;
   const hasPlayer   = scan.playerFolderExists;
-  const hasWeapon   = scan.weaponsFolderExists;
+  const hasWeapon   = scan.weaponsFolderExists || scan.shootingContentExists;
+  const hasHUD      = scan.hudContentExists || scan.uiFolderExists;
   const hasEnemy    = scan.enemiesFolderExists;
-  const hasUI       = scan.uiFolderExists;
+  const hasDamage   = scan.damageContentExists;
+  const hasFPSWeapon = hasWeapon && hasHUD;
 
   if (!hasMap || !scan.blueprintsHasFiles) return 'incomplete';
-  if (hasMap && hasPlayer && hasWeapon && hasEnemy && hasUI) return 'full_playable_template';
-  if (hasMap && hasPlayer && hasWeapon && hasEnemy)           return 'zombie_shooter_base';
-  if (hasMap && hasPlayer && hasWeapon)                       return 'fps_weapon_base';
-  if (hasMap && hasPlayer)                                    return 'movement_base';
-  if (hasMap)                                                 return 'movement_base';
+  if (hasMap && hasPlayer && hasFPSWeapon && hasEnemy && hasHUD) return 'full_playable_template';
+  if (hasMap && hasPlayer && hasFPSWeapon && hasEnemy)            return 'zombie_shooter_base';
+  if (hasMap && hasPlayer && hasFPSWeapon)                        return 'fps_weapon_base';
+  // weapon content without HUD still counts as fps_weapon_base if shooting indicators exist
+  if (hasMap && hasPlayer && hasWeapon)                           return 'fps_weapon_base';
+  if (hasMap && hasPlayer)                                        return 'movement_base';
+  if (hasMap)                                                     return 'movement_base';
   return 'incomplete';
+}
+
+// Returns manifest/scan mismatch warnings as string array
+function checkManifestVsScanMismatch(manifestData, scan, scannedLevel) {
+  const warnings = [];
+  if (!manifestData) return warnings;
+  const manifestLevel = String(manifestData.templateLevel || '').toLowerCase();
+
+  if (manifestLevel && manifestLevel !== scannedLevel) {
+    if (manifestLevel === 'fps_weapon_base' && (scannedLevel === 'movement_base' || scannedLevel === 'incomplete')) {
+      warnings.push(`Manifest claims fps_weapon_base but weapon/HUD content was not detected. Treating as ${scannedLevel} until content is verified.`);
+    }
+    if (scannedLevel === 'fps_weapon_base' && manifestLevel === 'movement_base') {
+      warnings.push(`Weapon/HUD content detected but manifest says movement_base. Consider updating template_manifest.json templateLevel to fps_weapon_base.`);
+    }
+    if (scannedLevel === 'fps_weapon_base' && !manifestLevel) {
+      warnings.push(`Weapon/HUD content detected. Consider adding templateLevel: "fps_weapon_base" to template_manifest.json.`);
+    }
+  }
+  return warnings;
 }
 
 // ── Sanitise a project name to a valid C++/UE identifier ─────────────────────
@@ -8542,11 +8600,16 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     const mapPlanOk = fs.existsSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'));
 
     // Template-specific content scan (recursive — works for any Unreal folder layout)
-    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false, detectedMaps: [], detectedBlueprintFolders: [], detectedPlayerContent: [], detectedWeaponContent: [], detectedEnemyContent: [], detectedUIContent: [] };
+    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false, shootingContentExists: false, hudContentExists: false, damageContentExists: false, detectedMaps: [], detectedBlueprintFolders: [], detectedPlayerContent: [], detectedWeaponContent: [], detectedShootingContent: [], detectedHUDContent: [], detectedDamageContent: [], detectedEnemyContent: [], detectedUIContent: [] };
     let templateLevel = 'none';
+    let manifestScanWarnings = [];
     if (templateUsed) {
       templateFolderChecks = scanTemplateContent(projectPath);
       templateLevel = classifyTemplateLevel(templateFolderChecks);
+      manifestScanWarnings = checkManifestVsScanMismatch(templateManifestData, templateFolderChecks, templateLevel);
+      if (manifestScanWarnings.length > 0) {
+        manifestScanWarnings.forEach(w => log.push({ msg: `[Manifest Check] ${w}`, level: 'warn' }));
+      }
     }
     const keyFoldersEmpty = !templateUsed || !templateFolderChecks.blueprintsHasFiles;
 
@@ -8591,21 +8654,71 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     const totalScorable = Object.values(requiredChecks).filter(v => v === 'PASS' || v === 'FAIL' || v === 'WARN').length;
     const readinessScore = totalScorable > 0 ? Math.round((passCount / totalScorable) * 100) : 0;
 
-    // Determine missing optional systems for report
+    // Determine missing systems and upgrade path
     const missingOptionalSystems = [];
-    if (!templateFolderChecks.weaponsFolderExists) missingOptionalSystems.push('weapons');
-    if (!templateFolderChecks.enemiesFolderExists) missingOptionalSystems.push('enemies');
-    if (!templateFolderChecks.uiFolderExists)      missingOptionalSystems.push('HUD/UI');
+    if (!(templateFolderChecks.weaponsFolderExists || templateFolderChecks.shootingContentExists)) missingOptionalSystems.push('weapon');
+    if (!templateFolderChecks.shootingContentExists) missingOptionalSystems.push('shooting');
+    if (!(templateFolderChecks.hudContentExists || templateFolderChecks.uiFolderExists)) missingOptionalSystems.push('HUD');
+    if (!templateFolderChecks.damageContentExists)   missingOptionalSystems.push('damage system');
+    if (!templateFolderChecks.enemiesFolderExists)   missingOptionalSystems.push('enemies');
+
+    const missingForNextStage = templateLevel === 'movement_base'
+      ? ['weapon', 'shooting', 'HUD', 'damage test']
+      : templateLevel === 'fps_weapon_base'
+        ? ['zombie enemy', 'enemy AI', 'enemy spawner', 'health/damage loop', 'objective loop']
+        : templateLevel === 'zombie_shooter_base'
+          ? ['polish HUD', 'objectives', 'packaging setup']
+          : templateLevel === 'full_playable_template'
+            ? ['packaging setup']
+            : ['player', 'map', 'weapon', 'enemies', 'HUD'];
 
     const nextRecommendedUpgrade = templateLevel === 'movement_base'
-      ? 'Add weapon Blueprints to upgrade to fps_weapon_base'
+      ? 'Install or create an fps_weapon_base Unreal template with weapon, shooting, crosshair/HUD, and basic damage test.'
       : templateLevel === 'fps_weapon_base'
-        ? 'Add enemy AI Blueprints to upgrade to zombie_shooter_base'
+        ? 'Install or create a zombie_shooter_base template.'
         : templateLevel === 'zombie_shooter_base'
-          ? 'Add HUD/UI Widgets to reach full_playable_template'
+          ? 'Add HUD/UI Widgets and objective logic to reach full_playable_template.'
           : templateLevel === 'full_playable_template'
-            ? 'Package the project as a Windows .exe via Unreal Editor'
-            : 'Install a complete template to enable playable output';
+            ? 'Package the project as a Windows .exe via Unreal Editor — File > Package Project > Windows.'
+            : 'Install a playable template to enable autonomous generation.';
+
+    const overallGameCompletionEstimate = templateLevel === 'movement_base'
+      ? 'Early playable prototype foundation'
+      : templateLevel === 'fps_weapon_base'
+        ? 'Playable FPS weapon prototype'
+        : templateLevel === 'zombie_shooter_base'
+          ? 'Playable zombie shooter prototype'
+          : templateLevel === 'full_playable_template'
+            ? 'Complete playable prototype — ready to package'
+            : templateUsed
+              ? 'Template copied — verify content'
+              : 'Project shell — no gameplay systems';
+
+    const autonomousActionTaken = templateUsed
+      ? `GameForge automatically detected and copied the ${templateLevel} template.`
+      : 'GameForge automatically generated a safe Project Shell / Environment Walkthrough.';
+
+    const manualActionRequired = templateLevel === 'movement_base'
+      ? 'A real fps_weapon_base Unreal template must be installed before GameForge can generate weapon gameplay automatically.'
+      : templateLevel === 'fps_weapon_base'
+        ? 'Zombie enemy gameplay requires a zombie_shooter_base template or a future automated template upgrade system.'
+        : templateLevel === 'zombie_shooter_base'
+          ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
+          : templateLevel === 'full_playable_template'
+            ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
+            : !templateUsed
+              ? 'A local Unreal template must be installed. See docs/Template_Install_Guide.md.'
+              : 'None — template copied successfully.';
+
+    const nextAutomaticStepPrepared = templateLevel === 'movement_base'
+      ? `GameForge is ready to detect and classify fps_weapon_base when weapon/HUD content is installed.`
+      : templateLevel === 'fps_weapon_base'
+        ? `GameForge is ready to upgrade to zombie_shooter_base when enemy content is installed.`
+        : templateLevel === 'zombie_shooter_base'
+          ? `GameForge is ready to classify full_playable_template when HUD/objectives are detected.`
+          : templateLevel === 'full_playable_template'
+            ? `GameForge is ready to package. Future: automated packaging pipeline.`
+            : `GameForge will automatically classify the template on next generation.`;
 
     const nextStep = templateUsed
       ? `Double-click ${safeName}.uproject and press Play to test ${templateLevel === 'movement_base' ? 'movement' : 'gameplay'}`
@@ -8613,26 +8726,29 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
 
     const shellReadiness = 'Shell readiness complete';
     const templateReadiness = templateLevel === 'full_playable_template'
-      ? 'Playable template installed and validated — full gameplay systems present'
+      ? 'Playable Template Project ready — full gameplay systems present. Ready for next autonomous phase: packaging.'
       : templateLevel === 'zombie_shooter_base'
-        ? 'Zombie shooter base ready — player, weapons, enemies present'
+        ? 'Zombie Shooter Base ready — player, weapons, enemies present. Next automatic step prepared: classify as full_playable_template when HUD is added.'
         : templateLevel === 'fps_weapon_base'
-          ? 'FPS weapon base ready — player movement and weapons present'
+          ? 'FPS Weapon Template ready — movement and weapons confirmed. Next automatic step prepared: upgrade to zombie_shooter_base when enemy content is installed.'
           : templateLevel === 'movement_base'
-            ? 'Movement base ready — player movement confirmed. Weapons, enemies, HUD not installed yet.'
+            ? 'Playable Movement Template ready — 100% ready for movement_base stage. Next automatic step prepared: upgrade to fps_weapon_base when weapon/HUD content is installed.'
             : templateUsed
-              ? 'Playable template copied — verify content is populated'
-              : 'Playable template not installed yet';
+              ? 'Template copied — GameForge handled this automatically. Verify content in Unreal Editor.'
+              : 'Playable template not installed yet. Safe fallback used: Project Shell generated.';
     const packagingReadinessLabel = 'Packaging readiness pending — build gameplay systems then package via Unreal Editor';
 
     const verdictStr = (() => {
-      if (!templateUsed) return 'Environment Walkthrough / Project Shell — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet';
-      if (templateLevel === 'movement_base') return 'Playable Movement Template — opens in Unreal and supports movement. Weapons, enemies, HUD, health, and objectives are not installed yet.';
-      if (templateLevel === 'fps_weapon_base') return 'FPS Weapon Template — player movement and weapons present. Enemies, HUD, and objectives are not installed yet.';
-      if (templateLevel === 'zombie_shooter_base') return 'Zombie Shooter Base — player, weapons, and enemies present. HUD and objectives may be incomplete.';
-      if (templateLevel === 'full_playable_template') return 'Playable template ready — open in Unreal Editor and press Play.';
+      if (!templateUsed) return 'Safe fallback used: Project Shell / Environment Walkthrough — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet. Install a local template to unlock autonomous playable generation.';
+      if (templateLevel === 'movement_base') return 'Playable Movement Template Ready — 100% ready for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full FPS game.';
+      if (templateLevel === 'fps_weapon_base') return 'FPS Weapon Template Ready — player movement and weapons/shooting/HUD present. Enemies, health system, and objectives are not installed yet.';
+      if (templateLevel === 'zombie_shooter_base') return 'Zombie Shooter Base Ready — player, weapons, and enemies present. Full HUD and objective loop may be incomplete.';
+      if (templateLevel === 'full_playable_template') return 'Playable Template Project Ready — full gameplay systems detected. Open in Unreal Editor and press Play to test.';
       return 'Template copied but content verification needed — open in Unreal Editor to confirm.';
     })();
+
+    // Stage readiness score: 100% means all required checks for this stage pass
+    const stageReadinessScore = totalScorable > 0 ? `${readinessScore}% (${templateLevel || 'shell'} stage)` : '0%';
 
     const readinessReport = {
       generatedAt: new Date().toISOString(),
@@ -8647,20 +8763,35 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       gameName: config.gameName,
       projectPath,
       readinessScore: `${readinessScore}%`,
+      stageReadinessScore,
+      overallGameCompletionEstimate,
       shellReadiness,
       templateReadiness,
       packagingReadiness: packagingReadinessLabel,
+      detectedMovementSystem: templateFolderChecks.playerFolderExists,
+      detectedWeaponSystem: templateFolderChecks.weaponsFolderExists || templateFolderChecks.shootingContentExists,
+      detectedShootingSystem: templateFolderChecks.shootingContentExists,
+      detectedHUDSystem: templateFolderChecks.hudContentExists || templateFolderChecks.uiFolderExists,
+      detectedDamageSystem: templateFolderChecks.damageContentExists,
+      detectedEnemySystem: templateFolderChecks.enemiesFolderExists,
       detectedMaps: templateFolderChecks.detectedMaps,
       detectedBlueprintFolders: templateFolderChecks.detectedBlueprintFolders,
       detectedPlayerContent: templateFolderChecks.detectedPlayerContent,
       detectedWeaponContent: templateFolderChecks.detectedWeaponContent,
+      detectedShootingContent: templateFolderChecks.detectedShootingContent,
+      detectedHUDContent: templateFolderChecks.detectedHUDContent,
+      detectedDamageContent: templateFolderChecks.detectedDamageContent,
       detectedEnemyContent: templateFolderChecks.detectedEnemyContent,
-      detectedUIContent: templateFolderChecks.detectedUIContent,
+      missingForNextStage,
       missingOptionalSystems,
       nextRecommendedUpgrade,
+      autonomousActionTaken,
+      manualActionRequired,
+      nextAutomaticStepPrepared,
+      manifestScanWarnings,
       verdict: verdictStr,
       nextStep,
-      note: 'This is a playable starting point. A packaged Windows .exe is the final delivery goal.',
+      note: 'A packaged Windows .exe is the final delivery goal. GameForge handles all autonomous steps until packaging.',
       checks: readinessChecks
     };
 
@@ -8728,11 +8859,16 @@ ${config.description || 'No description provided.'}
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
     const resultLabel = templateUsed ? `${resultType} generated (${templateLevel})` : 'Project Shell / Environment Walkthrough generated';
-    log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Readiness: ${readinessScore}%.`, level: 'ok' });
+    log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Stage readiness: ${readinessScore}%.`, level: 'ok' });
+    log.push({ msg: autonomousActionTaken, level: 'ok' });
     if (templateUsed) {
-      log.push({ msg: 'Playable template readiness check complete.', level: 'ok' });
+      log.push({ msg: `Stage: ${templateLevel}. ${nextAutomaticStepPrepared}`, level: 'ok' });
+      if (manualActionRequired && manualActionRequired !== 'None — template copied successfully.') {
+        log.push({ msg: `Manual action required: ${manualActionRequired}`, level: 'warn' });
+      }
     } else {
-      log.push({ msg: 'Project Shell generated successfully.', level: 'ok' });
+      log.push({ msg: 'Safe fallback used. Project Shell generated successfully.', level: 'ok' });
+      log.push({ msg: `Manual action required: ${manualActionRequired}`, level: 'warn' });
     }
 
     return {
@@ -8755,7 +8891,12 @@ ${config.description || 'No description provided.'}
       readinessVerdict: readinessReport.verdict,
       readinessChecks,
       missingOptionalSystems,
+      missingForNextStage,
       nextRecommendedUpgrade,
+      autonomousActionTaken,
+      manualActionRequired,
+      nextAutomaticStepPrepared,
+      overallGameCompletionEstimate,
       uprojectFile: isUnreal ? uprojectPath : null,
       log
     };

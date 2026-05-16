@@ -573,11 +573,11 @@ async function startGameGeneration() {
       : 'var(--accent2)';
 
     const subtitleText = !isTemplate
-      ? 'Project Shell / Environment Walkthrough generated. The project opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, or gameplay systems. Build those in Unreal Editor, or install a local template (see docs/Template_Install_Guide.md).'
-      : isMovementBase ? 'Playable Movement Template — player movement confirmed. Open in Unreal Editor and press Play to test movement. Weapons, enemies, HUD, and health are not installed yet.'
-      : isFPSWeapon   ? 'FPS Weapon Template — player movement and weapons present. Open in Unreal Editor and press Play. Enemies and HUD are not installed yet.'
-      : isFullTemplate ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test gameplay.'
-      : 'Template was copied, but content verification is needed. Open in Unreal Editor to confirm content.';
+      ? 'Safe fallback used — Project Shell / Environment Walkthrough generated. Opens in Unreal with terrain and sky. No player HUD, weapons, enemies, or gameplay systems. Install a local template to unlock autonomous playable generation.'
+      : isMovementBase ? 'Playable Movement Template Ready — 100% ready for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full FPS game.'
+      : isFPSWeapon   ? 'FPS Weapon Template Ready — player movement and weapons/shooting/HUD present. Enemies, health system, and objectives are not installed yet.'
+      : isFullTemplate ? 'Playable Template Project Ready — full gameplay systems detected. Open in Unreal Editor and press Play to test gameplay.'
+      : 'Template copied — GameForge handled this automatically. Verify content in Unreal Editor.';
 
     if (resultTitle) {
       resultTitle.textContent = titleText;
@@ -607,25 +607,37 @@ async function startGameGeneration() {
       const templateLine = isUnrealEngine
         ? `<b>Generation mode:</b> <span style="color:var(--${isTemplate ? (isPartial ? 'warn' : 'success') : 'muted'})">${resultType}</span><br>`
         : '';
-      const missing = folderResult && folderResult.missingOptionalSystems ? folderResult.missingOptionalSystems : [];
+      const missing = folderResult && folderResult.missingForNextStage ? folderResult.missingForNextStage : (folderResult && folderResult.missingOptionalSystems ? folderResult.missingOptionalSystems : []);
       const upgrade = folderResult && folderResult.nextRecommendedUpgrade ? folderResult.nextRecommendedUpgrade : '';
+      const autonomous = folderResult && folderResult.readinessVerdict ? folderResult.readinessVerdict : '';
+      const nextAuto = folderResult && folderResult.nextAutomaticStepPrepared ? folderResult.nextAutomaticStepPrepared : '';
+      const manualReq = folderResult && folderResult.manualActionRequired ? folderResult.manualActionRequired : '';
       const gameplayAssetsText = !isTemplate
-        ? 'None — player, HUD, weapons, enemies, health not installed. Build in Unreal Editor or install a template.'
+        ? 'None — no gameplay systems installed. GameForge used safe fallback automatically.'
         : isMovementBase
-          ? `Movement confirmed. Missing: ${missing.join(', ') || 'none'}. Next: ${upgrade}`
+          ? `Movement confirmed. Missing for next stage: ${missing.join(', ') || 'none'}.`
           : isFPSWeapon
-            ? `Movement + weapons present. Missing: ${missing.join(', ') || 'none'}. Next: ${upgrade}`
+            ? `Movement + weapon/shooting/HUD present. Missing for next stage: ${missing.join(', ') || 'none'}.`
             : isFullTemplate
-              ? '✓ Player, weapons, enemies, HUD detected'
+              ? '✓ Player, weapons, enemies, HUD detected — full gameplay systems present.'
               : '! Verify template content in Unreal Editor';
       const gameplayAssetsLine = isUnrealEngine
-        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && isFullTemplate ? 'success' : isTemplate ? 'accent2' : 'warn'})">${gameplayAssetsText}</span><br>`
+        ? `<b>Gameplay systems (${templateLevel || 'shell'}):</b> <span style="color:var(--${isTemplate && isFullTemplate ? 'success' : isTemplate ? 'accent2' : 'warn'})">${gameplayAssetsText}</span><br>`
         : '';
       const scoreLine = score != null
-        ? `<b>Readiness Score:</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
+        ? `<b>Stage Readiness (${templateLevel || 'shell'}):</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
         : '';
       const verdictLine = verdict
-        ? `<b>Verdict:</b> <span style="color:var(--accent2);font-style:italic;">${verdict}</span><br>`
+        ? `<b>Stage Verdict:</b> <span style="color:var(--accent2);font-style:italic;">${verdict}</span><br>`
+        : '';
+      const nextAutoLine = nextAuto
+        ? `<b>Next automatic step prepared:</b> <span style="color:var(--muted);font-size:11px;">${nextAuto}</span><br>`
+        : '';
+      const manualLine = manualReq && manualReq !== 'None — template copied successfully.'
+        ? `<b>Manual action required:</b> <span style="color:var(--warn);font-size:11px;">${manualReq}</span><br>`
+        : '';
+      const upgradeHint = upgrade && isTemplate
+        ? `<b>Next upgrade:</b> <span style="color:var(--muted);font-size:11px;">${upgrade}</span><br>`
         : '';
 
       resultDetails.innerHTML = `
@@ -639,12 +651,15 @@ async function startGameGeneration() {
         ${pluginLine}
         ${templateLine}
         ${gameplayAssetsLine}
-        <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A'}<br>
+        <b>Config .ini files:</b> ${isUnrealEngine ? '✓ GameForge handled this automatically.' : 'N/A'}<br>
         <b>Docs:</b> ✓ GameDesignBrief, Controls, SetupChecklist, GameplayLoop, MeshyAssetPlan<br>
         <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped safely — MeshyAssetPlan.md created' : 'Disabled'}<br>
         <b>Audio Placeholders:</b> ${config.generateAudio ? 'Generated' : 'Disabled'}<br>
         ${scoreLine}
         ${verdictLine}
+        ${upgradeHint}
+        ${nextAutoLine}
+        ${manualLine}
         ${lastOutputPath ? `<b>Output Path:</b> <code style="font-size:11px;word-break:break-all;">${lastOutputPath}</code>` : ''}
       `;
     }
