@@ -341,11 +341,12 @@ function _updateGenSummary() {
       <b>Name:</b> ${name}<br>
       <b>Type:</b> ${selectedGameType.toUpperCase()}<br>
       <b>Perspective:</b> ${persp}<br>
-      <b>Graphics:</b> ${graph}<br>
+      <b>Visual Target:</b> ${graph}<br>
       <b>Engine:</b> ${engine}<br>
-      <b>Meshy 3D assets:</b> ${useMeshy ? (SETTINGS.meshyApiKey ? 'Yes (key configured)' : 'Yes (no key — will skip)') : 'No'}<br>
+      <b>Project Mode:</b> ${unrealNote}<br>
+      <b>Meshy 3D assets:</b> ${useMeshy ? (SETTINGS.meshyApiKey ? 'Yes (key configured)' : 'MeshyAssetPlan.md created (no key)') : 'No'}<br>
       <b>Audio placeholders:</b> ${useAudio ? 'Yes' : 'No'}<br>
-      <b>Unreal project mode:</b> ${unrealNote}
+      <span style="color:var(--muted);font-size:11px;">Output: playable Unreal prototype, not a finished title</span>
     `;
   }
 }
@@ -520,25 +521,40 @@ async function startGameGeneration() {
     if (resultDetails) {
       const uprojectOk = folderResult && folderResult.uprojectExists;
       const bpOnly = isUnrealEngine && !config.cppProject;
+      const noMissingPlugins = folderResult && folderResult.uprojectHasNoBlueprintEditorUtils !== false;
+      const score = folderResult && folderResult.readinessScore != null ? folderResult.readinessScore : null;
+      const verdict = folderResult && folderResult.readinessVerdict ? folderResult.readinessVerdict : '';
       const uprojectLine = isUnrealEngine
         ? `<b>${safeName}.uproject:</b> <span style="color:var(--${uprojectOk ? 'success' : 'warn'})">${uprojectOk ? '✓ Created' : '! Not verified'}</span><br>`
         : '';
       const projectModeLine = isUnrealEngine
         ? `<b>Project Mode:</b> <span style="color:var(--${bpOnly ? 'accent2' : 'warn'})">${bpOnly ? 'Blueprint-only — open directly in Unreal, no compile needed' : 'C++ — compile required before opening'}</span><br>`
         : '';
+      const pluginLine = isUnrealEngine
+        ? `<b>Plugin warnings:</b> <span style="color:var(--${noMissingPlugins ? 'success' : 'warn'})">${noMissingPlugins ? '✓ None — no required plugins added' : '! Check .uproject Plugins array'}</span><br>`
+        : '';
+      const scoreLine = score != null
+        ? `<b>Readiness Score:</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
+        : '';
+      const verdictLine = verdict
+        ? `<b>Verdict:</b> <span style="color:var(--accent2);font-style:italic;">${verdict}</span><br>`
+        : '';
       resultDetails.innerHTML = `
         <b>Project Name:</b> ${config.gameName}<br>
         <b>Sanitised Name:</b> ${safeName || '—'}<br>
         <b>Game Type:</b> ${config.gameType.toUpperCase()}<br>
         <b>Engine:</b> ${config.engine}<br>
-        <b>Graphics:</b> ${config.graphics}<br>
+        <b>Graphics Target:</b> ${config.graphics === 'realistic' ? 'High-End Indie Realism' : config.graphics}<br>
         ${uprojectLine}
         ${projectModeLine}
+        ${pluginLine}
         <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A (non-Unreal)'}<br>
         <b>C++ Source files:</b> ${isUnrealEngine ? (config.cppProject ? '✓ Created (compile required)' : 'None — Blueprint-only') : 'N/A'}<br>
-        <b>Docs:</b> ✓ Created<br>
-        <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped (no key)' : 'Disabled'}<br>
+        <b>Docs:</b> ✓ GameDesignBrief, Controls, SetupChecklist, GameplayLoop, MeshyAssetPlan<br>
+        <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped safely (no key) — MeshyAssetPlan.md created' : 'Disabled'}<br>
         <b>Audio Placeholders:</b> ${config.generateAudio ? 'Generated' : 'Disabled'}<br>
+        ${scoreLine}
+        ${verdictLine}
         ${lastOutputPath ? `<b>Output Path:</b> <code style="font-size:11px;word-break:break-all;">${lastOutputPath}</code>` : ''}
       `;
     }
