@@ -7540,6 +7540,91 @@ ipcMain.handle('gf-meshy-test-key', async (event, key) => {
 });
 
 // ── Generate game folder structure ───────────────────────────────────────────
+
+// ── Template system helpers ───────────────────────────────────────────────────
+// Maps game type slugs to template folder names
+const TEMPLATE_FOLDER_MAP = {
+  fps:       'fps_blueprint',
+  zombie:    'zombie_shooter_blueprint',
+  horror:    'horror_blueprint',
+  survival:  'survival_blueprint',
+  racing:    'racing_blueprint',
+  rpg:       'rpg_blueprint',
+  openworld: 'open_world_blueprint',
+};
+
+function getTemplateDir(gameType) {
+  const folder = TEMPLATE_FOLDER_MAP[String(gameType || '').toLowerCase()];
+  if (!folder) return null;
+  return path.join(__dirname, 'templates', 'unreal', folder);
+}
+
+// Returns path to the .uproject inside a template folder, or null if not installed
+function findTemplateUproject(templateDir) {
+  if (!templateDir || !fs.existsSync(templateDir)) return null;
+  try {
+    const entries = fs.readdirSync(templateDir);
+    const uproject = entries.find(e => e.endsWith('.uproject'));
+    return uproject ? path.join(templateDir, uproject) : null;
+  } catch(e) { return null; }
+}
+
+// Deep-copies a directory recursively, skipping Saved/ and Intermediate/ (large runtime folders)
+function copyDirRecursive(src, dest) {
+  const skip = new Set(['Saved', 'Intermediate', 'DerivedDataCache', 'Binaries', '.git']);
+  ensureDir(dest);
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    if (skip.has(entry.name)) continue;
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+// Checks if the key gameplay folders inside a copied template have any files
+function checkTemplateFoldersPopulated(projectPath) {
+  const checks = {
+    mapsHasFiles: false,
+    blueprintsHasFiles: false,
+    playerFolderExists: false,
+    enemiesFolderExists: false,
+    weaponsFolderExists: false,
+    uiFolderExists: false,
+  };
+  const mapsDir = path.join(projectPath, 'Content', 'Maps');
+  if (fs.existsSync(mapsDir)) {
+    try { checks.mapsHasFiles = fs.readdirSync(mapsDir).some(f => f.endsWith('.umap') || f.endsWith('.uasset')); } catch(e) {}
+  }
+  const bpDir = path.join(projectPath, 'Content', 'Blueprints');
+  if (fs.existsSync(bpDir)) {
+    try {
+      const bpEntries = fs.readdirSync(bpDir, { withFileTypes: true });
+      checks.blueprintsHasFiles = bpEntries.some(e => e.isFile());
+      checks.playerFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'player');
+      checks.enemiesFolderExists = bpEntries.some(e => e.isDirectory() && (e.name.toLowerCase() === 'enemies' || e.name.toLowerCase() === 'enemy'));
+      checks.weaponsFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'weapons');
+      checks.uiFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'ui');
+      // Also count files in subdirs
+      if (!checks.blueprintsHasFiles) {
+        for (const e of bpEntries) {
+          if (e.isDirectory()) {
+            try {
+              const sub = fs.readdirSync(path.join(bpDir, e.name));
+              if (sub.length > 0) { checks.blueprintsHasFiles = true; break; }
+            } catch(e2) {}
+          }
+        }
+      }
+    } catch(e) {}
+  }
+  return checks;
+}
+
 // ── Sanitise a project name to a valid C++/UE identifier ─────────────────────
 function sanitiseProjectName(raw) {
   // Replace spaces and illegal chars with underscore, strip leading digits, cap at 32
@@ -7877,59 +7962,131 @@ ipcMain.handle('gf-generate-game-folders', async (event, config) => {
     const projectPath = path.join(root, `${safeName}_${stamp}`);
 
     const isUnreal = config.engine === 'unreal';
-    // Blueprint-only by default. Only create C++ Source files when explicitly requested.
     const isCppProject = isUnreal && config.cppProject === true;
     const gameType = (config.gameType || 'fps').toLowerCase();
 
     const log = [];
 
-    // ── Step 1: Core directories ─────────────────────────────────────────────
-    ['', 'Docs', 'Output', 'Scripts', 'Scenes'].forEach(d =>
-      ensureDir(path.join(projectPath, d)));
-    log.push({ msg: 'Core project folders created.', level: 'ok' });
+    // ── Template detection ────────────────────────────────────────────────────
+    let templateUsed = false;
+    let templatePath = null;
+    let templateUprojectName = null;
 
-    // ── Step 2: Engine-specific structure ────────────────────────────────────
-    if (isUnreal) {
-      const unrealDirs = [
-        'Config',
-        'Content',
-        'Content/Maps',
-        'Content/Blueprints',
-        'Content/Blueprints/Player',
-        'Content/Blueprints/Enemies',
-        'Content/Blueprints/Weapons',
-        'Content/Blueprints/UI',
-        'Content/Characters',
-        'Content/Weapons',
-        'Content/Audio',
-        'Content/Materials',
-        'Content/Meshes',
-        'Content/Props',
-        'Content/Environments',
-      ];
-      unrealDirs.forEach(d => ensureDir(path.join(projectPath, d)));
-      log.push({ msg: 'Content folders created (Maps, Blueprints/Player/Enemies/Weapons/UI, Characters, Weapons, Audio, Materials, Meshes, Props, Environments).', level: 'ok' });
+    if (isUnreal && !isCppProject) {
+      const templateDir = getTemplateDir(gameType);
+      const templateUprojectFile = findTemplateUproject(templateDir);
 
-      // ── .uproject — Blueprint-only: NO Modules, NO non-standard plugins ──
-      // Omitting Modules means Unreal treats this as Blueprint-only.
-      // NO Plugins array unless C++ mode — BlueprintEditorUtils does NOT exist
-      // as a standalone plugin and causes a "Missing Plugin" warning.
-      const uproject = {
-        FileVersion: 3,
-        EngineAssociation: '5.4',
-        Category: '',
-        Description: String(config.description || '').slice(0, 200)
-      };
-      if (isCppProject) {
-        uproject.Modules = [{ Name: safeName, Type: 'Runtime', LoadingPhase: 'Default' }];
+      if (templateUprojectFile) {
+        // ── TEMPLATE MODE: Copy real Unreal project ───────────────────────────
+        templatePath = templateDir;
+        templateUprojectName = path.basename(templateUprojectFile);
+        log.push({ msg: `Playable template found: ${templateDir}`, level: 'ok' });
+        log.push({ msg: `Copying template to output folder...`, level: 'ok' });
+
+        ensureDir(projectPath);
+        copyDirRecursive(templateDir, projectPath);
+        log.push({ msg: `Template copied to: ${projectPath}`, level: 'ok' });
+
+        // Rename .uproject to match the user's project name
+        const oldUprojectPath = path.join(projectPath, templateUprojectName);
+        const newUprojectPath = path.join(projectPath, `${safeName}.uproject`);
+        if (fs.existsSync(oldUprojectPath) && oldUprojectPath !== newUprojectPath) {
+          fs.renameSync(oldUprojectPath, newUprojectPath);
+          log.push({ msg: `Renamed ${templateUprojectName} → ${safeName}.uproject`, level: 'ok' });
+        }
+
+        // Update Description in .uproject (keep everything else intact to avoid breaking it)
+        try {
+          const uprojectRaw = fs.readFileSync(newUprojectPath, 'utf8');
+          const uprojectJson = JSON.parse(uprojectRaw);
+          uprojectJson.Description = String(config.description || '').slice(0, 200);
+          // Ensure no Modules (safety check — template should not have them, but verify)
+          if (Array.isArray(uprojectJson.Modules) && uprojectJson.Modules.length > 0) {
+            delete uprojectJson.Modules;
+            log.push({ msg: 'Removed accidental Modules entry from template .uproject (Blueprint-only enforced).', level: 'warn' });
+          }
+          // Remove BlueprintEditorUtils if present (it causes Missing Plugin warnings)
+          if (Array.isArray(uprojectJson.Plugins)) {
+            const before = uprojectJson.Plugins.length;
+            uprojectJson.Plugins = uprojectJson.Plugins.filter(p => p.Name !== 'BlueprintEditorUtils');
+            if (uprojectJson.Plugins.length < before) {
+              log.push({ msg: 'Removed BlueprintEditorUtils from template .uproject (not a real plugin).', level: 'warn' });
+            }
+            if (uprojectJson.Plugins.length === 0) delete uprojectJson.Plugins;
+          }
+          fs.writeFileSync(newUprojectPath, JSON.stringify(uprojectJson, null, 2), 'utf8');
+          log.push({ msg: '.uproject updated with project description and safety checks.', level: 'ok' });
+        } catch(e) {
+          log.push({ msg: `Could not update .uproject JSON: ${e.message}`, level: 'warn' });
+        }
+
+        // Update Config files to reference new project name where safe
+        const configDir = path.join(projectPath, 'Config');
+        if (fs.existsSync(configDir)) {
+          const engIni = path.join(configDir, 'DefaultEngine.ini');
+          if (fs.existsSync(engIni)) {
+            try {
+              let content = fs.readFileSync(engIni, 'utf8');
+              // Only update GameDefaultMap if it references the old template name
+              content = content.replace(/GameDefaultMap=\/Game\/Maps\/\w+/g, 'GameDefaultMap=/Game/Maps/StarterMap');
+              fs.writeFileSync(engIni, content, 'utf8');
+            } catch(e) {}
+          }
+        }
+
+        ensureDir(path.join(projectPath, 'Docs'));
+        ensureDir(path.join(projectPath, 'Output'));
+        ensureDir(path.join(projectPath, 'Scripts'));
+        ensureDir(path.join(projectPath, 'Scenes'));
+
+        templateUsed = true;
+        const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType.toUpperCase();
+        log.push({ msg: `Playable ${gtLabel} template copied successfully.`, level: 'ok' });
+        log.push({ msg: 'Project is Blueprint-only. No C++ modules required.', level: 'ok' });
+        log.push({ msg: 'No missing plugin references found.', level: 'ok' });
+
+      } else {
+        // ── SHELL MODE: Generate Blueprint-only starter ───────────────────────
+        const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType.toUpperCase();
+        log.push({ msg: `No playable ${gtLabel} template found — generating Blueprint-only project shell.`, level: 'warn' });
+        log.push({ msg: `To install a template: see app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/README_TEMPLATE.md`, level: 'warn' });
       }
-      const uprojectPath = path.join(projectPath, `${safeName}.uproject`);
-      fs.writeFileSync(uprojectPath, JSON.stringify(uproject, null, 2), 'utf8');
-      log.push({ msg: `${safeName}.uproject created — Blueprint-only, no C++ modules required, no required plugins added.`, level: 'ok' });
-      log.push({ msg: 'No missing plugin warning expected — .uproject contains no non-standard plugin references.', level: 'ok' });
+    }
 
-      // ── Config .ini files — no C++ class references ──────────────────────
-      const defaultEngine = `[/Script/EngineSettings.GameMapsSettings]
+    if (!templateUsed) {
+      // ── SHELL MODE: Full folder structure generation ──────────────────────
+      ['', 'Docs', 'Output', 'Scripts', 'Scenes'].forEach(d =>
+        ensureDir(path.join(projectPath, d)));
+      log.push({ msg: 'Core project folders created.', level: 'ok' });
+
+      if (isUnreal) {
+        const unrealDirs = [
+          'Config', 'Content', 'Content/Maps',
+          'Content/Blueprints', 'Content/Blueprints/Player',
+          'Content/Blueprints/Enemies', 'Content/Blueprints/Weapons',
+          'Content/Blueprints/UI', 'Content/Characters', 'Content/Weapons',
+          'Content/Audio', 'Content/Materials', 'Content/Meshes',
+          'Content/Props', 'Content/Environments',
+        ];
+        unrealDirs.forEach(d => ensureDir(path.join(projectPath, d)));
+        log.push({ msg: 'Content folders created (Maps, Blueprints/Player/Enemies/Weapons/UI, Characters, Weapons, Audio, Materials, Meshes, Props, Environments).', level: 'ok' });
+
+        // .uproject — Blueprint-only: NO Modules, NO non-standard plugins
+        const uproject = {
+          FileVersion: 3,
+          EngineAssociation: '5.4',
+          Category: '',
+          Description: String(config.description || '').slice(0, 200)
+        };
+        if (isCppProject) {
+          uproject.Modules = [{ Name: safeName, Type: 'Runtime', LoadingPhase: 'Default' }];
+        }
+        const uprojectPath = path.join(projectPath, `${safeName}.uproject`);
+        fs.writeFileSync(uprojectPath, JSON.stringify(uproject, null, 2), 'utf8');
+        log.push({ msg: `${safeName}.uproject created — Blueprint-only, no C++ modules required, no required plugins added.`, level: 'ok' });
+        log.push({ msg: 'No missing plugin warning expected — .uproject contains no non-standard plugin references.', level: 'ok' });
+
+        const defaultEngine = `[/Script/EngineSettings.GameMapsSettings]
 GameDefaultMap=/Game/Maps/StarterMap
 LocalMapOptions=
 
@@ -7945,13 +8102,13 @@ r.DefaultFeature.AntiAliasing=2
 r.DefaultFeature.MotionBlur=0
 r.Shadow.CSM.MaxCascades=4
 `;
-      const defaultGame = `[/Script/EngineSettings.GameMapsSettings]
+        const defaultGame = `[/Script/EngineSettings.GameMapsSettings]
 GameDefaultMap=/Game/Maps/StarterMap
 
 [/Script/Engine.GameSession]
 MaxPlayers=4
 `;
-      const defaultInput = `[/Script/Engine.InputSettings]
+        const defaultInput = `[/Script/Engine.InputSettings]
 +ActionMappings=(ActionName="Jump",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=SpaceBar)
 +ActionMappings=(ActionName="Fire",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=LeftMouseButton)
 +ActionMappings=(ActionName="Interact",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=E)
@@ -7963,78 +8120,40 @@ MaxPlayers=4
 +AxisMappings=(AxisName="Turn",Scale=1.0,Key=MouseX)
 +AxisMappings=(AxisName="LookUp",Scale=-1.0,Key=MouseY)
 `;
-      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultEngine.ini'), defaultEngine, 'utf8');
-      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultGame.ini'), defaultGame, 'utf8');
-      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultInput.ini'), defaultInput, 'utf8');
-      log.push({ msg: 'Config/DefaultEngine.ini, DefaultGame.ini, DefaultInput.ini created.', level: 'ok' });
+        fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultEngine.ini'), defaultEngine, 'utf8');
+        fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultGame.ini'), defaultGame, 'utf8');
+        fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultInput.ini'), defaultInput, 'utf8');
+        log.push({ msg: 'Config/DefaultEngine.ini, DefaultGame.ini, DefaultInput.ini created.', level: 'ok' });
 
-      // ── C++ Source files (advanced/opt-in only) ───────────────────────────
-      if (isCppProject) {
-        ensureDir(path.join(projectPath, 'Source'));
-        ensureDir(path.join(projectPath, 'Source', safeName));
-        const gameTarget = `using UnrealBuildTool;
-public class ${safeName}Target : TargetRules
-{
-    public ${safeName}Target(TargetInfo Target) : base(Target)
-    {
-        Type = TargetType.Game;
-        DefaultBuildSettings = BuildSettingsVersion.V5;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
-        ExtraModuleNames.Add("${safeName}");
-    }
-}
-`;
-        const editorTarget = `using UnrealBuildTool;
-public class ${safeName}EditorTarget : TargetRules
-{
-    public ${safeName}EditorTarget(TargetInfo Target) : base(Target)
-    {
-        Type = TargetType.Editor;
-        DefaultBuildSettings = BuildSettingsVersion.V5;
-        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
-        ExtraModuleNames.Add("${safeName}");
-    }
-}
-`;
-        const buildCs = `using UnrealBuildTool;
-public class ${safeName} : ModuleRules
-{
-    public ${safeName}(ReadOnlyTargetRules Target) : base(Target)
-    {
-        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-        PublicDependencyModuleNames.AddRange(new string[] {
-            "Core", "CoreUObject", "Engine", "InputCore"
-        });
-    }
-}
-`;
-        const gameCpp = `#include "${safeName}.h"
-#include "Modules/ModuleManager.h"
-IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, ${safeName}, "${safeName}");
-`;
-        const gameH = `#pragma once
-#include "CoreMinimal.h"
-`;
-        const srcDir = path.join(projectPath, 'Source');
-        const moduleDir = path.join(projectPath, 'Source', safeName);
-        fs.writeFileSync(path.join(srcDir, `${safeName}.Target.cs`), gameTarget, 'utf8');
-        fs.writeFileSync(path.join(srcDir, `${safeName}Editor.Target.cs`), editorTarget, 'utf8');
-        fs.writeFileSync(path.join(moduleDir, `${safeName}.Build.cs`), buildCs, 'utf8');
-        fs.writeFileSync(path.join(moduleDir, `${safeName}.cpp`), gameCpp, 'utf8');
-        fs.writeFileSync(path.join(moduleDir, `${safeName}.h`), gameH, 'utf8');
-        log.push({ msg: `Source/ C++ files created. Visual Studio 2022 + Unreal Build Tool compile required before opening.`, level: 'ok' });
+        if (isCppProject) {
+          ensureDir(path.join(projectPath, 'Source'));
+          ensureDir(path.join(projectPath, 'Source', safeName));
+          const gameTarget = `using UnrealBuildTool;\npublic class ${safeName}Target : TargetRules\n{\n    public ${safeName}Target(TargetInfo Target) : base(Target)\n    {\n        Type = TargetType.Game;\n        DefaultBuildSettings = BuildSettingsVersion.V5;\n        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;\n        ExtraModuleNames.Add("${safeName}");\n    }\n}\n`;
+          const editorTarget = `using UnrealBuildTool;\npublic class ${safeName}EditorTarget : TargetRules\n{\n    public ${safeName}EditorTarget(TargetInfo Target) : base(Target)\n    {\n        Type = TargetType.Editor;\n        DefaultBuildSettings = BuildSettingsVersion.V5;\n        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;\n        ExtraModuleNames.Add("${safeName}");\n    }\n}\n`;
+          const buildCs = `using UnrealBuildTool;\npublic class ${safeName} : ModuleRules\n{\n    public ${safeName}(ReadOnlyTargetRules Target) : base(Target)\n    {\n        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;\n        PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore" });\n    }\n}\n`;
+          const gameCpp = `#include "${safeName}.h"\n#include "Modules/ModuleManager.h"\nIMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, ${safeName}, "${safeName}");\n`;
+          const gameH = `#pragma once\n#include "CoreMinimal.h"\n`;
+          const srcDir = path.join(projectPath, 'Source');
+          const moduleDir = path.join(projectPath, 'Source', safeName);
+          fs.writeFileSync(path.join(srcDir, `${safeName}.Target.cs`), gameTarget, 'utf8');
+          fs.writeFileSync(path.join(srcDir, `${safeName}Editor.Target.cs`), editorTarget, 'utf8');
+          fs.writeFileSync(path.join(moduleDir, `${safeName}.Build.cs`), buildCs, 'utf8');
+          fs.writeFileSync(path.join(moduleDir, `${safeName}.cpp`), gameCpp, 'utf8');
+          fs.writeFileSync(path.join(moduleDir, `${safeName}.h`), gameH, 'utf8');
+          log.push({ msg: `Source/ C++ files created. Visual Studio 2022 + Unreal Build Tool required.`, level: 'ok' });
+        } else {
+          log.push({ msg: 'No C++ source files generated — Blueprint-only project opens directly in Unreal Editor.', level: 'ok' });
+        }
+
       } else {
-        log.push({ msg: 'No C++ source files generated — Blueprint-only project opens directly in Unreal Editor.', level: 'ok' });
+        ['Assets', 'Assets/Models', 'Assets/Textures', 'Assets/Audio',
+         'Assets/Animations', 'Assets/Materials', 'Config'].forEach(d =>
+          ensureDir(path.join(projectPath, d)));
+        log.push({ msg: 'Generic Assets folders created.', level: 'ok' });
       }
-
-    } else {
-      ['Assets', 'Assets/Models', 'Assets/Textures', 'Assets/Audio',
-       'Assets/Animations', 'Assets/Materials', 'Config'].forEach(d =>
-        ensureDir(path.join(projectPath, d)));
-      log.push({ msg: 'Generic Assets folders created.', level: 'ok' });
     }
 
-    // ── Step 3: Docs ──────────────────────────────────────────────────────────
+    // ── Docs (always generated / overwritten) ─────────────────────────────────
     const gameTypeLabel = (config.gameType || 'game').toUpperCase();
     const perspLabel = (config.perspective || 'fps').toUpperCase();
     const graphicsTarget = config.graphics === 'realistic' ? 'High-End Indie Realism' : (config.graphics || 'High-End Indie Realism');
@@ -8052,17 +8171,17 @@ Date: ${new Date().toLocaleString()}
 - **Graphics Target:** ${graphicsTarget}
 - **Engine:** ${config.engine || 'unreal'}
 - **Project Mode:** ${isCppProject ? 'C++ Advanced' : isUnreal ? 'Blueprint-only (recommended)' : 'Generic'}
+- **Generation Mode:** ${templateUsed ? 'Playable Template' : 'Project Shell'}
 
 ## Goal
 ${config.description || 'Create a playable high-end indie prototype with strong visual foundations.'}
 
 ## Visual Target: High-End Indie Realism
 GameForge targets strong realistic visuals for indie / AA-style prototypes.
-This is a strong playable starting point — not a finished commercial title.
+This is a playable starting point — not a finished commercial title.
 - Realistic Lumen lighting (Unreal 5)
-- Cinematic post-processing (bloom, depth of field, vignette)
-- Atmospheric fog and density
-- High-detail props and believable geometry
+- Cinematic post-processing
+- Atmospheric fog
 - PBR materials throughout
 
 ## Feature Notes
@@ -8072,8 +8191,6 @@ ${gameTypeNotes(config.gameType, config.perspective)}
 - PBR textures \u2192 Content/Materials/
 - Audio (WAV/OGG) \u2192 Content/Audio/
 - Character rigs \u2192 Content/Characters/
-- Environment props \u2192 Content/Props/
-- Large environments \u2192 Content/Environments/
 `;
 
     const gameplayLoop = _buildGameplayLoopDoc(config.gameName, config.gameType);
@@ -8081,121 +8198,76 @@ ${gameTypeNotes(config.gameType, config.perspective)}
 
     const controlsDoc = `# Controls Reference — ${config.gameName}
 
-## Keyboard & Mouse (Default)
-| Action         | Key               |
-|----------------|-------------------|
-| Move Forward   | W                 |
-| Move Backward  | S                 |
-| Strafe Left    | A                 |
-| Strafe Right   | D                 |
-| Jump           | Space             |
-| Crouch         | Left Ctrl         |
-| Interact       | E                 |
-| Fire / Attack  | Left Mouse Button |
-| Aim            | Right Mouse Button|
-| Reload         | R                 |
-| Sprint         | Left Shift (hold) |
-| Pause Menu     | Escape            |
-
-## Gamepad (Xbox Layout)
-| Action   | Button     |
-|----------|------------|
-| Move     | Left Stick |
-| Look     | Right Stick|
-| Jump     | A          |
-| Crouch   | B          |
-| Fire     | RT         |
-| Aim      | LT         |
-| Reload   | X          |
-| Interact | Y          |
-| Pause    | Menu       |
+## Keyboard & Mouse
+| Action | Key |
+|--------|-----|
+| Move Forward | W |
+| Move Backward | S |
+| Strafe Left | A |
+| Strafe Right | D |
+| Jump | Space |
+| Crouch | Left Ctrl |
+| Interact | E |
+| Fire | Left Mouse Button |
+| Aim | Right Mouse Button |
+| Reload | R |
+| Sprint | Left Shift (hold) |
+| Pause | Escape |
 `;
 
-    const bpOnlyNote = !isCppProject && isUnreal ? `
-## Blueprint-Only Project (Recommended)
-- Double-click \`${safeName}.uproject\` and Unreal Editor opens immediately
-- No Visual Studio, no C++ compilation, no rebuild required
-- Build gameplay in Unreal Blueprints inside the editor
-- To add C++ later: Tools \u2192 New C++ Class (requires Visual Studio 2022)
-
-` : '';
-
     const setupChecklist = `# Unreal Engine Setup Checklist — ${config.gameName}
-${bpOnlyNote}
+
+## Project Mode
+${templateUsed ? `**Playable Template** — a real Unreal template has been copied and customised.
+The project should contain working Blueprint assets and at least one playable map.` : `**Project Shell** — a Blueprint-only Unreal project structure was generated.
+The project opens in Unreal Editor but does not yet contain gameplay assets.
+See: \`app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/README_TEMPLATE.md\` to install a real template.`}
+
 ## Requirements
 - [ ] Unreal Engine 5.4+ installed via Epic Games Launcher
-${isCppProject ? `- [ ] Visual Studio 2022 with "Game Development with C++" workload\n- [ ] .NET 8.0 SDK` : `- [ ] No C++ toolchain required — Blueprint-only project`}
+${isCppProject ? `- [ ] Visual Studio 2022 with C++ game dev workload` : `- [ ] No C++ toolchain required — Blueprint-only project`}
 
 ## Opening the Project
 ${isCppProject
-  ? `1. Right-click **${safeName}.uproject** \u2192 "Generate Visual Studio project files"
-2. Open **${safeName}.sln** in Visual Studio 2022
-3. Build: **Development Editor | Win64** \u2192 F7 (first build: 5\u201320 min)
-4. Open **${safeName}.uproject** in Unreal Editor`
+  ? `1. Right-click **${safeName}.uproject** \u2192 Generate Visual Studio project files
+2. Build Development Editor | Win64 in Visual Studio
+3. Open **${safeName}.uproject** in Unreal Editor`
   : `1. Double-click **${safeName}.uproject** \u2014 Unreal Editor opens immediately
-2. No rebuild, no Visual Studio required
-3. .uproject has no Modules and no required plugins \u2014 no warning dialogs expected`}
+2. No rebuild or plugin warnings expected
+3. .uproject contains no Modules and no non-standard plugins`}
 
 ## Plugin Check
-- This project has **no required plugins** in .uproject
-- Unreal will not show a "Missing Plugin" warning
-- Enable optional plugins later inside Unreal: Edit \u2192 Plugins
+- No required plugins in .uproject
+- No "Missing Plugin" dialog expected
+- Enable optional plugins later: Edit \u2192 Plugins inside Unreal Editor
 
-## First Steps in Unreal Editor
-- [ ] File \u2192 New Level \u2192 Basic \u2192 Save As: Content/Maps/StarterMap
-- [ ] Edit \u2192 Project Settings \u2192 Maps & Modes \u2192 set Default GameMode
-- [ ] Import assets: drag GLB/FBX into Content/Meshes/
-- [ ] Create Blueprint classes in Content/Blueprints/
-
-## Content Directories
-| Folder                      | Purpose                       |
-|-----------------------------|-------------------------------|
-| Content/Maps                | Level .umap files             |
-| Content/Blueprints/Player   | Player character BP           |
-| Content/Blueprints/Enemies  | AI enemy Blueprints           |
-| Content/Blueprints/Weapons  | Weapon logic Blueprints       |
-| Content/Blueprints/UI       | HUD / Widget Blueprints       |
-| Content/Characters          | Character meshes + skeletons  |
-| Content/Weapons             | Weapon meshes                 |
-| Content/Audio               | Sound waves + cues            |
-| Content/Materials           | PBR materials + textures      |
-| Content/Meshes              | Static + skeletal meshes      |
-| Content/Props               | Environment props             |
-| Content/Environments        | Large environment meshes      |
-
-## Useful Console Commands (Play-In-Editor)
-\`stat fps\` \u2014 FPS counter
-\`r.ScreenPercentage 75\` \u2014 reduce render load
-\`slomo 0.5\` \u2014 half speed
-\`god\` \u2014 god mode
+## After Opening
+${templateUsed
+  ? `- Explore Content/Blueprints/ to find the gameplay systems
+- Press Play to test
+- Check Content/Maps/ for starter maps`
+  : `- File \u2192 New Level \u2192 Basic \u2192 Save to Content/Maps/StarterMap
+- Create Blueprint classes in Content/Blueprints/
+- Refer to Docs/GameplayLoop.md for the systems to build`}
 `;
 
-    fs.writeFileSync(path.join(projectPath, 'Docs', 'GameDesignBrief.md'), designBrief, 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Docs', 'Controls.md'), controlsDoc, 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Docs', 'UnrealSetupChecklist.md'), setupChecklist, 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Docs', 'GameplayLoop.md'), gameplayLoop, 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Docs', 'MeshyAssetPlan.md'), meshyPlan, 'utf8');
-    log.push({ msg: 'Docs/ created: GameDesignBrief.md, Controls.md, UnrealSetupChecklist.md, GameplayLoop.md, MeshyAssetPlan.md.', level: 'ok' });
-
-    // ── Step 4: Scripts ───────────────────────────────────────────────────────
     const packagingChecklist = `# Packaging Checklist — ${config.gameName}
 
-GameForge AI v6.8.2
+## Current Status
+${templateUsed ? 'Playable Template — ready to open and test in Unreal Editor.' : 'Project Shell — build gameplay in Unreal Editor before packaging.'}
 
-## Before Packaging (In Unreal Editor)
-- [ ] Create and save at least one level in Content/Maps/
-- [ ] Set Default Map: Project Settings \u2192 Maps & Modes \u2192 Game Default Map
-- [ ] Set Default GameMode in Project Settings
+## Before Packaging
+- [ ] Create/verify level in Content/Maps/
+- [ ] Set Default Map: Project Settings \u2192 Maps & Modes
 - [ ] Test Play-In-Editor without errors
-- [ ] Remove debug actors from levels
+- [ ] Remove debug actors
 - [ ] Verify no missing asset references
 
-## Package Command (Future Feature)
-GameForge will run UAT BuildCookRun when this feature is complete.
-For now: Platforms \u2192 Windows \u2192 Package Project inside Unreal Editor.
+## Package (Unreal Editor)
+Platforms \u2192 Windows \u2192 Package Project
 
-## Output
-Packaged .exe will appear in your chosen output folder.
+## GameForge Future Feature
+Automated packaging via GameForge is planned. For now, use Unreal Editor.
 `;
 
     const scriptNotes = `# Generation Notes — ${config.gameName}
@@ -8203,103 +8275,89 @@ Packaged .exe will appear in your chosen output folder.
 Generated: ${new Date().toLocaleString()}
 GameForge AI v6.8.2
 
-## Project Type
-High-End Indie / AA-Style Playable Unreal Prototype
-This is a strong starting point — not a finished commercial title.
-
-## What Was Generated
-- Engine: ${isUnreal ? `Unreal Engine 5 (${isCppProject ? 'C++ Advanced' : 'Blueprint-only'})` : 'Generic'}
-- Game type: ${gameTypeLabel}
-- Perspective: ${perspLabel}
-- Graphics target: ${graphicsTarget}
+## Generation Mode: ${templateUsed ? 'Playable Template' : 'Project Shell'}
+${templateUsed
+  ? `A real Unreal Blueprint template was copied and customised for this project.
+Template path: ${templatePath}`
+  : `A Blueprint-only project shell was generated.
+No gameplay assets are installed yet.
+To upgrade to Playable Template mode, install a template in:
+app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/`}
 
 ## Next Steps
-${isUnreal
-  ? isCppProject
-    ? `1. Generate Visual Studio project files (right-click ${safeName}.uproject)
-2. Build: Development Editor | Win64
-3. Open ${safeName}.uproject in Unreal Editor 5.4+`
-    : `1. Double-click ${safeName}.uproject \u2014 opens in Unreal Editor immediately
-2. No C++ build required
-3. File \u2192 New Level \u2192 Basic \u2192 save to Content/Maps/StarterMap
-4. Import assets into Content/ subfolders
-5. Build gameplay in Blueprints`
-  : `1. Import your assets into Assets/ subfolders`}
+${templateUsed
+  ? `1. Double-click ${safeName}.uproject \u2014 opens in Unreal Editor immediately
+2. Press Play to test gameplay
+3. Customise Blueprints as needed
+4. Import Meshy assets when ready`
+  : `1. Double-click ${safeName}.uproject \u2014 opens in Unreal Editor
+2. Create a level: File \u2192 New Level \u2192 Basic \u2192 Content/Maps/StarterMap
+3. Build gameplay Blueprints in Content/Blueprints/
+4. Refer to Docs/GameplayLoop.md`}
 
 ## Meshy Assets
 ${config.useMeshy && config.meshyApiKey
   ? 'Queued \u2014 check Output/generation_manifest.json'
   : config.useMeshy
-    ? 'No Meshy API key \u2014 see Docs/MeshyAssetPlan.md for the asset list'
-    : 'Meshy disabled \u2014 enable in GameForge Settings to queue 3D asset generation'}
+    ? 'No key \u2014 see Docs/MeshyAssetPlan.md for the asset list'
+    : 'Disabled \u2014 enable in Settings'}
 
 ## Audio
 ${config.generateAudio ? 'Procedural WAV placeholders generated' : 'Disabled'}
 `;
-    fs.writeFileSync(path.join(projectPath, 'Scripts', 'GenerateNotes.md'), scriptNotes, 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Scripts', 'PackagingChecklist.md'), packagingChecklist, 'utf8');
-    log.push({ msg: 'Scripts/GenerateNotes.md and PackagingChecklist.md created.', level: 'ok' });
 
-    // ── Step 5: Scenes ────────────────────────────────────────────────────────
     const mapPlan = `# Starter Map Plan — ${config.gameName}
 
 ## Level: StarterMap
-Save to: Content/Maps/StarterMap.umap
-
-### Concept
-${config.description ? config.description.slice(0, 300) : 'Define your opening level here.'}
+${templateUsed ? `A starter map from the template should already exist in Content/Maps/.
+Load it in Unreal Editor and customise.` : `Create this map in Unreal Editor: File \u2192 New Level \u2192 Basic \u2192 Save As Content/Maps/StarterMap`}
 
 ### Key Areas
-1. **Player Start** \u2014 spawn point near map centre
-2. **Safe Zone** \u2014 initial shelter / cover area
-3. **Objective Area 1** \u2014 first encounter or objective
-4. **Objective Area 2** \u2014 mid-map escalation
-5. **Exit / Escape** \u2014 final goal or extraction point
+1. **Player Start** \u2014 spawn point
+2. **Safe Zone** \u2014 cover/shelter
+3. **Objective Area 1** \u2014 first encounter
+4. **Objective Area 2** \u2014 escalation
+5. **Exit** \u2014 goal
 
-### Lighting Setup (Unreal 5 Lumen)
-- Directional Light: Mobility=Movable, Intensity 3 lux, cast shadows enabled
-- Sky Light: Mobility=Movable, Real-time capture
-- Exponential Height Fog: Start Distance=200, Fog Density=0.02
-- Post Process Volume (Infinite Extent): Bloom=0.6, Vignette=0.4
-
-### World Settings
-- GameMode Override: assign your GameMode Blueprint
-- Kill Z: -2000
-- Gravity: -980 (default)
+### Lighting (Unreal 5 Lumen)
+- Directional Light: Movable, 3 lux
+- Sky Light: Real-time capture
+- Exponential Height Fog: Start=200, Density=0.02
+- Post Process Volume: Bloom=0.6, Vignette=0.4
 `;
 
     const levelDesignNotes = `# Level Design Notes — ${config.gameName}
 
 ## Design Philosophy
-Aim for believable, atmospheric environments that support gameplay.
-Focus on readability \u2014 players should understand where to go.
+Believable, atmospheric environments that support gameplay.
 
 ## Layout Principles
-- Funnel players with lighting and environmental cues
-- Use cover positions to support ${gameType === 'fps' || gameType === 'zombie' ? 'combat' : 'exploration'}
-- Create sight lines that reward positioning
-- Use verticality where possible
+- Funnel players with lighting and cues
+- Cover positions for combat
+- Sight lines that reward positioning
 
 ## Environment Mood
-Target: ${graphicsTarget}
-- Atmospheric fog for depth
-- Point lights for dramatic hotspots
-- Decals for surface detail
-- Particle effects: dust, embers, mist
+${graphicsTarget} — atmospheric fog, dramatic point lights, decal surface detail
 
 ## Gameplay Zones
-Each area should have:
-- Clear entry and exit points
-- Cover positions for the player
-- AI spawn points (if applicable)
-- Audio trigger volumes for ambient sounds
+Each area: clear entry/exit, cover, AI spawn points, audio triggers
 `;
 
+    ensureDir(path.join(projectPath, 'Docs'));
+    ensureDir(path.join(projectPath, 'Scripts'));
+    ensureDir(path.join(projectPath, 'Scenes'));
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'GameDesignBrief.md'), designBrief, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'Controls.md'), controlsDoc, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'UnrealSetupChecklist.md'), setupChecklist, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'GameplayLoop.md'), gameplayLoop, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'MeshyAssetPlan.md'), meshyPlan, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Scripts', 'GenerateNotes.md'), scriptNotes, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Scripts', 'PackagingChecklist.md'), packagingChecklist, 'utf8');
     fs.writeFileSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'), mapPlan, 'utf8');
     fs.writeFileSync(path.join(projectPath, 'Scenes', 'LevelDesignNotes.md'), levelDesignNotes, 'utf8');
-    log.push({ msg: 'Scenes/StarterMapPlan.md and LevelDesignNotes.md created.', level: 'ok' });
+    log.push({ msg: 'Docs/ and Scripts/ created: GameDesignBrief, Controls, SetupChecklist, GameplayLoop, MeshyAssetPlan, GenerateNotes, PackagingChecklist.', level: 'ok' });
 
-    // ── Step 6: Output manifest + readiness report ────────────────────────────
+    // ── Readiness assessment ──────────────────────────────────────────────────
     const uprojectPath = path.join(projectPath, `${safeName}.uproject`);
     const uprojectExists = isUnreal && fs.existsSync(uprojectPath);
 
@@ -8311,15 +8369,32 @@ Each area should have:
         uprojectHasNoModules = !Array.isArray(parsed.Modules) || parsed.Modules.length === 0;
         const plugins = Array.isArray(parsed.Plugins) ? parsed.Plugins : [];
         uprojectHasNoBlueprintEditorUtils = !plugins.some(p => p.Name === 'BlueprintEditorUtils');
-      } catch(e) { uprojectHasNoModules = false; uprojectHasNoBlueprintEditorUtils = true; }
+      } catch(e) { uprojectHasNoModules = true; uprojectHasNoBlueprintEditorUtils = true; }
     }
 
     const configFolderOk = isUnreal && fs.existsSync(path.join(projectPath, 'Config', 'DefaultEngine.ini'));
     const contentFolderOk = isUnreal && fs.existsSync(path.join(projectPath, 'Content'));
+    const mapsOk = isUnreal && fs.existsSync(path.join(projectPath, 'Content', 'Maps'));
+    const blueprintsOk = isUnreal && fs.existsSync(path.join(projectPath, 'Content', 'Blueprints'));
     const docsOk = fs.existsSync(path.join(projectPath, 'Docs', 'GameDesignBrief.md'));
     const gameplayLoopOk = fs.existsSync(path.join(projectPath, 'Docs', 'GameplayLoop.md'));
     const controlsOk = fs.existsSync(path.join(projectPath, 'Docs', 'Controls.md'));
     const mapPlanOk = fs.existsSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'));
+
+    // Template-specific folder population checks
+    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false };
+    const keyFoldersEmpty = !templateUsed || !templateFolderChecks.blueprintsHasFiles;
+    if (templateUsed) {
+      templateFolderChecks = checkTemplateFoldersPopulated(projectPath);
+    }
+
+    // Determine result type
+    let resultType = 'Project Shell';
+    if (templateUsed && templateFolderChecks.blueprintsHasFiles && templateFolderChecks.mapsHasFiles) {
+      resultType = 'Playable Template';
+    } else if (templateUsed) {
+      resultType = 'Playable Template (Partial)';
+    }
 
     const readinessChecks = {
       uproject:             isUnreal ? (uprojectExists ? 'PASS' : 'FAIL') : 'N/A',
@@ -8327,7 +8402,15 @@ Each area should have:
       noCppModulesRequired: isUnreal ? (!isCppProject ? 'PASS' : 'ADVANCED') : 'N/A',
       noMissingPlugins:     isUnreal ? (uprojectHasNoBlueprintEditorUtils ? 'PASS' : 'FAIL') : 'N/A',
       configFiles:          isUnreal ? (configFolderOk ? 'PASS' : 'FAIL') : 'N/A',
-      contentFolders:       isUnreal ? (contentFolderOk ? 'PASS' : 'FAIL') : 'N/A',
+      contentFolder:        isUnreal ? (contentFolderOk ? 'PASS' : 'FAIL') : 'N/A',
+      mapsFolder:           isUnreal ? (mapsOk ? 'PASS' : 'FAIL') : 'N/A',
+      blueprintsFolder:     isUnreal ? (blueprintsOk ? 'PASS' : 'FAIL') : 'N/A',
+      playerFolder:         isUnreal ? (templateFolderChecks.playerFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
+      enemiesFolder:        isUnreal ? (templateFolderChecks.enemiesFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
+      weaponsFolder:        isUnreal ? (templateFolderChecks.weaponsFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
+      uiFolder:             isUnreal ? (templateFolderChecks.uiFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
+      gameplayAssetsPresent: templateUsed ? (templateFolderChecks.blueprintsHasFiles ? 'PASS' : 'EMPTY-SHELL') : 'SHELL-NO-TEMPLATE',
+      mapsHasFiles:          templateUsed ? (templateFolderChecks.mapsHasFiles ? 'PASS' : 'EMPTY') : 'SHELL',
       starterMapPlan:       mapPlanOk ? 'PASS' : 'FAIL',
       gameplayLoopDoc:      gameplayLoopOk ? 'PASS' : 'FAIL',
       controlsDoc:          controlsOk ? 'PASS' : 'FAIL',
@@ -8336,23 +8419,33 @@ Each area should have:
       packagingReadiness:   'PENDING'
     };
 
+    // Score only the binary PASS/FAIL checks (not SHELL/PENDING/QUEUED)
     const passCount = Object.values(readinessChecks).filter(v => v === 'PASS').length;
-    const totalScorable = Object.values(readinessChecks).filter(v => v !== 'N/A' && v !== 'PENDING' && v !== 'ADVANCED' && v !== 'QUEUED' && v !== 'SKIPPED-NO-KEY-SAFE').length;
+    const totalScorable = Object.values(readinessChecks).filter(v => v === 'PASS' || v === 'FAIL' || v === 'WARN' || v === 'MISSING' || v === 'EMPTY').length;
     const readinessScore = totalScorable > 0 ? Math.round((passCount / totalScorable) * 100) : 0;
+
+    const nextStep = templateUsed
+      ? `Double-click ${safeName}.uproject and press Play to test gameplay`
+      : `Open ${safeName}.uproject in Unreal Editor, create a level, then build Blueprints`;
 
     const readinessReport = {
       generatedAt: new Date().toISOString(),
       generator: 'GameForge AI v6.8.2',
-      projectType: 'Playable Unreal Prototype (High-End Indie)',
+      resultType,
+      templateUsed,
+      templatePath: templateUsed ? templatePath : null,
+      keyFoldersEmpty: !templateFolderChecks.blueprintsHasFiles,
       gameName: config.gameName,
       projectPath,
       readinessScore: `${readinessScore}%`,
-      verdict: uprojectExists && uprojectHasNoModules && !isCppProject
-        ? 'Playable prototype ready for Unreal setup'
-        : isCppProject
-          ? 'C++ project generated — compile required before opening'
-          : 'Generation incomplete — check checks object',
-      note: 'This is a playable starting point. Open in Unreal Editor, create levels, build Blueprints, then package when ready.',
+      verdict: resultType === 'Playable Template'
+        ? 'Playable template ready — open in Unreal Editor and press Play'
+        : resultType === 'Playable Template (Partial)'
+          ? 'Template copied but some gameplay folders appear empty — verify template content'
+          : 'Project shell ready — opens in Unreal Editor but no gameplay assets installed yet',
+      packagingReadiness: 'PENDING',
+      nextStep,
+      note: 'This is a playable starting point. A packaged Windows .exe is the final delivery goal.',
       checks: readinessChecks
     };
 
@@ -8367,6 +8460,9 @@ Each area should have:
       graphicsTarget,
       engine: config.engine,
       projectMode: isCppProject ? 'cpp' : isUnreal ? 'blueprint-only' : 'generic',
+      resultType,
+      templateUsed,
+      templatePath: templateUsed ? templatePath : null,
       projectPath,
       unrealStructure: isUnreal ? 'enabled' : 'disabled',
       uprojectFile: isUnreal ? `${safeName}.uproject` : null,
@@ -8378,90 +8474,46 @@ Each area should have:
       filesCreated: log.map(l => l.msg)
     };
 
+    ensureDir(path.join(projectPath, 'Output'));
     fs.writeFileSync(path.join(projectPath, 'Output', 'generation_manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
-    fs.writeFileSync(path.join(projectPath, 'Output', 'launch_report.json'), JSON.stringify({ generatedAt: new Date().toISOString(), status: 'GENERATED', projectPath, checks: readinessChecks }, null, 2), 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Output', 'launch_report.json'), JSON.stringify({ generatedAt: new Date().toISOString(), status: 'GENERATED', projectPath, resultType, checks: readinessChecks }, null, 2), 'utf8');
     fs.writeFileSync(path.join(projectPath, 'Output', 'playable_readiness_report.json'), JSON.stringify(readinessReport, null, 2), 'utf8');
-    log.push({ msg: `Output/ reports created — Readiness: ${readinessScore}%.`, level: 'ok' });
+    log.push({ msg: `Output/ reports created — Result: ${resultType} | Readiness: ${readinessScore}%.`, level: 'ok' });
 
-    // ── Step 7: Root README ───────────────────────────────────────────────────
+    // ── README ────────────────────────────────────────────────────────────────
     const readme = `# ${config.gameName}
 
 > GameForge AI v6.8.2 — ${new Date().toLocaleString()}
-> **High-End Indie / AA-Style Playable Unreal Prototype**
+> **${resultType}** | High-End Indie / AA-Style Unreal Prototype
 
 ## Quick Start
-${isUnreal
-  ? isCppProject
-    ? `1. Right-click \`${safeName}.uproject\` \u2192 "Generate Visual Studio project files"
-2. Build in Visual Studio 2022 (Development Editor | Win64)
-3. Open \`${safeName}.uproject\` in Unreal Engine 5.4+`
-    : `1. **Double-click \`${safeName}.uproject\`** \u2014 opens directly in Unreal Editor
+1. **Double-click \`${safeName}.uproject\`** — Unreal Editor opens immediately
 2. No C++ build or Visual Studio required
-3. See \`Docs/UnrealSetupChecklist.md\` for setup steps`
-  : `1. Import assets into Assets/ subfolders
-2. Open Docs/GameDesignBrief.md for feature guidance`}
+${templateUsed ? `3. Press Play to test gameplay
+4. See Content/Blueprints/ for game systems` : `3. File → New Level → Basic → Save as Content/Maps/StarterMap
+4. Build gameplay in Content/Blueprints/
+5. See Docs/GameplayLoop.md for the systems to build`}
+
+## Result Type: ${resultType}
+${resultType === 'Playable Template'
+  ? 'A real Unreal template was copied. Open and play immediately.'
+  : 'A Blueprint-only project shell was generated. No gameplay assets are installed.\nInstall a template to get a playable starting point.'}
 
 ## Readiness: ${readinessScore}%
 ${readinessReport.verdict}
 
-## Project Details
-| Field          | Value                                                       |
-|----------------|-------------------------------------------------------------|
-| Game Type      | ${gameTypeLabel}                                            |
-| Perspective    | ${perspLabel}                                               |
-| Graphics       | ${graphicsTarget}                                           |
-| Engine         | ${config.engine || 'unreal'}                                |
-| Project Mode   | ${isCppProject ? 'C++ Advanced' : isUnreal ? 'Blueprint-only (recommended)' : 'Generic'} |
-
 ## Description
 ${config.description || 'No description provided.'}
-
-## Folder Structure
-\`\`\`
-${safeName}.uproject        \u2190 Open in Unreal Editor${isCppProject ? ' (after C++ build)' : ' (no build needed)'}
-Config/
-  DefaultEngine.ini
-  DefaultGame.ini
-  DefaultInput.ini
-Content/
-  Maps/
-  Blueprints/Player/
-  Blueprints/Enemies/
-  Blueprints/Weapons/
-  Blueprints/UI/
-  Characters/
-  Weapons/
-  Audio/
-  Materials/
-  Meshes/
-  Props/
-  Environments/
-Docs/
-  GameDesignBrief.md
-  Controls.md
-  UnrealSetupChecklist.md
-  GameplayLoop.md
-  MeshyAssetPlan.md
-Output/
-  generation_manifest.json
-  launch_report.json
-  playable_readiness_report.json
-Scripts/
-  GenerateNotes.md
-  PackagingChecklist.md
-Scenes/
-  StarterMapPlan.md
-  LevelDesignNotes.md${isCppProject ? `\nSource/\n  ${safeName}/\n    ${safeName}.Build.cs` : ''}
-\`\`\`
-
-## About GameForge
-GameForge creates **playable high-end indie / AA-style Unreal prototypes**.
-This is a strong starting point. Open in Unreal Editor, build Blueprints, then package when ready.
 `;
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
-    const modeLabel = isCppProject ? 'C++ Advanced project' : isUnreal ? 'Blueprint-only Unreal project' : 'Generic project';
-    log.push({ msg: `${modeLabel} generated — ${safeName}.uproject ready to open. Readiness: ${readinessScore}%.`, level: 'ok' });
+    const resultLabel = templateUsed ? `${resultType} generated` : 'Project shell generated';
+    log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Readiness: ${readinessScore}%.`, level: 'ok' });
+    if (templateUsed) {
+      log.push({ msg: 'Playable template readiness check complete.', level: 'ok' });
+    } else {
+      log.push({ msg: 'Meshy skipped safely.', level: 'ok' });
+    }
 
     return {
       ok: true,
@@ -8469,9 +8521,13 @@ This is a strong starting point. Open in Unreal Editor, build Blueprints, then p
       safeName,
       isUnreal,
       isCppProject,
+      templateUsed,
+      templatePath: templateUsed ? templatePath : null,
+      resultType,
       uprojectExists,
       uprojectHasNoModules,
       uprojectHasNoBlueprintEditorUtils,
+      keyFoldersEmpty: !templateFolderChecks.blueprintsHasFiles,
       readinessScore,
       readinessVerdict: readinessReport.verdict,
       readinessChecks,

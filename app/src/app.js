@@ -448,6 +448,13 @@ async function startGameGeneration() {
       lastOutputPath = folderResult.projectPath || '';
       _genLog(`Project root: ${lastOutputPath}`, 'ok');
 
+      // Log result type (template vs shell)
+      if (folderResult.templateUsed) {
+        _genLog(`Result type: ${folderResult.resultType || 'Playable Template'}`, 'ok');
+      } else {
+        _genLog(`Result type: Project Shell — no playable template installed for this game type.`, 'warn');
+      }
+
       // Log each step that was reported by the backend
       if (Array.isArray(folderResult.log)) {
         folderResult.log.forEach(entry => _genLog(`  ${entry.msg}`, entry.level || 'ok'));
@@ -500,30 +507,58 @@ async function startGameGeneration() {
     await _sleep(200);
     _setGenProgress(100);
     _genLog('---');
-    _genLog(`Generation complete — ${config.gameName}`, 'ok');
+    const resultType = folderResult && folderResult.resultType ? folderResult.resultType : (folderResult && folderResult.templateUsed ? 'Playable Template' : 'Project Shell');
+    _genLog(`Generation complete — ${config.gameName} [${resultType}]`, 'ok');
     if (lastOutputPath) _genLog(`Output folder: ${lastOutputPath}`, 'ok');
     if (isUnrealEngine) {
-      const safeName = folderResult && folderResult.safeName ? folderResult.safeName : config.gameName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
+      const sn = folderResult && folderResult.safeName ? folderResult.safeName : config.gameName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
       if (config.cppProject) {
-        _genLog(`Open ${safeName}.uproject — compile C++ modules in Visual Studio first.`, 'warn');
+        _genLog(`Open ${sn}.uproject — compile C++ modules in Visual Studio first.`, 'warn');
+      } else if (folderResult && folderResult.templateUsed) {
+        _genLog(`Playable ${config.gameType} template copied successfully.`, 'ok');
+        _genLog(`Project is Blueprint-only. No C++ modules required.`, 'ok');
+        _genLog(`No missing plugin references found.`, 'ok');
+        _genLog(`Double-click ${sn}.uproject in Unreal Editor — press Play to test.`, 'ok');
       } else {
-        _genLog(`Blueprint-only Unreal project created — no C++ modules required.`, 'ok');
-        _genLog(`.uproject ready to open — double-click ${safeName}.uproject in Unreal Editor 5.4+.`, 'ok');
+        _genLog(`No playable template found — generated Blueprint-only project shell.`, 'warn');
+        _genLog(`Project is Blueprint-only. No C++ modules required.`, 'ok');
+        _genLog(`No missing plugin references found.`, 'ok');
+        _genLog(`Double-click ${sn}.uproject in Unreal Editor to begin building.`, 'ok');
       }
     }
 
     // Show result card
     const resultCard = document.getElementById('genResultCard');
+    const resultTitle = document.getElementById('genResultTitle');
+    const resultSubtitle = document.getElementById('genResultSubtitle');
     const resultDetails = document.getElementById('genResultDetails');
     const safeName = folderResult && folderResult.safeName ? folderResult.safeName : '';
 
     if (resultCard) resultCard.style.display = 'block';
+
+    const isTemplate = folderResult && folderResult.templateUsed;
+    const isPartial = resultType === 'Playable Template (Partial)';
+
+    if (resultTitle) {
+      resultTitle.textContent = resultType;
+      resultTitle.style.color = isTemplate && !isPartial ? 'var(--success)' : isTemplate ? 'var(--warn)' : 'var(--accent)';
+    }
+    if (resultSubtitle) {
+      resultSubtitle.textContent = isTemplate && !isPartial
+        ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test.'
+        : isTemplate
+          ? 'Template was copied, but some gameplay folders may be empty. Verify template content.'
+          : 'Blueprint-only Unreal project shell generated. Opens in Unreal Editor. Build gameplay Blueprints inside.';
+    }
+
     if (resultDetails) {
       const uprojectOk = folderResult && folderResult.uprojectExists;
       const bpOnly = isUnrealEngine && !config.cppProject;
       const noMissingPlugins = folderResult && folderResult.uprojectHasNoBlueprintEditorUtils !== false;
       const score = folderResult && folderResult.readinessScore != null ? folderResult.readinessScore : null;
       const verdict = folderResult && folderResult.readinessVerdict ? folderResult.readinessVerdict : '';
+      const keyFoldersEmpty = folderResult && folderResult.keyFoldersEmpty;
+
       const uprojectLine = isUnrealEngine
         ? `<b>${safeName}.uproject:</b> <span style="color:var(--${uprojectOk ? 'success' : 'warn'})">${uprojectOk ? '✓ Created' : '! Not verified'}</span><br>`
         : '';
@@ -531,7 +566,13 @@ async function startGameGeneration() {
         ? `<b>Project Mode:</b> <span style="color:var(--${bpOnly ? 'accent2' : 'warn'})">${bpOnly ? 'Blueprint-only — open directly in Unreal, no compile needed' : 'C++ — compile required before opening'}</span><br>`
         : '';
       const pluginLine = isUnrealEngine
-        ? `<b>Plugin warnings:</b> <span style="color:var(--${noMissingPlugins ? 'success' : 'warn'})">${noMissingPlugins ? '✓ None — no required plugins added' : '! Check .uproject Plugins array'}</span><br>`
+        ? `<b>Plugin warnings:</b> <span style="color:var(--${noMissingPlugins ? 'success' : 'warn'})">${noMissingPlugins ? '✓ None expected' : '! Check .uproject Plugins array'}</span><br>`
+        : '';
+      const templateLine = isUnrealEngine
+        ? `<b>Generation mode:</b> <span style="color:var(--${isTemplate ? (isPartial ? 'warn' : 'success') : 'muted'})">${resultType}</span><br>`
+        : '';
+      const gameplayAssetsLine = isUnrealEngine
+        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && !keyFoldersEmpty ? 'success' : 'warn'})">${isTemplate && !keyFoldersEmpty ? '✓ Template assets present' : isTemplate ? '! Template folders appear empty — verify template' : 'None yet — build in Unreal Editor'}</span><br>`
         : '';
       const scoreLine = score != null
         ? `<b>Readiness Score:</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
@@ -539,6 +580,7 @@ async function startGameGeneration() {
       const verdictLine = verdict
         ? `<b>Verdict:</b> <span style="color:var(--accent2);font-style:italic;">${verdict}</span><br>`
         : '';
+
       resultDetails.innerHTML = `
         <b>Project Name:</b> ${config.gameName}<br>
         <b>Sanitised Name:</b> ${safeName || '—'}<br>
@@ -548,10 +590,11 @@ async function startGameGeneration() {
         ${uprojectLine}
         ${projectModeLine}
         ${pluginLine}
-        <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A (non-Unreal)'}<br>
-        <b>C++ Source files:</b> ${isUnrealEngine ? (config.cppProject ? '✓ Created (compile required)' : 'None — Blueprint-only') : 'N/A'}<br>
+        ${templateLine}
+        ${gameplayAssetsLine}
+        <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A'}<br>
         <b>Docs:</b> ✓ GameDesignBrief, Controls, SetupChecklist, GameplayLoop, MeshyAssetPlan<br>
-        <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped safely (no key) — MeshyAssetPlan.md created' : 'Disabled'}<br>
+        <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped safely — MeshyAssetPlan.md created' : 'Disabled'}<br>
         <b>Audio Placeholders:</b> ${config.generateAudio ? 'Generated' : 'Disabled'}<br>
         ${scoreLine}
         ${verdictLine}
@@ -559,7 +602,7 @@ async function startGameGeneration() {
       `;
     }
 
-    showToast(`${config.gameName} generated successfully!`);
+    showToast(`${config.gameName} — ${resultType}`);
 
   } catch (err) {
     _genLog(`Error during generation: ${err && err.message ? err.message : String(err)}`, 'err');
