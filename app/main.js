@@ -8,65 +8,20 @@ process.on('unhandledRejection', (reason) => {
 
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 
-
-
-// GF681_NATIVE_WINDOW_PERFORMANCE_FIX
-// Make the app window feel like a normal Windows app: no transparent/blurred frameless window,
-// fewer GPU-heavy effects, and better movement/dragging performance.
-try {
-  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,HardwareMediaKeyHandling');
-  app.commandLine.appendSwitch('disable-renderer-backgrounding');
-  app.commandLine.appendSwitch('disable-background-timer-throttling');
-  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-} catch (error) {
-  console.warn('[GameForge] Native window performance switches warning:', error.message);
-}
-
-// v1.1 Stable native-window defaults
-try {
-  if (app && app.disableHardwareAcceleration) app.disableHardwareAcceleration();
-  app.commandLine.appendSwitch('disable-gpu');
-  app.commandLine.appendSwitch('disable-gpu-compositing');
-  app.commandLine.appendSwitch('disable-accelerated-2d-canvas');
-  app.commandLine.appendSwitch('disable-zero-copy');
-  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,VizDisplayCompositor');
-  app.commandLine.appendSwitch('disable-renderer-backgrounding');
-  app.commandLine.appendSwitch('disable-background-timer-throttling');
-  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-} catch (error) {
-  console.warn('[GameForge] Window stability switches skipped:', error.message);
-}
-
-
-// v1.1 Windows Installer Launcher
-// This is stronger than the previous CSS-only smooth mode.
-// It disables hardware acceleration by default because some Windows/Electron/GPU combinations
-// can freeze while dragging or relocating a GPU-heavy Electron window.
+// Stable native-window performance — GPU disabled to avoid freeze on drag/resize
 try {
   app.disableHardwareAcceleration();
   app.commandLine.appendSwitch('disable-gpu');
   app.commandLine.appendSwitch('disable-gpu-compositing');
   app.commandLine.appendSwitch('disable-gpu-rasterization');
-  app.commandLine.appendSwitch('disable-zero-copy');
-  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,VizDisplayCompositor');
-  app.commandLine.appendSwitch('disable-renderer-backgrounding');
-  app.commandLine.appendSwitch('disable-background-timer-throttling');
-  app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
   app.commandLine.appendSwitch('disable-accelerated-2d-canvas');
-} catch (error) {
-  console.warn('Native window stability switches skipped:', error.message);
-}
-
-
-// v1.1 Windows Installer Launcher
-// Keep the renderer responsive when the window is moved, resized or briefly occluded.
-try {
+  app.commandLine.appendSwitch('disable-zero-copy');
+  app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion,VizDisplayCompositor,HardwareMediaKeyHandling');
   app.commandLine.appendSwitch('disable-renderer-backgrounding');
   app.commandLine.appendSwitch('disable-background-timer-throttling');
   app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-  app.commandLine.appendSwitch('enable-gpu-rasterization');
 } catch (error) {
-  console.warn('Performance switch setup skipped:', error.message);
+  console.warn('[GameForge] Window stability switches skipped:', error.message);
 }
 
 const path = require('path');
@@ -78,24 +33,18 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    // GF681_BROWSERWINDOW_OPTIONS_PATCH
     frame: true,
     transparent: false,
-    backgroundColor: '#0b1020',
+    backgroundColor: '#070d18',
     titleBarStyle: 'default',
     thickFrame: true,
     hasShadow: true,
     paintWhenInitiallyHidden: true,
-
-    frame: true,
-    transparent: false,
-    hasShadow: false,
     width: 1280,
     height: 800,
     minWidth: 1000,
     minHeight: 650,
-    backgroundColor: '#070d18',
-    title: 'GameForge AI Engine v3.3.1 Autonomous Realism',
+    title: 'GameForge AI Engine v6.8.2',
     webPreferences: {
       backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js'),
