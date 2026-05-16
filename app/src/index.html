@@ -714,11 +714,14 @@
             </label>
 
             <label style="margin-top:16px;">Unreal Engine Integration</label>
-            <label class="check-label" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
-              <input type="checkbox" id="genUnreal" checked />
-              <span style="font-size:13px;color:var(--text);">Create Unreal Engine project structure</span>
+            <p style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.6;">When engine is set to <b style="color:var(--accent2);">Unreal Engine 5</b>, a Blueprint-only project is created automatically. No C++ compilation required — double-click the .uproject to open directly.</p>
+            <label class="check-label" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:6px;padding:10px;">
+              <input type="checkbox" id="genCpp" style="margin-top:2px;flex-shrink:0;" />
+              <span>
+                <span style="font-size:13px;color:var(--text);font-weight:600;">Advanced: Generate C++ Project</span><br>
+                <span style="font-size:11px;color:var(--muted);">Adds C++ source files and Modules entry to .uproject. Requires Visual Studio 2022 + Unreal Build Tool. Unreal will prompt to compile on first open.</span>
+              </span>
             </label>
-            <p style="font-size:11px;color:var(--muted);margin-top:4px;">Detects Unreal path automatically. Set manually in Settings if not found.</p>
 
             <label style="margin-top:16px;">Output Folder</label>
             <div class="key-row">

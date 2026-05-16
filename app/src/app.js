@@ -321,7 +321,7 @@ function _updateGenSummary() {
   const engineEl = document.getElementById('genEngine');
   const meshyEl = document.getElementById('genUseMeshy');
   const audioEl = document.getElementById('genAudio');
-  const unrealEl = document.getElementById('genUnreal');
+  const cppEl = document.getElementById('genCpp');
 
   const name = nameEl ? nameEl.value || 'Untitled' : 'Untitled';
   const persp = perspEl ? perspEl.options[perspEl.selectedIndex].text : '—';
@@ -329,10 +329,14 @@ function _updateGenSummary() {
   const engine = engineEl ? engineEl.options[engineEl.selectedIndex].text : '—';
   const useMeshy = meshyEl ? meshyEl.checked : false;
   const useAudio = audioEl ? audioEl.checked : false;
-  const useUnreal = unrealEl ? unrealEl.checked : false;
+  const useCpp = cppEl ? cppEl.checked : false;
+  const isUnrealSel = engineEl ? engineEl.value === 'unreal' : false;
 
   const sumEl = document.getElementById('genSummary');
   if (sumEl) {
+    const unrealNote = isUnrealSel
+      ? (useCpp ? '<b style="color:var(--warn)">C++ project (requires Visual Studio)</b>' : 'Blueprint-only (no compile needed)')
+      : '—';
     sumEl.innerHTML = `
       <b>Name:</b> ${name}<br>
       <b>Type:</b> ${selectedGameType.toUpperCase()}<br>
@@ -341,7 +345,7 @@ function _updateGenSummary() {
       <b>Engine:</b> ${engine}<br>
       <b>Meshy 3D assets:</b> ${useMeshy ? (SETTINGS.meshyApiKey ? 'Yes (key configured)' : 'Yes (no key — will skip)') : 'No'}<br>
       <b>Audio placeholders:</b> ${useAudio ? 'Yes' : 'No'}<br>
-      <b>Unreal structure:</b> ${useUnreal ? 'Yes' : 'No'}
+      <b>Unreal project mode:</b> ${unrealNote}
     `;
   }
 }
@@ -352,7 +356,7 @@ function _bindGenFormUpdates() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', _updateGenSummary);
   });
-  ['genUseMeshy','genAudio','genUnreal'].forEach(id => {
+  ['genUseMeshy','genAudio','genCpp'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', _updateGenSummary);
   });
@@ -413,16 +417,22 @@ async function startGameGeneration() {
     outputPath: outEl ? outEl.value.trim() : '',
     useMeshy: document.getElementById('genUseMeshy') ? document.getElementById('genUseMeshy').checked : false,
     generateAudio: document.getElementById('genAudio') ? document.getElementById('genAudio').checked : false,
-    createUnrealStructure: document.getElementById('genUnreal') ? document.getElementById('genUnreal').checked : false,
+    cppProject: document.getElementById('genCpp') ? document.getElementById('genCpp').checked : false,
     meshyApiKey: SETTINGS.meshyApiKey || '',
     unrealPath: SETTINGS.unrealPath || ''
   };
 
-  const isUnrealEngine = config.engine === 'unreal' || config.createUnrealStructure;
+  const isUnrealEngine = config.engine === 'unreal';
 
   _genLog(`Starting generation: ${config.gameName} (${config.gameType.toUpperCase()})`);
   _genLog(`Engine: ${config.engine} | Graphics: ${config.graphics} | Perspective: ${config.perspective}`);
-  if (isUnrealEngine) _genLog('Unreal Engine 5 project skeleton will be created.');
+  if (isUnrealEngine) {
+    if (config.cppProject) {
+      _genLog('Unreal Engine 5 C++ project will be created (requires Visual Studio + UBT).', 'warn');
+    } else {
+      _genLog('Blueprint-only Unreal Engine 5 project — no C++ modules required.');
+    }
+  }
   _setGenProgress(5);
 
   try {
@@ -493,7 +503,12 @@ async function startGameGeneration() {
     if (lastOutputPath) _genLog(`Output folder: ${lastOutputPath}`, 'ok');
     if (isUnrealEngine) {
       const safeName = folderResult && folderResult.safeName ? folderResult.safeName : config.gameName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
-      _genLog(`Open ${safeName}.uproject in Unreal Editor 5.4+ to begin.`, 'ok');
+      if (config.cppProject) {
+        _genLog(`Open ${safeName}.uproject — compile C++ modules in Visual Studio first.`, 'warn');
+      } else {
+        _genLog(`Blueprint-only Unreal project created — no C++ modules required.`, 'ok');
+        _genLog(`.uproject ready to open — double-click ${safeName}.uproject in Unreal Editor 5.4+.`, 'ok');
+      }
     }
 
     // Show result card
@@ -503,8 +518,13 @@ async function startGameGeneration() {
 
     if (resultCard) resultCard.style.display = 'block';
     if (resultDetails) {
+      const uprojectOk = folderResult && folderResult.uprojectExists;
+      const bpOnly = isUnrealEngine && !config.cppProject;
       const uprojectLine = isUnrealEngine
-        ? `<b>${safeName}.uproject:</b> <span style="color:var(--${folderResult && folderResult.uprojectExists ? 'success' : 'warn'})">${folderResult && folderResult.uprojectExists ? '✓ Created' : '! Not verified'}</span><br>`
+        ? `<b>${safeName}.uproject:</b> <span style="color:var(--${uprojectOk ? 'success' : 'warn'})">${uprojectOk ? '✓ Created' : '! Not verified'}</span><br>`
+        : '';
+      const projectModeLine = isUnrealEngine
+        ? `<b>Project Mode:</b> <span style="color:var(--${bpOnly ? 'accent2' : 'warn'})">${bpOnly ? 'Blueprint-only — open directly in Unreal, no compile needed' : 'C++ — compile required before opening'}</span><br>`
         : '';
       resultDetails.innerHTML = `
         <b>Project Name:</b> ${config.gameName}<br>
@@ -513,8 +533,9 @@ async function startGameGeneration() {
         <b>Engine:</b> ${config.engine}<br>
         <b>Graphics:</b> ${config.graphics}<br>
         ${uprojectLine}
+        ${projectModeLine}
         <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A (non-Unreal)'}<br>
-        <b>Source files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A'}<br>
+        <b>C++ Source files:</b> ${isUnrealEngine ? (config.cppProject ? '✓ Created (compile required)' : 'None — Blueprint-only') : 'N/A'}<br>
         <b>Docs:</b> ✓ Created<br>
         <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped (no key)' : 'Disabled'}<br>
         <b>Audio Placeholders:</b> ${config.generateAudio ? 'Generated' : 'Disabled'}<br>
