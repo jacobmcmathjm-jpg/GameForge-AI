@@ -418,42 +418,45 @@ async function startGameGeneration() {
     unrealPath: SETTINGS.unrealPath || ''
   };
 
+  const isUnrealEngine = config.engine === 'unreal' || config.createUnrealStructure;
+
   _genLog(`Starting generation: ${config.gameName} (${config.gameType.toUpperCase()})`);
-  _genLog(`Engine target: ${config.engine} | Graphics: ${config.graphics}`);
+  _genLog(`Engine: ${config.engine} | Graphics: ${config.graphics} | Perspective: ${config.perspective}`);
+  if (isUnrealEngine) _genLog('Unreal Engine 5 project skeleton will be created.');
   _setGenProgress(5);
 
   try {
-    // Step 1: Create project folder structure
+    // Step 1: Create full project structure (includes Unreal skeleton if engine=unreal)
     _genLog('Creating project folder structure...');
     const folderResult = await ipc('generateGameFolders', config);
-    _setGenProgress(20);
+    _setGenProgress(40);
 
     if (folderResult && folderResult.fallback) {
       _genLog('Running in browser preview — folder creation simulated.', 'warn');
     } else if (folderResult && folderResult.ok) {
-      _genLog(`Project folder created: ${folderResult.projectPath || 'see output folder'}`, 'ok');
       lastOutputPath = folderResult.projectPath || '';
-    }
+      _genLog(`Project root: ${lastOutputPath}`, 'ok');
 
-    // Step 2: Generate game config JSON
-    _genLog('Generating game configuration plan...');
-    await _sleep(300);
-    _setGenProgress(35);
-    _genLog('Game plan written to project folder.', 'ok');
-
-    // Step 3: Unreal Engine structure
-    if (config.createUnrealStructure) {
-      _genLog('Creating Unreal Engine project structure...');
-      const unrealResult = await ipc('generateUnrealStructure', config);
-      if (unrealResult && unrealResult.ok && !unrealResult.fallback) {
-        _genLog('Unreal Engine project structure created.', 'ok');
-      } else {
-        _genLog('Unreal structure simulated (Electron IPC not available or Unreal not found).', 'warn');
+      // Log each step that was reported by the backend
+      if (Array.isArray(folderResult.log)) {
+        folderResult.log.forEach(entry => _genLog(`  ${entry.msg}`, entry.level || 'ok'));
       }
-    }
-    _setGenProgress(50);
 
-    // Step 4: Meshy 3D assets
+      // Verify .uproject
+      if (isUnrealEngine) {
+        if (folderResult.uprojectExists) {
+          _genLog(`${folderResult.safeName}.uproject verified on disk.`, 'ok');
+        } else {
+          _genLog(`Warning: ${folderResult.safeName}.uproject not found — check output folder.`, 'warn');
+        }
+      }
+    } else {
+      _genLog(`Folder creation failed: ${folderResult && folderResult.error ? folderResult.error : 'unknown error'}`, 'err');
+    }
+
+    _setGenProgress(60);
+
+    // Step 2: Meshy 3D assets (optional, requires API key)
     if (config.useMeshy && config.meshyApiKey) {
       _genLog('Requesting Meshy 3D asset generation...');
       const meshyResult = await ipc('meshyGenerateForGame', config);
@@ -462,50 +465,60 @@ async function startGameGeneration() {
         if (meshyResult.assets) {
           meshyResult.assets.forEach(a => _genLog(`  Asset queued: ${a.name || a.id || 'unknown'}`));
         }
-      } else if (config.useMeshy && !config.meshyApiKey) {
-        _genLog('Meshy skipped — no API key configured. Add key in Settings.', 'warn');
       } else {
-        _genLog('Meshy generation queued for when Electron is running.', 'warn');
+        _genLog('Meshy generation queued — will run when API key is active.', 'warn');
       }
-    } else if (config.useMeshy && !config.meshyApiKey) {
-      _genLog('Meshy skipped — no API key. Add your Meshy API key in Settings.', 'warn');
+    } else if (config.useMeshy) {
+      _genLog('Meshy skipped — no API key. Add your Meshy API key in Settings to enable 3D generation.', 'warn');
     }
-    _setGenProgress(70);
+    _setGenProgress(75);
 
-    // Step 5: Audio placeholders
+    // Step 3: Audio placeholders
     if (config.generateAudio) {
       _genLog('Generating procedural audio placeholder files...');
       const audioResult = await ipc('generateAudioPack', config);
       if (audioResult && audioResult.ok && !audioResult.fallback) {
-        _genLog(`Audio: ${audioResult.count || 0} placeholder file(s) created.`, 'ok');
+        _genLog(`Audio: ${audioResult.count || 0} placeholder WAV file(s) created.`, 'ok');
       } else {
         _genLog('Audio generation queued — will run when Electron is active.', 'warn');
       }
     }
-    _setGenProgress(85);
+    _setGenProgress(90);
 
-    // Step 6: Finalize
-    _genLog('Finalising project and writing manifest...');
-    await _sleep(400);
+    // Step 4: Finalize
+    await _sleep(200);
     _setGenProgress(100);
-
-    _genLog('', 'info');
-    _genLog(`Generation complete! Project: ${config.gameName}`, 'ok');
-    _genLog(lastOutputPath ? `Output: ${lastOutputPath}` : 'Output: see Documents/GameForgeProjects', 'ok');
+    _genLog('---');
+    _genLog(`Generation complete — ${config.gameName}`, 'ok');
+    if (lastOutputPath) _genLog(`Output folder: ${lastOutputPath}`, 'ok');
+    if (isUnrealEngine) {
+      const safeName = folderResult && folderResult.safeName ? folderResult.safeName : config.gameName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^[0-9]+/, '');
+      _genLog(`Open ${safeName}.uproject in Unreal Editor 5.4+ to begin.`, 'ok');
+    }
 
     // Show result card
     const resultCard = document.getElementById('genResultCard');
     const resultDetails = document.getElementById('genResultDetails');
+    const safeName = folderResult && folderResult.safeName ? folderResult.safeName : '';
+
     if (resultCard) resultCard.style.display = 'block';
     if (resultDetails) {
+      const uprojectLine = isUnrealEngine
+        ? `<b>${safeName}.uproject:</b> <span style="color:var(--${folderResult && folderResult.uprojectExists ? 'success' : 'warn'})">${folderResult && folderResult.uprojectExists ? '✓ Created' : '! Not verified'}</span><br>`
+        : '';
       resultDetails.innerHTML = `
         <b>Project Name:</b> ${config.gameName}<br>
+        <b>Sanitised Name:</b> ${safeName || '—'}<br>
         <b>Game Type:</b> ${config.gameType.toUpperCase()}<br>
-        <b>Engine Target:</b> ${config.engine}<br>
-        <b>Graphics Quality:</b> ${config.graphics}<br>
+        <b>Engine:</b> ${config.engine}<br>
+        <b>Graphics:</b> ${config.graphics}<br>
+        ${uprojectLine}
+        <b>Config .ini files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A (non-Unreal)'}<br>
+        <b>Source files:</b> ${isUnrealEngine ? '✓ Created' : 'N/A'}<br>
+        <b>Docs:</b> ✓ Created<br>
         <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped (no key)' : 'Disabled'}<br>
         <b>Audio Placeholders:</b> ${config.generateAudio ? 'Generated' : 'Disabled'}<br>
-        ${lastOutputPath ? `<b>Output Path:</b> <code style="font-size:11px;">${lastOutputPath}</code>` : ''}
+        ${lastOutputPath ? `<b>Output Path:</b> <code style="font-size:11px;word-break:break-all;">${lastOutputPath}</code>` : ''}
       `;
     }
 

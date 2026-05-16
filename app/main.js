@@ -7540,112 +7540,587 @@ ipcMain.handle('gf-meshy-test-key', async (event, key) => {
 });
 
 // ── Generate game folder structure ───────────────────────────────────────────
+// ── Sanitise a project name to a valid C++/UE identifier ─────────────────────
+function sanitiseProjectName(raw) {
+  // Replace spaces and illegal chars with underscore, strip leading digits, cap at 32
+  let name = String(raw || 'MyGame')
+    .replace(/[^a-zA-Z0-9_]/g, '_')   // spaces → underscore, strip other chars
+    .replace(/_+/g, '_')               // collapse runs of underscores
+    .replace(/^[0-9]+/, '')            // no leading digits
+    .slice(0, 32)
+    || 'MyGame';
+  // UE needs PascalCase start — if first char is underscore/lowercase, capitalise
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+// ── Detect game-type-specific notes ──────────────────────────────────────────
+function gameTypeNotes(gameType, perspective) {
+  const gt = String(gameType || '').toLowerCase();
+  const persp = String(perspective || '').toLowerCase();
+  const isFPS = gt === 'fps' || persp === 'fps';
+  const isZombie = gt === 'zombie';
+  const isHorror = gt === 'horror';
+  const isSurvival = gt === 'survival';
+  const isRPG = gt === 'rpg';
+  const isRacing = gt === 'racing';
+  const isOpenWorld = gt === 'openworld';
+
+  const notes = [];
+
+  if (isFPS || isZombie) {
+    notes.push('## First Person Player');
+    notes.push('- FirstPersonCharacter Blueprint: camera on head socket, capsule collision');
+    notes.push('- EnhancedInput actions: Move, Look, Jump, Crouch, Interact');
+    notes.push('- Spring arm + camera component; camera FOV 90–100');
+    notes.push('');
+    notes.push('## Weapon System');
+    notes.push('- WeaponBase Actor class: mesh, muzzle socket, fire rate, damage, ammo');
+    notes.push('- Fire() function: line trace from camera, apply damage on hit');
+    notes.push('- WeaponPickup Actor: overlap → equip weapon');
+    notes.push('- Ammo component: current / max / reserve');
+    notes.push('');
+  }
+
+  if (isZombie || isHorror) {
+    notes.push('## Enemy AI — Zombie / Horror');
+    notes.push('- EnemyCharacter Blueprint extends Character');
+    notes.push('- BehaviorTree: Patrol → Chase → Attack');
+    notes.push('- AIPerceptionComponent: sight (600 units), hearing (400 units)');
+    notes.push('- Attack montage: melee swing, damage applied on AnimNotify');
+    notes.push('- Death state: ragdoll, destroy after 5 s');
+    notes.push('');
+  }
+
+  if (isFPS || isZombie || isSurvival || isHorror) {
+    notes.push('## Health and Damage');
+    notes.push('- HealthComponent (ActorComponent): CurrentHealth, MaxHealth=100');
+    notes.push('- TakeDamage() override → HealthComponent.ApplyDamage()');
+    notes.push('- OnDeath delegate → trigger death logic on Character');
+    notes.push('- HUD: HealthBar widget bound to HealthComponent.CurrentHealth');
+    notes.push('');
+    notes.push('## Basic Objective Loop');
+    notes.push('- GameMode: tracks wave number, enemies remaining, win/lose conditions');
+    notes.push('- ObjectiveActor: interact to trigger next objective');
+    notes.push('- HUD: wave counter, objective text, ammo display');
+    notes.push('- LevelBlueprint: spawn enemy waves on timer');
+    notes.push('');
+  }
+
+  if (isRPG) {
+    notes.push('## RPG Systems');
+    notes.push('- CharacterStats component: Strength, Agility, Intelligence, Level, XP');
+    notes.push('- Inventory system: item array, weight limit, stackable items');
+    notes.push('- DialogueSystem: NPC interactions, branching conversation trees');
+    notes.push('- QuestManager: active/completed quests, objectives tracking');
+    notes.push('');
+  }
+
+  if (isRacing) {
+    notes.push('## Racing Systems');
+    notes.push('- VehiclePawn using ChaosWheeledVehicle');
+    notes.push('- Wheel blueprints: FrontWheel, RearWheel with friction curves');
+    notes.push('- LapTracker: checkpoint actors, lap time, best time');
+    notes.push('- RaceGameMode: countdown, start, finish line detection');
+    notes.push('');
+  }
+
+  if (isOpenWorld) {
+    notes.push('## Open World Systems');
+    notes.push('- World Partition enabled in DefaultEngine.ini');
+    notes.push('- HLODs for distant mesh merging');
+    notes.push('- StreamingLevelManager: load/unload regions by proximity');
+    notes.push('- DayNightCycle: DirectionalLight rotation, sky material change');
+    notes.push('');
+  }
+
+  if (isSurvival) {
+    notes.push('## Survival Systems');
+    notes.push('- NeedsComponent: Hunger, Thirst, Warmth — decay over time');
+    notes.push('- CraftingSystem: recipe data table, combine items in inventory');
+    notes.push('- BaseBuilding: snap-to-grid placement of wall/floor/roof actors');
+    notes.push('- SaveGame: serialize player state, inventory, world objects');
+    notes.push('');
+  }
+
+  return notes.length
+    ? notes.join('\n')
+    : '- Review the GameDesignBrief.md for game-specific feature notes.\n';
+}
+
 ipcMain.handle('gf-generate-game-folders', async (event, config) => {
   try {
     const settings = gfReadSettings();
     const root = gfProjectsRoot(settings);
-    const safeName = String(config.gameName || 'MyGame').replace(/[^a-z0-9_\-\s]/gi, '_').replace(/\s+/g, '_').slice(0, 64);
+
+    // Sanitised name: used as both folder prefix and UE module/class name
+    const safeName = sanitiseProjectName(config.gameName || 'MyGame');
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     const projectPath = path.join(root, `${safeName}_${stamp}`);
+    const isUnreal = config.engine === 'unreal' || config.createUnrealStructure;
 
-    const dirs = [
-      '', 'Assets', 'Assets/Models', 'Assets/Textures', 'Assets/Audio', 'Assets/Animations',
-      'Assets/Materials', 'Config', 'Docs', 'Output', 'Scripts', 'Scenes'
-    ];
-    dirs.forEach(d => ensureDir(path.join(projectPath, d)));
+    const log = [];  // collects step messages to return to renderer
 
-    const plan = {
+    // ── Step 1: Core directories ─────────────────────────────────────────────
+    const coreDirs = ['', 'Docs', 'Output', 'Scripts', 'Scenes'];
+    coreDirs.forEach(d => ensureDir(path.join(projectPath, d)));
+    log.push({ msg: 'Core project folders created.', level: 'ok' });
+
+    // ── Step 2: Unreal Engine 5 structure (or generic Assets) ────────────────
+    if (isUnreal) {
+      const ueDirs = [
+        'Config',
+        'Content',
+        'Content/Maps',
+        'Content/Blueprints',
+        'Content/Characters',
+        'Content/Weapons',
+        'Content/Audio',
+        'Content/Materials',
+        'Content/Meshes',
+        'Content/UI',
+        `Source`,
+        `Source/${safeName}`,
+      ];
+      ueDirs.forEach(d => ensureDir(path.join(projectPath, d)));
+      log.push({ msg: 'Content and Source folders created.', level: 'ok' });
+
+      // ── .uproject ──────────────────────────────────────────────────────────
+      const uproject = {
+        FileVersion: 3,
+        EngineAssociation: '5.6',
+        Category: '',
+        Description: String(config.description || '').slice(0, 200),
+        Modules: [{ Name: safeName, Type: 'Runtime', LoadingPhase: 'Default' }],
+        Plugins: [
+          { Name: 'EnhancedInput', Enabled: true },
+          { Name: 'ModelingToolsEditorMode', Enabled: true },
+          { Name: 'GameplayAbilities', Enabled: true }
+        ]
+      };
+      const uprojectPath = path.join(projectPath, `${safeName}.uproject`);
+      fs.writeFileSync(uprojectPath, JSON.stringify(uproject, null, 2), 'utf8');
+      log.push({ msg: `${safeName}.uproject created.`, level: 'ok' });
+
+      // ── Config .ini files ──────────────────────────────────────────────────
+      const defaultEngine = `[/Script/EngineSettings.GameMapsSettings]
+GameDefaultMap=/Game/Maps/StarterMap
+GlobalDefaultServerGameMode=/Script/${safeName}.${safeName}GameMode
+LocalMapOptions=
+
+[/Script/Engine.Engine]
+GameViewportClientClassName=/Script/Engine.GameViewportClient
+NearClipPlane=10.0
+
+[/Script/Engine.GarbageCollectionSettings]
+gc.MaxObjectsNotConsideredByGC=1000
+
+[/Script/Renderer.RendererSettings]
+r.DefaultFeature.AntiAliasing=2
+r.DefaultFeature.MotionBlur=0
+r.Shadow.CSM.MaxCascades=4
+`;
+      const defaultGame = `[/Script/EngineSettings.GameMapsSettings]
+GameDefaultMap=/Game/Maps/StarterMap
+GlobalDefaultServerGameMode=/Script/${safeName}.${safeName}GameMode
+
+[/Script/Engine.GameSession]
+MaxPlayers=4
+
+[${safeName}.${safeName}GameMode]
+DefaultPawnClass=/Script/${safeName}.${safeName}Character
+`;
+      const defaultInput = `[/Script/EnhancedInput.EnhancedInputProjectSettings]
+DefaultMappingContexts=()
+
+[/Script/Engine.InputSettings]
++ActionMappings=(ActionName="Jump",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=SpaceBar)
++ActionMappings=(ActionName="Fire",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=LeftMouseButton)
++ActionMappings=(ActionName="Interact",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=E)
++AxisMappings=(AxisName="MoveForward",Scale=1.0,Key=W)
++AxisMappings=(AxisName="MoveForward",Scale=-1.0,Key=S)
++AxisMappings=(AxisName="MoveRight",Scale=1.0,Key=D)
++AxisMappings=(AxisName="MoveRight",Scale=-1.0,Key=A)
++AxisMappings=(AxisName="Turn",Scale=1.0,Key=MouseX)
++AxisMappings=(AxisName="LookUp",Scale=-1.0,Key=MouseY)
+`;
+      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultEngine.ini'), defaultEngine, 'utf8');
+      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultGame.ini'), defaultGame, 'utf8');
+      fs.writeFileSync(path.join(projectPath, 'Config', 'DefaultInput.ini'), defaultInput, 'utf8');
+      log.push({ msg: 'Config/DefaultEngine.ini, DefaultGame.ini, DefaultInput.ini created.', level: 'ok' });
+
+      // ── Source files ───────────────────────────────────────────────────────
+      const gameTarget = `// Generated by GameForge AI Engine v6.8.2
+using UnrealBuildTool;
+using System.Collections.Generic;
+
+public class ${safeName}Target : TargetRules
+{
+    public ${safeName}Target(TargetInfo Target) : base(Target)
+    {
+        Type = TargetType.Game;
+        DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
+        ExtraModuleNames.Add("${safeName}");
+    }
+}
+`;
+      const editorTarget = `// Generated by GameForge AI Engine v6.8.2
+using UnrealBuildTool;
+using System.Collections.Generic;
+
+public class ${safeName}EditorTarget : TargetRules
+{
+    public ${safeName}EditorTarget(TargetInfo Target) : base(Target)
+    {
+        Type = TargetType.Editor;
+        DefaultBuildSettings = BuildSettingsVersion.V5;
+        IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_4;
+        ExtraModuleNames.Add("${safeName}");
+    }
+}
+`;
+      const buildCs = `// Generated by GameForge AI Engine v6.8.2
+using UnrealBuildTool;
+
+public class ${safeName} : ModuleRules
+{
+    public ${safeName}(ReadOnlyTargetRules Target) : base(Target)
+    {
+        PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+        PublicDependencyModuleNames.AddRange(new string[] {
+            "Core", "CoreUObject", "Engine", "InputCore",
+            "EnhancedInput", "GameplayAbilities", "GameplayTags", "GameplayTasks"
+        });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+    }
+}
+`;
+      const gameCpp = `// Generated by GameForge AI Engine v6.8.2
+#include "${safeName}.h"
+#include "Modules/ModuleManager.h"
+
+IMPLEMENT_PRIMARY_GAME_MODULE(FDefaultGameModuleImpl, ${safeName}, "${safeName}");
+`;
+      const gameH = `// Generated by GameForge AI Engine v6.8.2
+#pragma once
+#include "CoreMinimal.h"
+`;
+      const srcDir = path.join(projectPath, 'Source');
+      const moduleDir = path.join(projectPath, 'Source', safeName);
+      fs.writeFileSync(path.join(srcDir, `${safeName}.Target.cs`), gameTarget, 'utf8');
+      fs.writeFileSync(path.join(srcDir, `${safeName}Editor.Target.cs`), editorTarget, 'utf8');
+      fs.writeFileSync(path.join(moduleDir, `${safeName}.Build.cs`), buildCs, 'utf8');
+      fs.writeFileSync(path.join(moduleDir, `${safeName}.cpp`), gameCpp, 'utf8');
+      fs.writeFileSync(path.join(moduleDir, `${safeName}.h`), gameH, 'utf8');
+      log.push({ msg: `Source/${safeName}.Target.cs, ${safeName}Editor.Target.cs, ${safeName}/${safeName}.Build.cs/.cpp/.h created.`, level: 'ok' });
+
+    } else {
+      // Generic (non-Unreal) Assets folder
+      const assetDirs = [
+        'Assets', 'Assets/Models', 'Assets/Textures', 'Assets/Audio',
+        'Assets/Animations', 'Assets/Materials', 'Config'
+      ];
+      assetDirs.forEach(d => ensureDir(path.join(projectPath, d)));
+      log.push({ msg: 'Assets folders created.', level: 'ok' });
+    }
+
+    // ── Step 3: Docs ──────────────────────────────────────────────────────────
+    const gameTypeLabel = (config.gameType || 'game').toUpperCase();
+    const perspLabel = (config.perspective || 'fps').toUpperCase();
+
+    const designBrief = `# Game Design Brief — ${config.gameName}
+
+Generated by GameForge AI Engine v6.8.2
+Date: ${new Date().toLocaleString()}
+
+## Overview
+- **Project Name:** ${config.gameName}
+- **Game Type:** ${gameTypeLabel}
+- **Perspective:** ${perspLabel}
+- **Graphics Target:** ${config.graphics || 'realistic'}
+- **Engine:** ${config.engine || 'unreal'}
+
+## Concept
+${config.description || 'No description provided.'}
+
+## Feature Notes
+${gameTypeNotes(config.gameType, config.perspective)}
+## Asset Notes
+- Import GLB/FBX models into Content/Meshes/
+- PBR textures → Content/Materials/
+- Audio WAV/OGG → Content/Audio/
+- Character rigs → Content/Characters/
+`;
+
+    const controlsDoc = `# Controls Reference — ${config.gameName}
+
+## Keyboard & Mouse (Default)
+| Action         | Key              |
+|----------------|------------------|
+| Move Forward   | W                |
+| Move Backward  | S                |
+| Strafe Left    | A                |
+| Strafe Right   | D                |
+| Jump           | Space            |
+| Crouch         | Left Ctrl        |
+| Interact       | E                |
+| Fire / Attack  | Left Mouse       |
+| Aim            | Right Mouse      |
+| Reload         | R                |
+| Sprint         | Left Shift (hold)|
+| Pause Menu     | Escape           |
+
+## Gamepad (Xbox Layout)
+| Action         | Button          |
+|----------------|-----------------|
+| Move           | Left Stick      |
+| Look           | Right Stick     |
+| Jump           | A               |
+| Crouch         | B               |
+| Fire           | RT              |
+| Aim            | LT              |
+| Reload         | X               |
+| Interact       | Y               |
+| Pause          | Menu            |
+`;
+
+    const setupChecklist = `# Unreal Engine Setup Checklist — ${config.gameName}
+
+## Before Opening in Unreal Editor
+- [ ] Unreal Engine 5.4 or 5.6 installed via Epic Games Launcher
+- [ ] Visual Studio 2022 installed with "Game Development with C++" workload
+- [ ] .NET 8.0 SDK installed
+
+## First-Time Setup
+1. Right-click **${safeName}.uproject** → "Generate Visual Studio project files"
+2. Open **${safeName}.sln** in Visual Studio 2022
+3. Set build target to **Development Editor | Win64**
+4. Press **F7** (Build Solution) — first compile takes 5–15 min
+5. Open **${safeName}.uproject** in Unreal Editor
+
+## In Unreal Editor
+- [ ] Create a new level: File → New Level → Basic or Empty → Save to Content/Maps/StarterMap
+- [ ] Set GameMode: Project Settings → Maps & Modes → Default GameMode → ${safeName}GameMode
+- [ ] Import assets: drag GLB/FBX into Content/Meshes, textures into Content/Materials
+- [ ] Set up Input: Edit → Project Settings → Input → import DefaultInput.ini mappings
+
+## Content Directories
+| Folder              | Purpose                        |
+|---------------------|-------------------------------|
+| Content/Maps        | Level .umap files              |
+| Content/Blueprints  | Game logic Blueprints          |
+| Content/Characters  | Character meshes + skeletons   |
+| Content/Weapons     | Weapon meshes + Blueprints     |
+| Content/Audio       | Sound waves + cues             |
+| Content/Materials   | Material instances + textures  |
+| Content/Meshes      | Static + skeletal meshes       |
+| Content/UI          | Widget Blueprints + HUD        |
+
+## Useful Unreal Console Commands (Play-In-Editor)
+| Command                    | Effect                        |
+|----------------------------|-------------------------------|
+| \`stat fps\`               | Show FPS overlay              |
+| \`r.ScreenPercentage 75\`  | Reduce render resolution      |
+| \`slomo 0.5\`              | Half game speed               |
+| \`god\`                    | Toggle god mode               |
+| \`toggledebugcamera\`      | Free fly camera               |
+`;
+
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'GameDesignBrief.md'), designBrief, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'Controls.md'), controlsDoc, 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Docs', 'UnrealSetupChecklist.md'), setupChecklist, 'utf8');
+    log.push({ msg: 'Docs/GameDesignBrief.md, Controls.md, UnrealSetupChecklist.md created.', level: 'ok' });
+
+    // ── Step 4: Scripts ───────────────────────────────────────────────────────
+    const scriptNotes = `# Generation Notes — ${config.gameName}
+
+Generated: ${new Date().toLocaleString()}
+GameForge AI Engine v6.8.2
+
+## What Was Generated
+- Project skeleton: ${isUnreal ? 'Unreal Engine 5' : 'Generic'}
+- Game type: ${gameTypeLabel}
+- Perspective: ${perspLabel}
+- Graphics target: ${config.graphics || 'realistic'}
+
+## Next Steps
+${isUnreal ? `1. Generate Visual Studio project files (right-click .uproject)
+2. Build in Visual Studio 2022 (Development Editor | Win64)
+3. Open .uproject in Unreal Editor 5.4+
+4. Create a level in Content/Maps/
+5. Import assets into Content/ subfolders` : `1. Import your assets into the Assets/ subfolders
+2. Refer to Docs/GameDesignBrief.md for feature guidance`}
+
+## Meshy Assets
+${config.useMeshy && config.meshyApiKey ? 'Queued — check Output/generation_manifest.json' : 'Disabled or no API key — add Meshy key in GameForge Settings'}
+
+## Audio
+${config.generateAudio ? 'Procedural WAV placeholders generated in project audio folder' : 'Disabled'}
+`;
+    fs.writeFileSync(path.join(projectPath, 'Scripts', 'GenerateNotes.md'), scriptNotes, 'utf8');
+    log.push({ msg: 'Scripts/GenerateNotes.md created.', level: 'ok' });
+
+    // ── Step 5: Scenes ────────────────────────────────────────────────────────
+    const mapPlan = `# Starter Map Plan — ${config.gameName}
+
+## Level: StarterMap
+
+### Layout Concept
+${config.description ? config.description.slice(0, 300) : 'Define your opening level here.'}
+
+### Key Areas
+1. **Player Start** — spawn point near map centre
+2. **Safe Zone** — initial shelter, tutorial introduction
+3. **Objective Area 1** — first encounter / objective
+4. **Objective Area 2** — mid-map escalation
+5. **Exit / Escape Route** — final goal location
+
+### Lighting
+- Sky: Directional Light (moonlit / overcast depending on game type)
+- Atmosphere: Exponential Height Fog, Sky Atmosphere
+- Interior: Point Lights, Spot Lights at key props
+
+### Suggested Unreal Level Setup
+\`\`\`
+Level: Content/Maps/StarterMap.umap
+World Settings:
+  GameMode Override: ${safeName}GameMode
+  Kill Z: -2000
+Lighting:
+  Directional Light: Intensity=3, Lux
+  Sky Light: Capture Scene
+  Fog: Start Distance=200, Density=0.02
+Volumes:
+  Post Process Volume: Infinite Extent=true
+    Vignette: 0.4
+    Exposure Compensation: 0.0
+\`\`\`
+`;
+    fs.writeFileSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'), mapPlan, 'utf8');
+    log.push({ msg: 'Scenes/StarterMapPlan.md created.', level: 'ok' });
+
+    // ── Step 6: Output manifest ───────────────────────────────────────────────
+    const uprojectExists = isUnreal && fs.existsSync(path.join(projectPath, `${safeName}.uproject`));
+    const manifest = {
       generatedAt: new Date().toISOString(),
+      generator: 'GameForge AI Engine v6.8.2',
       gameName: config.gameName,
+      sanitisedName: safeName,
       gameType: config.gameType,
       description: config.description,
       perspective: config.perspective,
       graphics: config.graphics,
       engine: config.engine,
       projectPath,
-      structure: dirs,
-      meshy: config.useMeshy && config.meshyApiKey ? 'enabled' : config.useMeshy ? 'no-key' : 'disabled',
+      unrealStructure: isUnreal ? 'enabled' : 'disabled',
+      uprojectFile: isUnreal ? `${safeName}.uproject` : null,
+      uprojectExists,
+      meshy: config.useMeshy && config.meshyApiKey ? 'queued' : config.useMeshy ? 'skipped-no-key' : 'disabled',
       audio: config.generateAudio ? 'enabled' : 'disabled',
-      unrealStructure: config.createUnrealStructure ? 'enabled' : 'disabled'
+      filesCreated: log.map(l => l.msg)
     };
+    const launchReport = {
+      generatedAt: new Date().toISOString(),
+      status: 'GENERATED',
+      projectPath,
+      uprojectExists,
+      checks: {
+        uproject: uprojectExists ? 'PASS' : (isUnreal ? 'FAIL' : 'N/A'),
+        configFiles: isUnreal && fs.existsSync(path.join(projectPath, 'Config', 'DefaultEngine.ini')) ? 'PASS' : (isUnreal ? 'FAIL' : 'N/A'),
+        sourceFiles: isUnreal && fs.existsSync(path.join(projectPath, 'Source', `${safeName}`, `${safeName}.cpp`)) ? 'PASS' : (isUnreal ? 'FAIL' : 'N/A'),
+        docs: fs.existsSync(path.join(projectPath, 'Docs', 'GameDesignBrief.md')) ? 'PASS' : 'FAIL'
+      }
+    };
+    fs.writeFileSync(path.join(projectPath, 'Output', 'generation_manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+    fs.writeFileSync(path.join(projectPath, 'Output', 'launch_report.json'), JSON.stringify(launchReport, null, 2), 'utf8');
+    log.push({ msg: 'Output/generation_manifest.json and launch_report.json created.', level: 'ok' });
 
-    fs.writeFileSync(path.join(projectPath, 'Config', 'game_plan.json'), JSON.stringify(plan, null, 2), 'utf8');
-
+    // ── Step 7: Root README ───────────────────────────────────────────────────
     const readme = `# ${config.gameName}
 
-Generated by GameForge AI Engine v6.8.2
-Date: ${new Date().toLocaleString()}
+> Generated by GameForge AI Engine v6.8.2 — ${new Date().toLocaleString()}
 
-## Game Details
-- Type: ${config.gameType}
-- Perspective: ${config.perspective}
-- Graphics Target: ${config.graphics}
-- Engine: ${config.engine}
+## Quick Start
+${isUnreal
+  ? `1. Right-click \`${safeName}.uproject\` → "Generate Visual Studio project files"
+2. Open \`${safeName}.sln\` in Visual Studio 2022 and build (F7)
+3. Open \`${safeName}.uproject\` in Unreal Editor 5.4 or 5.6
+4. See \`Docs/UnrealSetupChecklist.md\` for the full setup guide`
+  : `1. Import assets into Assets/ subfolders
+2. Open Docs/GameDesignBrief.md for feature guidance`}
+
+## Project
+| Field      | Value                  |
+|------------|------------------------|
+| Game Type  | ${gameTypeLabel}       |
+| Perspective| ${perspLabel}          |
+| Graphics   | ${config.graphics || 'realistic'} |
+| Engine     | ${config.engine || 'unreal'} |
 
 ## Description
 ${config.description || 'No description provided.'}
 
 ## Folder Structure
-- Assets/Models     — 3D model files (GLB, FBX)
-- Assets/Textures   — PBR texture maps
-- Assets/Audio      — Audio files (WAV, MP3)
-- Assets/Animations — Animation data
-- Assets/Materials  — Material definitions
-- Config            — Project configuration files
-- Docs              — Documentation and reports
-- Output            — Build output files
-- Scripts           — Game logic scripts
-- Scenes            — Scene layout files
+${isUnreal ? `\`\`\`
+${safeName}.uproject        ← Open this in Unreal Editor
+Config/
+  DefaultEngine.ini
+  DefaultGame.ini
+  DefaultInput.ini
+Content/
+  Maps/                    ← Level files (.umap)
+  Blueprints/              ← Game logic
+  Characters/              ← Character meshes
+  Weapons/                 ← Weapon assets
+  Audio/                   ← Sound files
+  Materials/               ← PBR materials
+  Meshes/                  ← Static/skeletal meshes
+  UI/                      ← HUD and menus
+Source/
+  ${safeName}/
+    ${safeName}.Build.cs
+    ${safeName}.cpp
+    ${safeName}.h
+Docs/
+Output/
+Scripts/
+Scenes/
+\`\`\`` : `\`\`\`
+Assets/Models
+Assets/Textures
+Assets/Audio
+Assets/Materials
+Config/
+Docs/
+Output/
+\`\`\``}
 `;
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
-    return { ok: true, projectPath, safeName, dirs };
+    if (isUnreal) {
+      log.push({ msg: `Unreal Engine 5 project skeleton complete — ${safeName}.uproject ready.`, level: 'ok' });
+    }
+
+    return {
+      ok: true,
+      projectPath,
+      safeName,
+      isUnreal,
+      uprojectExists,
+      uprojectFile: isUnreal ? path.join(projectPath, `${safeName}.uproject`) : null,
+      log
+    };
   } catch(e) {
     return { ok: false, error: e.message };
   }
 });
 
-// ── Generate Unreal Engine project structure ─────────────────────────────────
+// ── Generate Unreal Engine project structure (delegates to gf-generate-game-folders) ──
 ipcMain.handle('gf-generate-unreal-structure', async (event, config) => {
-  try {
-    const settings = gfReadSettings();
-    const root = gfProjectsRoot(settings);
-    const safeName = String(config.gameName || 'MyGame').replace(/[^a-z0-9_]/gi, '').slice(0, 32) || 'MyGame';
-    const ueRoot = path.join(root, `UE_${safeName}`);
-
-    const ueDirs = [
-      '', 'Content', 'Content/Blueprints', 'Content/Characters', 'Content/Environment',
-      'Content/Materials', 'Content/Maps', 'Content/UI', 'Content/Audio',
-      'Config', 'Source', 'Plugins'
-    ];
-    ueDirs.forEach(d => ensureDir(path.join(ueRoot, d)));
-
-    const uproject = {
-      FileVersion: 3,
-      EngineAssociation: '5.4',
-      Category: '',
-      Description: config.description || '',
-      Modules: [{ Name: safeName, Type: 'Runtime', LoadingPhase: 'Default' }],
-      Plugins: [
-        { Name: 'ModelingToolsEditorMode', Enabled: true },
-        { Name: 'EnhancedInput', Enabled: true }
-      ]
-    };
-    fs.writeFileSync(path.join(ueRoot, `${safeName}.uproject`), JSON.stringify(uproject, null, 2), 'utf8');
-
-    const ueConfig = `[/Script/EngineSettings.GameMapsSettings]
-GameDefaultMap=/Game/Maps/MainLevel
-GlobalDefaultServerGameMode=/Script/Engine.GameModeBase
-
-[/Script/Engine.Engine]
-GameViewportClientClassName=/Script/Engine.GameViewportClient
-`;
-    fs.writeFileSync(path.join(ueRoot, 'Config', 'DefaultGame.ini'), ueConfig, 'utf8');
-
-    return { ok: true, ueRoot, safeName };
-  } catch(e) {
-    return { ok: false, error: e.message };
-  }
+  // This handler is now a no-op — the full Unreal skeleton is created inside
+  // gf-generate-game-folders when engine === 'unreal' or createUnrealStructure is true.
+  // Kept for backwards-compat with any legacy callers.
+  return { ok: true, delegated: true, note: 'Unreal structure is created inside gf-generate-game-folders.' };
 });
 
 // ── Meshy generate for game (queues prompts, saves manifest) ─────────────────
