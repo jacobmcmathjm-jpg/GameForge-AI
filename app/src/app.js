@@ -347,9 +347,11 @@ function _updateGenSummary() {
       <b>Meshy 3D assets:</b> ${useMeshy ? (SETTINGS.meshyApiKey ? 'Yes (key configured)' : 'MeshyAssetPlan.md created (no key)') : 'No'}<br>
       <b>Audio placeholders:</b> ${useAudio ? 'Yes' : 'No'}<br>
       <div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.1);border-radius:4px;font-size:11px;color:var(--warn);line-height:1.6;">
-        <b>Expected output:</b> Environment Walkthrough / Project Shell<br>
-        Opens in Unreal with terrain and sky. No player HUD, weapons, enemies, or gameplay systems.<br>
-        Install a local template to generate a playable project.
+        <b>Expected output:</b> Depends on installed template<br>
+        No template installed → <b>Project Shell / Environment Walkthrough</b> (no gameplay systems)<br>
+        Template with player + map → <b>Playable Movement Template</b><br>
+        Template with player + weapons + enemies → <b>Playable Template Project</b><br>
+        Set <code>status: "stable"</code> in template_manifest.json to activate a template.
       </div>
     `;
   }
@@ -519,7 +521,16 @@ async function startGameGeneration() {
       if (config.cppProject) {
         _genLog(`Open ${sn}.uproject — compile C++ modules in Visual Studio first.`, 'warn');
       } else if (folderResult && folderResult.templateUsed) {
-        _genLog(`Playable ${config.gameType} template copied successfully.`, 'ok');
+        const tLevel = folderResult.templateLevel || 'unknown';
+        _genLog(`Template copied — level: ${tLevel}`, 'ok');
+        if (tLevel === 'movement_base') {
+          _genLog(`Movement template confirmed — player movement ready. Weapons, enemies, HUD not installed.`, 'ok');
+          _genLog(`Next upgrade: ${folderResult.nextRecommendedUpgrade || 'add weapon Blueprints'}`, 'ok');
+        } else if (tLevel === 'fps_weapon_base') {
+          _genLog(`FPS weapon template confirmed — movement and weapons ready.`, 'ok');
+        } else if (tLevel === 'full_playable_template' || tLevel === 'zombie_shooter_base') {
+          _genLog(`Full gameplay template confirmed — player, weapons, enemies detected.`, 'ok');
+        }
         _genLog(`Project is Blueprint-only. No C++ modules required.`, 'ok');
         _genLog(`No missing plugin references found.`, 'ok');
         _genLog(`Double-click ${sn}.uproject in Unreal Editor — press Play to test.`, 'ok');
@@ -544,22 +555,36 @@ async function startGameGeneration() {
     if (resultCard) resultCard.style.display = 'block';
 
     const isTemplate = folderResult && folderResult.templateUsed;
-    const isPartial = resultType === 'Playable Template Project (Verify Content)';
+    const templateLevel = folderResult && folderResult.templateLevel ? folderResult.templateLevel : 'none';
+    const isMovementBase = templateLevel === 'movement_base';
+    const isFPSWeapon = templateLevel === 'fps_weapon_base';
+    const isFullTemplate = templateLevel === 'full_playable_template' || templateLevel === 'zombie_shooter_base';
+    const isPartial = templateLevel === 'incomplete' || resultType === 'Playable Template Project (Verify Content)';
+
+    const titleText = !isTemplate
+      ? 'Project Shell / Environment Walkthrough'
+      : isMovementBase ? 'Playable Movement Template'
+      : isFPSWeapon   ? 'FPS Weapon Template'
+      : isFullTemplate ? 'Playable Template Project Ready'
+      : 'Playable Template Project (Verify Content)';
+
+    const titleColor = !isTemplate ? 'var(--warn)'
+      : isFullTemplate ? 'var(--success)'
+      : 'var(--accent2)';
+
+    const subtitleText = !isTemplate
+      ? 'Project Shell / Environment Walkthrough generated. The project opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, or gameplay systems. Build those in Unreal Editor, or install a local template (see docs/Template_Install_Guide.md).'
+      : isMovementBase ? 'Playable Movement Template — player movement confirmed. Open in Unreal Editor and press Play to test movement. Weapons, enemies, HUD, and health are not installed yet.'
+      : isFPSWeapon   ? 'FPS Weapon Template — player movement and weapons present. Open in Unreal Editor and press Play. Enemies and HUD are not installed yet.'
+      : isFullTemplate ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test gameplay.'
+      : 'Template was copied, but content verification is needed. Open in Unreal Editor to confirm content.';
 
     if (resultTitle) {
-      resultTitle.textContent = isTemplate && !isPartial
-        ? 'Playable Template Project Ready'
-        : isTemplate
-          ? 'Playable Template Project (Verify Content)'
-          : 'Project Shell / Environment Walkthrough';
-      resultTitle.style.color = isTemplate && !isPartial ? 'var(--success)' : isTemplate ? 'var(--warn)' : 'var(--warn)';
+      resultTitle.textContent = titleText;
+      resultTitle.style.color = titleColor;
     }
     if (resultSubtitle) {
-      resultSubtitle.textContent = isTemplate && !isPartial
-        ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test gameplay.'
-        : isTemplate
-          ? 'Template was copied, but some gameplay folders may be empty. Verify template content in Unreal Editor.'
-          : 'Environment Walkthrough / Project Shell generated. The project opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, or gameplay systems. Build those in Unreal Editor, or install a local template (see docs/Template_Install_Guide.md).';
+      resultSubtitle.textContent = subtitleText;
     }
 
     if (resultDetails) {
@@ -582,8 +607,19 @@ async function startGameGeneration() {
       const templateLine = isUnrealEngine
         ? `<b>Generation mode:</b> <span style="color:var(--${isTemplate ? (isPartial ? 'warn' : 'success') : 'muted'})">${resultType}</span><br>`
         : '';
+      const missing = folderResult && folderResult.missingOptionalSystems ? folderResult.missingOptionalSystems : [];
+      const upgrade = folderResult && folderResult.nextRecommendedUpgrade ? folderResult.nextRecommendedUpgrade : '';
+      const gameplayAssetsText = !isTemplate
+        ? 'None — player, HUD, weapons, enemies, health not installed. Build in Unreal Editor or install a template.'
+        : isMovementBase
+          ? `Movement confirmed. Missing: ${missing.join(', ') || 'none'}. Next: ${upgrade}`
+          : isFPSWeapon
+            ? `Movement + weapons present. Missing: ${missing.join(', ') || 'none'}. Next: ${upgrade}`
+            : isFullTemplate
+              ? '✓ Player, weapons, enemies, HUD detected'
+              : '! Verify template content in Unreal Editor';
       const gameplayAssetsLine = isUnrealEngine
-        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && !keyFoldersEmpty ? 'success' : 'warn'})">${isTemplate && !keyFoldersEmpty ? '✓ Template assets present' : isTemplate ? '! Template folders appear empty — verify template' : 'None — player, HUD, weapons, enemies, health not installed. Build in Unreal Editor or install a template.'}</span><br>`
+        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && isFullTemplate ? 'success' : isTemplate ? 'accent2' : 'warn'})">${gameplayAssetsText}</span><br>`
         : '';
       const scoreLine = score != null
         ? `<b>Readiness Score:</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`

@@ -656,7 +656,7 @@
           <div style="font-size:13px;font-weight:700;color:var(--warn);margin-bottom:6px;">What GameForge generates right now</div>
           <div style="font-size:12px;color:var(--text);line-height:1.7;">
             <b style="color:var(--warn);">Environment Walkthrough / Project Shell</b> — A Blueprint-only Unreal project that opens with terrain and sky. You can walk around, but there is no player HUD, no weapons, no health, no enemies, and no gameplay systems. The folders, config files, and documentation are correct and ready for you to build in Unreal Editor.<br><br>
-            <b style="color:var(--accent2);">Playable Template Project (coming when you install a template)</b> — If you place a working Blueprint-only Unreal project into <code style="font-size:11px;">app/templates/unreal/fps_blueprint/</code> and update the <code style="font-size:11px;">template_manifest.json</code> status to <code style="font-size:11px;">"stable"</code>, GameForge will copy it instead and you get a real playable game with FPS movement, weapons, and enemies.<br><br>
+            <b style="color:var(--accent2);">Playable Movement Template / FPS Weapon Template / Playable Template Project</b> — When a matching template is installed, GameForge copies it and classifies the output automatically: <b>movement_base</b> (maps + player found), <b>fps_weapon_base</b> (adds weapons), <b>zombie_shooter_base</b> (adds enemies), or <b>full_playable_template</b> (all systems). Set <code style="font-size:11px;">status: "stable"</code> in <code style="font-size:11px;">template_manifest.json</code> to activate.<br><br>
             See <b>docs/Template_Install_Guide.md</b> for instructions.
           </div>
         </div>
@@ -728,15 +728,23 @@
             <div style="margin-top:6px;display:flex;flex-direction:column;gap:8px;">
               <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:6px;padding:10px;">
                 <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">Project Shell / Environment Walkthrough (default)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Opens in Unreal Editor. Blueprint-only, no plugin errors, correct folder structure. Build gameplay assets inside Unreal Editor.</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Opens in Unreal with terrain and sky. Blueprint-only, no plugin errors. No gameplay systems installed — build in Unreal Editor.</div>
+              </div>
+              <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:6px;padding:10px;">
+                <div style="font-size:12px;font-weight:700;color:var(--warn);margin-bottom:3px;">Playable Movement Template (movement_base)</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Player movement confirmed. Maps and player content detected. Weapons, enemies, HUD not installed yet. Upgrade by adding weapon Blueprints.</div>
               </div>
               <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:6px;padding:10px;">
-                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;">Playable Template Project (auto-upgrades when installed)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">If a matching template exists in <code style="font-size:10px;">app/templates/unreal/</code>, GameForge copies it automatically — gives you a project with starter gameplay assets you can press Play on immediately.</div>
+                <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:3px;">FPS Weapon Template / Zombie Shooter Template</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Movement and weapons (fps_weapon_base), or movement, weapons and enemies (zombie_shooter_base). Press Play to test in Unreal Editor.</div>
+              </div>
+              <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:6px;padding:10px;">
+                <div style="font-size:12px;font-weight:700;color:var(--success);margin-bottom:3px;">Playable Template Project (full_playable_template)</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">Player, weapons, enemies, and HUD all detected. Press Play immediately in Unreal Editor to test full gameplay.</div>
               </div>
               <div style="background:rgba(107,114,128,0.08);border:1px solid rgba(107,114,128,0.2);border-radius:6px;padding:10px;">
                 <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:3px;">Packaged Build (future feature)</div>
-                <div style="font-size:11px;color:var(--muted);line-height:1.5;">A compiled Windows .exe. The only output that qualifies as a downloadable playable game.</div>
+                <div style="font-size:11px;color:var(--muted);line-height:1.5;">A compiled Windows .exe — the final deliverable. Package from Unreal Editor after gameplay is complete.</div>
               </div>
             </div>
 

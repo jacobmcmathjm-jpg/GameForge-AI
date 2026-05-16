@@ -7644,43 +7644,109 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-// Checks if the key gameplay folders inside a copied template have any files
-function checkTemplateFoldersPopulated(projectPath) {
-  const checks = {
+// Recursively scans Content/ of a copied template for gameplay content
+// Returns detection results that work for any Unreal folder layout (FirstPerson/, Blueprints/, etc.)
+function scanTemplateContent(projectPath) {
+  const PLAYER_TERMS   = /player|character|pawn|firstperson|fp_|bp_fp|mannequin|hero|protagonist/i;
+  const WEAPON_TERMS   = /weapon|gun|rifle|pistol|shoot|fire|projectile|bullet|ammo/i;
+  const ENEMY_TERMS    = /enemy|enemies|zombie|ai|npc|creature|monster|bot/i;
+  const UI_TERMS       = /hud|widget|ui|wbp_|menu|overlay|health_bar|ammo_count/i;
+  const BP_FOLDER_TERMS = /blueprint|bp_|firstperson|gameplay|characters|weapons|enemies|ui/i;
+
+  const result = {
     mapsHasFiles: false,
     blueprintsHasFiles: false,
     playerFolderExists: false,
     enemiesFolderExists: false,
     weaponsFolderExists: false,
     uiFolderExists: false,
+    detectedMaps: [],
+    detectedBlueprintFolders: [],
+    detectedPlayerContent: [],
+    detectedWeaponContent: [],
+    detectedEnemyContent: [],
+    detectedUIContent: [],
   };
-  const mapsDir = path.join(projectPath, 'Content', 'Maps');
-  if (fs.existsSync(mapsDir)) {
-    try { checks.mapsHasFiles = fs.readdirSync(mapsDir).some(f => f.endsWith('.umap') || f.endsWith('.uasset')); } catch(e) {}
-  }
-  const bpDir = path.join(projectPath, 'Content', 'Blueprints');
-  if (fs.existsSync(bpDir)) {
-    try {
-      const bpEntries = fs.readdirSync(bpDir, { withFileTypes: true });
-      checks.blueprintsHasFiles = bpEntries.some(e => e.isFile());
-      checks.playerFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'player');
-      checks.enemiesFolderExists = bpEntries.some(e => e.isDirectory() && (e.name.toLowerCase() === 'enemies' || e.name.toLowerCase() === 'enemy'));
-      checks.weaponsFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'weapons');
-      checks.uiFolderExists = bpEntries.some(e => e.isDirectory() && e.name.toLowerCase() === 'ui');
-      // Also count files in subdirs
-      if (!checks.blueprintsHasFiles) {
-        for (const e of bpEntries) {
-          if (e.isDirectory()) {
-            try {
-              const sub = fs.readdirSync(path.join(bpDir, e.name));
-              if (sub.length > 0) { checks.blueprintsHasFiles = true; break; }
-            } catch(e2) {}
+
+  const contentDir = path.join(projectPath, 'Content');
+  if (!fs.existsSync(contentDir)) return result;
+
+  function walk(dir, depth) {
+    if (depth > 6) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch(e) { return; }
+    for (const entry of entries) {
+      const entryPath = path.join(dir, entry.name);
+      const nameLower = entry.name.toLowerCase();
+      if (entry.isFile()) {
+        if (nameLower.endsWith('.umap')) {
+          result.mapsHasFiles = true;
+          result.detectedMaps.push(entryPath.replace(projectPath + path.sep, ''));
+        }
+        if (nameLower.endsWith('.uasset') || nameLower.endsWith('.umap')) {
+          result.blueprintsHasFiles = true;
+          if (PLAYER_TERMS.test(nameLower)) {
+            result.playerFolderExists = true;
+            if (result.detectedPlayerContent.length < 5) result.detectedPlayerContent.push(entry.name);
+          }
+          if (WEAPON_TERMS.test(nameLower)) {
+            result.weaponsFolderExists = true;
+            if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name);
+          }
+          if (ENEMY_TERMS.test(nameLower)) {
+            result.enemiesFolderExists = true;
+            if (result.detectedEnemyContent.length < 5) result.detectedEnemyContent.push(entry.name);
+          }
+          if (UI_TERMS.test(nameLower)) {
+            result.uiFolderExists = true;
+            if (result.detectedUIContent.length < 5) result.detectedUIContent.push(entry.name);
           }
         }
+      } else if (entry.isDirectory()) {
+        if (PLAYER_TERMS.test(nameLower)) {
+          result.playerFolderExists = true;
+          if (result.detectedPlayerContent.length < 5) result.detectedPlayerContent.push(entry.name + '/');
+        }
+        if (WEAPON_TERMS.test(nameLower)) {
+          result.weaponsFolderExists = true;
+          if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name + '/');
+        }
+        if (ENEMY_TERMS.test(nameLower)) {
+          result.enemiesFolderExists = true;
+          if (result.detectedEnemyContent.length < 5) result.detectedEnemyContent.push(entry.name + '/');
+        }
+        if (UI_TERMS.test(nameLower)) {
+          result.uiFolderExists = true;
+          if (result.detectedUIContent.length < 5) result.detectedUIContent.push(entry.name + '/');
+        }
+        if (BP_FOLDER_TERMS.test(nameLower)) {
+          if (result.detectedBlueprintFolders.length < 10) result.detectedBlueprintFolders.push(entry.name + '/');
+        }
+        walk(entryPath, depth + 1);
       }
-    } catch(e) {}
+    }
   }
-  return checks;
+
+  walk(contentDir, 0);
+  return result;
+}
+
+// Determines the template level from scan results
+// movement_base → fps_weapon_base → zombie_shooter_base → full_playable_template
+function classifyTemplateLevel(scan) {
+  const hasMap      = scan.mapsHasFiles;
+  const hasPlayer   = scan.playerFolderExists;
+  const hasWeapon   = scan.weaponsFolderExists;
+  const hasEnemy    = scan.enemiesFolderExists;
+  const hasUI       = scan.uiFolderExists;
+
+  if (!hasMap || !scan.blueprintsHasFiles) return 'incomplete';
+  if (hasMap && hasPlayer && hasWeapon && hasEnemy && hasUI) return 'full_playable_template';
+  if (hasMap && hasPlayer && hasWeapon && hasEnemy)           return 'zombie_shooter_base';
+  if (hasMap && hasPlayer && hasWeapon)                       return 'fps_weapon_base';
+  if (hasMap && hasPlayer)                                    return 'movement_base';
+  if (hasMap)                                                 return 'movement_base';
+  return 'incomplete';
 }
 
 // ── Sanitise a project name to a valid C++/UE identifier ─────────────────────
@@ -8475,62 +8541,98 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     const controlsOk = fs.existsSync(path.join(projectPath, 'Docs', 'Controls.md'));
     const mapPlanOk = fs.existsSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'));
 
-    // Template-specific folder population checks
-    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false };
-    const keyFoldersEmpty = !templateUsed || !templateFolderChecks.blueprintsHasFiles;
+    // Template-specific content scan (recursive — works for any Unreal folder layout)
+    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false, detectedMaps: [], detectedBlueprintFolders: [], detectedPlayerContent: [], detectedWeaponContent: [], detectedEnemyContent: [], detectedUIContent: [] };
+    let templateLevel = 'none';
     if (templateUsed) {
-      templateFolderChecks = checkTemplateFoldersPopulated(projectPath);
+      templateFolderChecks = scanTemplateContent(projectPath);
+      templateLevel = classifyTemplateLevel(templateFolderChecks);
     }
+    const keyFoldersEmpty = !templateUsed || !templateFolderChecks.blueprintsHasFiles;
 
-    // Determine result type
+    // Determine result type based on templateLevel
     let resultType = 'Project Shell / Environment Walkthrough';
-    if (templateUsed && templateFolderChecks.blueprintsHasFiles && templateFolderChecks.mapsHasFiles) {
-      resultType = 'Playable Template Project';
-    } else if (templateUsed) {
-      resultType = 'Playable Template Project (Verify Content)';
+    if (templateUsed) {
+      if (templateLevel === 'full_playable_template') resultType = 'Playable Template Project';
+      else if (templateLevel === 'zombie_shooter_base') resultType = 'Playable Template Project';
+      else if (templateLevel === 'fps_weapon_base') resultType = 'FPS Weapon Template';
+      else if (templateLevel === 'movement_base') resultType = 'Playable Movement Template';
+      else resultType = 'Playable Template Project (Verify Content)';
     }
 
-    const readinessChecks = {
+    // Required checks (always scored)
+    const requiredChecks = {
       uproject:             isUnreal ? (uprojectExists ? 'PASS' : 'FAIL') : 'N/A',
       blueprintOnly:        isUnreal ? (uprojectHasNoModules && !isCppProject ? 'PASS' : isCppProject ? 'ADVANCED' : 'WARN') : 'N/A',
       noCppModulesRequired: isUnreal ? (!isCppProject ? 'PASS' : 'ADVANCED') : 'N/A',
       noMissingPlugins:     isUnreal ? (uprojectHasNoBlueprintEditorUtils ? 'PASS' : 'FAIL') : 'N/A',
       configFiles:          isUnreal ? (configFolderOk ? 'PASS' : 'FAIL') : 'N/A',
       contentFolder:        isUnreal ? (contentFolderOk ? 'PASS' : 'FAIL') : 'N/A',
-      mapsFolder:           isUnreal ? (mapsOk ? 'PASS' : 'FAIL') : 'N/A',
-      blueprintsFolder:     isUnreal ? (blueprintsOk ? 'PASS' : 'FAIL') : 'N/A',
-      playerFolder:         isUnreal ? (templateFolderChecks.playerFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
-      enemiesFolder:        isUnreal ? (templateFolderChecks.enemiesFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
-      weaponsFolder:        isUnreal ? (templateFolderChecks.weaponsFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
-      uiFolder:             isUnreal ? (templateFolderChecks.uiFolderExists || !templateUsed ? (blueprintsOk ? 'PASS' : 'FAIL') : 'MISSING') : 'N/A',
-      gameplayAssetsPresent: templateUsed ? (templateFolderChecks.blueprintsHasFiles ? 'PASS' : 'EMPTY-SHELL') : 'SHELL-NO-TEMPLATE',
-      mapsHasFiles:          templateUsed ? (templateFolderChecks.mapsHasFiles ? 'PASS' : 'EMPTY') : 'SHELL',
+      mapsPresent:          isUnreal ? (templateFolderChecks.mapsHasFiles ? 'PASS' : (templateUsed ? 'FAIL' : 'SHELL')) : 'N/A',
+      playerContentPresent: isUnreal ? (templateFolderChecks.playerFolderExists ? 'PASS' : (templateUsed ? 'FAIL' : 'SHELL')) : 'N/A',
       starterMapPlan:       mapPlanOk ? 'PASS' : 'FAIL',
       gameplayLoopDoc:      gameplayLoopOk ? 'PASS' : 'FAIL',
       controlsDoc:          controlsOk ? 'PASS' : 'FAIL',
-      meshyStatus:          !config.useMeshy ? 'PASS' : (config.meshyApiKey ? 'QUEUED' : 'SKIPPED-NO-KEY-SAFE'),
       readyToOpenInUnreal:  isUnreal && uprojectExists && (uprojectHasNoModules || isCppProject) ? 'PASS' : (isUnreal ? 'CHECK' : 'N/A'),
-      packagingReadiness:   'PENDING'
     };
 
-    // Score only the binary PASS/FAIL checks (not SHELL/PENDING/QUEUED)
-    const passCount = Object.values(readinessChecks).filter(v => v === 'PASS').length;
-    const totalScorable = Object.values(readinessChecks).filter(v => v === 'PASS' || v === 'FAIL' || v === 'WARN' || v === 'MISSING' || v === 'EMPTY').length;
+    // Optional checks (informational only — not counted in score for movement_base)
+    const optionalChecks = {
+      weaponContent:  templateFolderChecks.weaponsFolderExists ? 'PRESENT' : 'NOT-INSTALLED',
+      enemyContent:   templateFolderChecks.enemiesFolderExists ? 'PRESENT' : 'NOT-INSTALLED',
+      uiHUDContent:   templateFolderChecks.uiFolderExists      ? 'PRESENT' : 'NOT-INSTALLED',
+      meshyStatus:    !config.useMeshy ? 'PASS' : (config.meshyApiKey ? 'QUEUED' : 'SKIPPED-NO-KEY-SAFE'),
+    };
+
+    const readinessChecks = { ...requiredChecks, optional: optionalChecks };
+
+    // Score only required binary checks
+    const passCount = Object.values(requiredChecks).filter(v => v === 'PASS').length;
+    const totalScorable = Object.values(requiredChecks).filter(v => v === 'PASS' || v === 'FAIL' || v === 'WARN').length;
     const readinessScore = totalScorable > 0 ? Math.round((passCount / totalScorable) * 100) : 0;
 
+    // Determine missing optional systems for report
+    const missingOptionalSystems = [];
+    if (!templateFolderChecks.weaponsFolderExists) missingOptionalSystems.push('weapons');
+    if (!templateFolderChecks.enemiesFolderExists) missingOptionalSystems.push('enemies');
+    if (!templateFolderChecks.uiFolderExists)      missingOptionalSystems.push('HUD/UI');
+
+    const nextRecommendedUpgrade = templateLevel === 'movement_base'
+      ? 'Add weapon Blueprints to upgrade to fps_weapon_base'
+      : templateLevel === 'fps_weapon_base'
+        ? 'Add enemy AI Blueprints to upgrade to zombie_shooter_base'
+        : templateLevel === 'zombie_shooter_base'
+          ? 'Add HUD/UI Widgets to reach full_playable_template'
+          : templateLevel === 'full_playable_template'
+            ? 'Package the project as a Windows .exe via Unreal Editor'
+            : 'Install a complete template to enable playable output';
+
     const nextStep = templateUsed
-      ? `Double-click ${safeName}.uproject and press Play to test gameplay`
+      ? `Double-click ${safeName}.uproject and press Play to test ${templateLevel === 'movement_base' ? 'movement' : 'gameplay'}`
       : `Open ${safeName}.uproject in Unreal Editor, create a level, then build Blueprints`;
 
-    const shellReadiness = (resultType === 'Project Shell / Environment Walkthrough' || resultType.startsWith('Playable'))
-      ? 'Shell readiness complete'
-      : 'Shell readiness complete';
-    const templateReadiness = templateUsed && templateFolderChecks.blueprintsHasFiles && templateFolderChecks.mapsHasFiles
-      ? 'Playable template installed and validated'
-      : templateUsed
-        ? 'Playable template copied — verify content is populated'
-        : 'Playable template not installed yet';
+    const shellReadiness = 'Shell readiness complete';
+    const templateReadiness = templateLevel === 'full_playable_template'
+      ? 'Playable template installed and validated — full gameplay systems present'
+      : templateLevel === 'zombie_shooter_base'
+        ? 'Zombie shooter base ready — player, weapons, enemies present'
+        : templateLevel === 'fps_weapon_base'
+          ? 'FPS weapon base ready — player movement and weapons present'
+          : templateLevel === 'movement_base'
+            ? 'Movement base ready — player movement confirmed. Weapons, enemies, HUD not installed yet.'
+            : templateUsed
+              ? 'Playable template copied — verify content is populated'
+              : 'Playable template not installed yet';
     const packagingReadinessLabel = 'Packaging readiness pending — build gameplay systems then package via Unreal Editor';
+
+    const verdictStr = (() => {
+      if (!templateUsed) return 'Environment Walkthrough / Project Shell — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet';
+      if (templateLevel === 'movement_base') return 'Playable Movement Template — opens in Unreal and supports movement. Weapons, enemies, HUD, health, and objectives are not installed yet.';
+      if (templateLevel === 'fps_weapon_base') return 'FPS Weapon Template — player movement and weapons present. Enemies, HUD, and objectives are not installed yet.';
+      if (templateLevel === 'zombie_shooter_base') return 'Zombie Shooter Base — player, weapons, and enemies present. HUD and objectives may be incomplete.';
+      if (templateLevel === 'full_playable_template') return 'Playable template ready — open in Unreal Editor and press Play.';
+      return 'Template copied but content verification needed — open in Unreal Editor to confirm.';
+    })();
 
     const readinessReport = {
       generatedAt: new Date().toISOString(),
@@ -8540,6 +8642,7 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       templatePath: templateUsed ? templatePath : null,
       templateManifestFound,
       templateValid,
+      templateLevel,
       keyFoldersEmpty: !templateFolderChecks.blueprintsHasFiles,
       gameName: config.gameName,
       projectPath,
@@ -8547,11 +8650,15 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       shellReadiness,
       templateReadiness,
       packagingReadiness: packagingReadinessLabel,
-      verdict: resultType === 'Playable Template Project'
-        ? 'Playable template ready — open in Unreal Editor and press Play'
-        : resultType === 'Playable Template Project (Verify Content)'
-          ? 'Template copied but some gameplay folders appear empty — verify template content'
-          : 'Environment Walkthrough / Project Shell — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet',
+      detectedMaps: templateFolderChecks.detectedMaps,
+      detectedBlueprintFolders: templateFolderChecks.detectedBlueprintFolders,
+      detectedPlayerContent: templateFolderChecks.detectedPlayerContent,
+      detectedWeaponContent: templateFolderChecks.detectedWeaponContent,
+      detectedEnemyContent: templateFolderChecks.detectedEnemyContent,
+      detectedUIContent: templateFolderChecks.detectedUIContent,
+      missingOptionalSystems,
+      nextRecommendedUpgrade,
+      verdict: verdictStr,
       nextStep,
       note: 'This is a playable starting point. A packaged Windows .exe is the final delivery goal.',
       checks: readinessChecks
@@ -8604,8 +8711,12 @@ ${templateUsed ? `3. Press Play to test gameplay
 5. See Docs/GameplayLoop.md for the systems to build`}
 
 ## Result Type: ${resultType}
-${resultType === 'Playable Template Project'
-  ? 'A real Unreal template was copied. Open and play immediately.'
+${templateUsed
+  ? (templateLevel === 'movement_base'
+    ? 'A movement template was copied. Player movement works. Weapons, enemies, HUD, and health are not installed yet.'
+    : templateLevel === 'fps_weapon_base'
+      ? 'An FPS weapon template was copied. Player movement and weapons work. Enemies and HUD are not installed yet.'
+      : 'A playable template was copied. Open and press Play to test gameplay.')
   : 'A Blueprint-only project shell was generated. No gameplay assets are installed.\nInstall a template to get a playable starting point.'}
 
 ## Readiness: ${readinessScore}%
@@ -8616,7 +8727,7 @@ ${config.description || 'No description provided.'}
 `;
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
-    const resultLabel = templateUsed ? `${resultType} generated` : 'Project Shell / Environment Walkthrough generated';
+    const resultLabel = templateUsed ? `${resultType} generated (${templateLevel})` : 'Project Shell / Environment Walkthrough generated';
     log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Readiness: ${readinessScore}%.`, level: 'ok' });
     if (templateUsed) {
       log.push({ msg: 'Playable template readiness check complete.', level: 'ok' });
@@ -8634,6 +8745,7 @@ ${config.description || 'No description provided.'}
       templatePath: templateUsed ? templatePath : null,
       templateManifestFound,
       templateValid,
+      templateLevel,
       resultType,
       uprojectExists,
       uprojectHasNoModules,
@@ -8642,6 +8754,8 @@ ${config.description || 'No description provided.'}
       readinessScore,
       readinessVerdict: readinessReport.verdict,
       readinessChecks,
+      missingOptionalSystems,
+      nextRecommendedUpgrade,
       uprojectFile: isUnreal ? uprojectPath : null,
       log
     };
