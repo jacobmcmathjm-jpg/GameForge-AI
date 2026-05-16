@@ -7646,113 +7646,150 @@ function copyDirRecursive(src, dest) {
 
 // Recursively scans Content/ of a copied template for gameplay content
 // Returns detection results that work for any Unreal folder layout (FirstPerson/, Blueprints/, etc.)
+// Scans ONLY the Unreal Content/ folder of a copied template for .uasset and .umap files.
+// Separates asset detection (filenames) from active gameplay confirmation (structural evidence).
+// Does NOT scan Docs/, Output/, Scripts/, or any GameForge-generated files.
 function scanTemplateContent(projectPath) {
-  const PLAYER_TERMS   = /player|character|pawn|firstperson|fp_|bp_fp|mannequin|hero|protagonist/i;
-  const WEAPON_TERMS   = /weapon|gun|rifle|pistol|shoot|fire|projectile|bullet|ammo|crosshair|reticle|damage|target|muzzle/i;
-  const SHOOT_TERMS    = /shoot|fire|projectile|bullet|trace|raycast|muzzle|crosshair|reticle/i;
-  const HUD_TERMS      = /hud|widget|wbp_|crosshair|reticle|ammo_count|health_bar|overlay|viewport/i;
-  const DAMAGE_TERMS   = /damage|health|hit|hurt|pain|die|death|destruct/i;
-  const ENEMY_TERMS    = /enemy|enemies|zombie|ai|npc|creature|monster|bot/i;
-  const UI_TERMS       = /hud|widget|ui|wbp_|menu|overlay|health_bar|ammo_count|crosshair|reticle/i;
-  const BP_FOLDER_TERMS = /blueprint|bp_|firstperson|gameplay|characters|weapons|enemies|ui/i;
+  // Asset-level detection — file/folder name patterns inside Content/ only
+  // These indicate an asset exists, NOT that it is active in Play mode
+  const PLAYER_ASSET   = /^(bp_firstperson|bp_player|bp_character|bp_pawn|firstpersoncharacter|playercharacter|thirdpersoncharacter|mannequin|bp_controller)/i;
+  const PLAYER_FOLDER  = /^(firstperson|thirdperson|player|characters|character|pawn)/i;
+  const WEAPON_ASSET   = /^(bp_weapon|bp_gun|bp_rifle|bp_pistol|bp_projectile|weapon|gun|rifle|pistol|projectile|bullet|ammo)/i;
+  const WEAPON_FOLDER  = /^(weapons|weapon|firearms|guns)/i;
+  const SHOOT_ASSET    = /^(bp_projectile|bp_bullet|bp_tracer|projectile|bullet|tracer)/i;
+  const HUD_ASSET      = /^(wbp_|bp_hud|hud|crosshair|reticle|ammowidget|healthwidget)/i;
+  const HUD_FOLDER     = /^(ui|hud|widgets|widget)/i;
+  const DAMAGE_ASSET   = /^(bp_damageable|bp_destructible|bp_target|damagetarget|destructible)/i;
+  const ENEMY_ASSET    = /^(bp_enemy|bp_zombie|bp_ai|bp_npc|enemy|zombie|enemycharacter|zombiecharacter)/i;
+  const ENEMY_FOLDER   = /^(enemies|enemy|zombies|zombie|ai|npc)/i;
+  const MAP_EXT        = /\.umap$/i;
+  const UASSET_EXT     = /\.uasset$/i;
+  const BP_FOLDER      = /^(blueprints|gameplay|content)/i;
 
   const result = {
+    // Maps
     mapsHasFiles: false,
+    detectedMaps: [],
+    // Any .uasset found at all
     blueprintsHasFiles: false,
+    detectedBlueprintFolders: [],
+    // Player/character asset detection (folder or asset name)
     playerFolderExists: false,
-    enemiesFolderExists: false,
+    detectedPlayerContent: [],
+    // Weapon asset detection — strict BP_ or folder names only
+    weaponAssetsDetected: false,
+    detectedWeaponAssets: [],
+    // Shooting/projectile asset detection
+    shootingAssetsDetected: false,
+    detectedShootingAssets: [],
+    // HUD/widget asset detection — strict WBP_ or hud folder
+    hudAssetsDetected: false,
+    detectedHUDAssets: [],
+    // Damage system asset detection — strict BP_ damage targets
+    damageAssetsDetected: false,
+    detectedDamageAssets: [],
+    // Enemy asset detection — strict BP_Enemy or enemy folder
+    enemyAssetsDetected: false,
+    detectedEnemyAssets: [],
+    // Legacy fields kept for backwards compat
     weaponsFolderExists: false,
+    enemiesFolderExists: false,
     uiFolderExists: false,
     shootingContentExists: false,
     hudContentExists: false,
     damageContentExists: false,
-    detectedMaps: [],
-    detectedBlueprintFolders: [],
-    detectedPlayerContent: [],
     detectedWeaponContent: [],
+    detectedEnemyContent: [],
+    detectedUIContent: [],
     detectedShootingContent: [],
     detectedHUDContent: [],
     detectedDamageContent: [],
-    detectedEnemyContent: [],
-    detectedUIContent: [],
   };
 
   const contentDir = path.join(projectPath, 'Content');
   if (!fs.existsSync(contentDir)) return result;
 
   function walk(dir, depth) {
-    if (depth > 6) return;
+    if (depth > 8) return;
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch(e) { return; }
     for (const entry of entries) {
-      const entryPath = path.join(dir, entry.name);
       const nameLower = entry.name.toLowerCase();
+      const entryPath = path.join(dir, entry.name);
+
       if (entry.isFile()) {
-        if (nameLower.endsWith('.umap')) {
+        const isMap    = MAP_EXT.test(nameLower);
+        const isAsset  = UASSET_EXT.test(nameLower);
+
+        if (isMap) {
           result.mapsHasFiles = true;
           result.detectedMaps.push(entryPath.replace(projectPath + path.sep, ''));
         }
-        if (nameLower.endsWith('.uasset') || nameLower.endsWith('.umap')) {
+        if (isAsset || isMap) {
           result.blueprintsHasFiles = true;
-          if (PLAYER_TERMS.test(nameLower)) {
+          const baseName = nameLower.replace(/\.uasset$|\.umap$/, '');
+
+          if (PLAYER_ASSET.test(baseName)) {
             result.playerFolderExists = true;
-            if (result.detectedPlayerContent.length < 5) result.detectedPlayerContent.push(entry.name);
+            if (result.detectedPlayerContent.length < 6) result.detectedPlayerContent.push(entry.name);
           }
-          if (WEAPON_TERMS.test(nameLower)) {
+          if (WEAPON_ASSET.test(baseName)) {
+            result.weaponAssetsDetected = true;
             result.weaponsFolderExists = true;
-            if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name);
+            if (result.detectedWeaponAssets.length < 6) result.detectedWeaponAssets.push(entry.name);
+            if (result.detectedWeaponContent.length < 6) result.detectedWeaponContent.push(entry.name);
           }
-          if (SHOOT_TERMS.test(nameLower)) {
+          if (SHOOT_ASSET.test(baseName)) {
+            result.shootingAssetsDetected = true;
             result.shootingContentExists = true;
-            if (result.detectedShootingContent.length < 5) result.detectedShootingContent.push(entry.name);
+            if (result.detectedShootingAssets.length < 6) result.detectedShootingAssets.push(entry.name);
+            if (result.detectedShootingContent.length < 6) result.detectedShootingContent.push(entry.name);
           }
-          if (HUD_TERMS.test(nameLower)) {
+          if (HUD_ASSET.test(baseName)) {
+            result.hudAssetsDetected = true;
             result.hudContentExists = true;
-            if (result.detectedHUDContent.length < 5) result.detectedHUDContent.push(entry.name);
-          }
-          if (DAMAGE_TERMS.test(nameLower)) {
-            result.damageContentExists = true;
-            if (result.detectedDamageContent.length < 5) result.detectedDamageContent.push(entry.name);
-          }
-          if (ENEMY_TERMS.test(nameLower)) {
-            result.enemiesFolderExists = true;
-            if (result.detectedEnemyContent.length < 5) result.detectedEnemyContent.push(entry.name);
-          }
-          if (UI_TERMS.test(nameLower)) {
             result.uiFolderExists = true;
-            if (result.detectedUIContent.length < 5) result.detectedUIContent.push(entry.name);
+            if (result.detectedHUDAssets.length < 6) result.detectedHUDAssets.push(entry.name);
+            if (result.detectedHUDContent.length < 6) result.detectedHUDContent.push(entry.name);
+          }
+          if (DAMAGE_ASSET.test(baseName)) {
+            result.damageAssetsDetected = true;
+            result.damageContentExists = true;
+            if (result.detectedDamageAssets.length < 6) result.detectedDamageAssets.push(entry.name);
+            if (result.detectedDamageContent.length < 6) result.detectedDamageContent.push(entry.name);
+          }
+          if (ENEMY_ASSET.test(baseName)) {
+            result.enemyAssetsDetected = true;
+            result.enemiesFolderExists = true;
+            if (result.detectedEnemyAssets.length < 6) result.detectedEnemyAssets.push(entry.name);
+            if (result.detectedEnemyContent.length < 6) result.detectedEnemyContent.push(entry.name);
           }
         }
       } else if (entry.isDirectory()) {
-        if (PLAYER_TERMS.test(nameLower)) {
+        if (PLAYER_FOLDER.test(nameLower)) {
           result.playerFolderExists = true;
-          if (result.detectedPlayerContent.length < 5) result.detectedPlayerContent.push(entry.name + '/');
+          if (result.detectedPlayerContent.length < 6) result.detectedPlayerContent.push(entry.name + '/');
         }
-        if (WEAPON_TERMS.test(nameLower)) {
+        if (WEAPON_FOLDER.test(nameLower)) {
+          result.weaponAssetsDetected = true;
           result.weaponsFolderExists = true;
-          if (result.detectedWeaponContent.length < 5) result.detectedWeaponContent.push(entry.name + '/');
+          if (result.detectedWeaponAssets.length < 6) result.detectedWeaponAssets.push(entry.name + '/');
+          if (result.detectedWeaponContent.length < 6) result.detectedWeaponContent.push(entry.name + '/');
         }
-        if (SHOOT_TERMS.test(nameLower)) {
-          result.shootingContentExists = true;
-          if (result.detectedShootingContent.length < 5) result.detectedShootingContent.push(entry.name + '/');
-        }
-        if (HUD_TERMS.test(nameLower)) {
+        if (HUD_FOLDER.test(nameLower)) {
+          result.hudAssetsDetected = true;
           result.hudContentExists = true;
-          if (result.detectedHUDContent.length < 5) result.detectedHUDContent.push(entry.name + '/');
-        }
-        if (DAMAGE_TERMS.test(nameLower)) {
-          result.damageContentExists = true;
-          if (result.detectedDamageContent.length < 5) result.detectedDamageContent.push(entry.name + '/');
-        }
-        if (ENEMY_TERMS.test(nameLower)) {
-          result.enemiesFolderExists = true;
-          if (result.detectedEnemyContent.length < 5) result.detectedEnemyContent.push(entry.name + '/');
-        }
-        if (UI_TERMS.test(nameLower)) {
           result.uiFolderExists = true;
-          if (result.detectedUIContent.length < 5) result.detectedUIContent.push(entry.name + '/');
+          if (result.detectedHUDAssets.length < 6) result.detectedHUDAssets.push(entry.name + '/');
+          if (result.detectedHUDContent.length < 6) result.detectedHUDContent.push(entry.name + '/');
         }
-        if (BP_FOLDER_TERMS.test(nameLower)) {
+        if (ENEMY_FOLDER.test(nameLower)) {
+          result.enemyAssetsDetected = true;
+          result.enemiesFolderExists = true;
+          if (result.detectedEnemyAssets.length < 6) result.detectedEnemyAssets.push(entry.name + '/');
+          if (result.detectedEnemyContent.length < 6) result.detectedEnemyContent.push(entry.name + '/');
+        }
+        if (BP_FOLDER.test(nameLower)) {
           if (result.detectedBlueprintFolders.length < 10) result.detectedBlueprintFolders.push(entry.name + '/');
         }
         walk(entryPath, depth + 1);
@@ -7764,26 +7801,66 @@ function scanTemplateContent(projectPath) {
   return result;
 }
 
-// Determines the template level from scan results
-// movement_base → fps_weapon_base → zombie_shooter_base → full_playable_template
-// fps_weapon_base requires: player + (weapon content OR shooting/HUD signals)
-function classifyTemplateLevel(scan) {
+// Checks DefaultGame.ini and DefaultEngine.ini for active GameMode/pawn references
+// Returns { gameModeBP, defaultPawnBP, hasCustomGameMode }
+function checkConfigForActiveGameplay(projectPath) {
+  const r = { gameModeBP: null, defaultPawnBP: null, hasCustomGameMode: false };
+  const tryRead = (iniPath) => {
+    try { return fs.readFileSync(iniPath, 'utf8'); } catch(e) { return ''; }
+  };
+  const defaultGame = tryRead(path.join(projectPath, 'Config', 'DefaultGame.ini'));
+  const defaultEngine = tryRead(path.join(projectPath, 'Config', 'DefaultEngine.ini'));
+  const combined = defaultGame + '\n' + defaultEngine;
+
+  const gmMatch = combined.match(/GlobalDefaultGameMode\s*=\s*(.+)/i) ||
+                  combined.match(/GameDefaultMap\s*.*GameMode\s*=\s*(.+)/i);
+  if (gmMatch) { r.gameModeBP = gmMatch[1].trim(); r.hasCustomGameMode = true; }
+
+  const pawnMatch = combined.match(/DefaultPawnClass\s*=\s*(.+)/i);
+  if (pawnMatch) r.defaultPawnBP = pawnMatch[1].trim();
+
+  return r;
+}
+
+// Classifies template level honestly — separates asset detection from active gameplay
+// Stages: project_shell → movement_base → fps_asset_base → fps_weapon_base
+//         → zombie_asset_base → zombie_shooter_base → full_playable_template
+function classifyTemplateLevel(scan, configInfo) {
   const hasMap      = scan.mapsHasFiles;
   const hasPlayer   = scan.playerFolderExists;
-  const hasWeapon   = scan.weaponsFolderExists || scan.shootingContentExists;
-  const hasHUD      = scan.hudContentExists || scan.uiFolderExists;
-  const hasEnemy    = scan.enemiesFolderExists;
-  const hasDamage   = scan.damageContentExists;
-  const hasFPSWeapon = hasWeapon && hasHUD;
+  const hasWeapon   = scan.weaponAssetsDetected;   // strict: BP_Weapon/folder only
+  const hasShooting = scan.shootingAssetsDetected; // strict: BP_Projectile/BP_Bullet only
+  const hasHUD      = scan.hudAssetsDetected;      // strict: WBP_ or hud folder only
+  const hasDamage   = scan.damageAssetsDetected;   // strict: BP_Damageable/Target only
+  const hasEnemy    = scan.enemyAssetsDetected;    // strict: BP_Enemy/zombie folder only
 
+  // No content at all
   if (!hasMap || !scan.blueprintsHasFiles) return 'incomplete';
-  if (hasMap && hasPlayer && hasFPSWeapon && hasEnemy && hasHUD) return 'full_playable_template';
-  if (hasMap && hasPlayer && hasFPSWeapon && hasEnemy)            return 'zombie_shooter_base';
-  if (hasMap && hasPlayer && hasFPSWeapon)                        return 'fps_weapon_base';
-  // weapon content without HUD still counts as fps_weapon_base if shooting indicators exist
-  if (hasMap && hasPlayer && hasWeapon)                           return 'fps_weapon_base';
-  if (hasMap && hasPlayer)                                        return 'movement_base';
-  if (hasMap)                                                     return 'movement_base';
+
+  // Full playable: requires ALL systems with STRICT asset evidence + custom GameMode in config
+  const hasActiveGameMode = configInfo && configInfo.hasCustomGameMode;
+  if (hasMap && hasPlayer && hasWeapon && hasShooting && hasHUD && hasEnemy && hasActiveGameMode) {
+    return 'full_playable_template';
+  }
+
+  // Zombie shooter base: player + weapon + enemy assets, strong structural evidence
+  if (hasMap && hasPlayer && hasWeapon && hasEnemy) return 'zombie_shooter_base';
+
+  // Zombie asset base: enemy assets present but weapon not confirmed
+  if (hasMap && hasPlayer && hasEnemy && !hasWeapon) return 'zombie_asset_base';
+
+  // FPS weapon base: player + weapon + shooting or HUD assets (multiple weapon indicators)
+  if (hasMap && hasPlayer && hasWeapon && (hasShooting || hasHUD)) return 'fps_weapon_base';
+
+  // FPS asset base: player + some weapon-related assets, but not enough to confirm fps_weapon_base
+  if (hasMap && hasPlayer && hasWeapon) return 'fps_asset_base';
+
+  // Movement base: player/map confirmed, no weapon system assets
+  if (hasMap && hasPlayer) return 'movement_base';
+
+  // Map exists but no player content recognised
+  if (hasMap) return 'movement_base';
+
   return 'incomplete';
 }
 
@@ -7791,19 +7868,29 @@ function classifyTemplateLevel(scan) {
 function checkManifestVsScanMismatch(manifestData, scan, scannedLevel) {
   const warnings = [];
   if (!manifestData) return warnings;
-  const manifestLevel = String(manifestData.templateLevel || '').toLowerCase();
+  const manifestLevel = String(manifestData.templateLevel || '').toLowerCase().replace(/-/g, '_');
 
-  if (manifestLevel && manifestLevel !== scannedLevel) {
-    if (manifestLevel === 'fps_weapon_base' && (scannedLevel === 'movement_base' || scannedLevel === 'incomplete')) {
-      warnings.push(`Manifest claims fps_weapon_base but weapon/HUD content was not detected. Treating as ${scannedLevel} until content is verified.`);
-    }
-    if (scannedLevel === 'fps_weapon_base' && manifestLevel === 'movement_base') {
-      warnings.push(`Weapon/HUD content detected but manifest says movement_base. Consider updating template_manifest.json templateLevel to fps_weapon_base.`);
-    }
-    if (scannedLevel === 'fps_weapon_base' && !manifestLevel) {
-      warnings.push(`Weapon/HUD content detected. Consider adding templateLevel: "fps_weapon_base" to template_manifest.json.`);
-    }
+  if (!manifestLevel || manifestLevel === scannedLevel) return warnings;
+
+  // Manifest claims higher than scan detected
+  const higherThanScan = ['fps_weapon_base', 'zombie_shooter_base', 'full_playable_template'];
+  if (higherThanScan.includes(manifestLevel) && !higherThanScan.includes(scannedLevel)) {
+    warnings.push(`Manifest claims ${manifestLevel} but content scan only confirms ${scannedLevel}. Active gameplay systems not verified. Treating as ${scannedLevel} until verified.`);
   }
+
+  // Scan detected more than manifest claims
+  if (scannedLevel === 'fps_asset_base' && manifestLevel === 'movement_base') {
+    warnings.push(`Weapon-related assets detected but manifest says movement_base. Active gameplay not confirmed. Consider testing and updating template_manifest.json templateLevel if weapon gameplay is active.`);
+  }
+  if (scannedLevel === 'fps_weapon_base' && manifestLevel === 'movement_base') {
+    warnings.push(`Weapon/shooting/HUD assets detected. Active gameplay not confirmed. If weapon gameplay works in Play mode, consider updating template_manifest.json to fps_weapon_base.`);
+  }
+
+  // full_playable_template requires strict verification
+  if (manifestLevel === 'full_playable_template') {
+    warnings.push(`full_playable_template requires active gameplay verification. GameForge will only confirm this level when all systems are structurally confirmed. Current scan result: ${scannedLevel}.`);
+  }
+
   return warnings;
 }
 
@@ -8599,13 +8686,17 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     const controlsOk = fs.existsSync(path.join(projectPath, 'Docs', 'Controls.md'));
     const mapPlanOk = fs.existsSync(path.join(projectPath, 'Scenes', 'StarterMapPlan.md'));
 
-    // Template-specific content scan (recursive — works for any Unreal folder layout)
-    let templateFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false, shootingContentExists: false, hudContentExists: false, damageContentExists: false, detectedMaps: [], detectedBlueprintFolders: [], detectedPlayerContent: [], detectedWeaponContent: [], detectedShootingContent: [], detectedHUDContent: [], detectedDamageContent: [], detectedEnemyContent: [], detectedUIContent: [] };
+    // Template-specific content scan — scans Content/ only (.uasset/.umap only)
+    // Separates asset detection from active gameplay confirmation
+    const emptyFolderChecks = { mapsHasFiles: false, blueprintsHasFiles: false, playerFolderExists: false, enemiesFolderExists: false, weaponsFolderExists: false, uiFolderExists: false, shootingContentExists: false, hudContentExists: false, damageContentExists: false, weaponAssetsDetected: false, shootingAssetsDetected: false, hudAssetsDetected: false, damageAssetsDetected: false, enemyAssetsDetected: false, detectedMaps: [], detectedBlueprintFolders: [], detectedPlayerContent: [], detectedWeaponAssets: [], detectedShootingAssets: [], detectedHUDAssets: [], detectedDamageAssets: [], detectedEnemyAssets: [], detectedWeaponContent: [], detectedShootingContent: [], detectedHUDContent: [], detectedDamageContent: [], detectedEnemyContent: [], detectedUIContent: [] };
+    let templateFolderChecks = emptyFolderChecks;
     let templateLevel = 'none';
+    let templateConfigInfo = { gameModeBP: null, defaultPawnBP: null, hasCustomGameMode: false };
     let manifestScanWarnings = [];
     if (templateUsed) {
       templateFolderChecks = scanTemplateContent(projectPath);
-      templateLevel = classifyTemplateLevel(templateFolderChecks);
+      templateConfigInfo = checkConfigForActiveGameplay(projectPath);
+      templateLevel = classifyTemplateLevel(templateFolderChecks, templateConfigInfo);
       manifestScanWarnings = checkManifestVsScanMismatch(templateManifestData, templateFolderChecks, templateLevel);
       if (manifestScanWarnings.length > 0) {
         manifestScanWarnings.forEach(w => log.push({ msg: `[Manifest Check] ${w}`, level: 'warn' }));
@@ -8613,14 +8704,16 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     }
     const keyFoldersEmpty = !templateUsed || !templateFolderChecks.blueprintsHasFiles;
 
-    // Determine result type based on templateLevel
+    // Determine result type based on templateLevel (honest, stage-based)
     let resultType = 'Project Shell / Environment Walkthrough';
     if (templateUsed) {
-      if (templateLevel === 'full_playable_template') resultType = 'Playable Template Project';
+      if (templateLevel === 'full_playable_template')  resultType = 'Playable Template Project';
       else if (templateLevel === 'zombie_shooter_base') resultType = 'Playable Template Project';
-      else if (templateLevel === 'fps_weapon_base') resultType = 'FPS Weapon Template';
-      else if (templateLevel === 'movement_base') resultType = 'Playable Movement Template';
-      else resultType = 'Playable Template Project (Verify Content)';
+      else if (templateLevel === 'zombie_asset_base')   resultType = 'Zombie Asset Base';
+      else if (templateLevel === 'fps_weapon_base')     resultType = 'FPS Weapon Template';
+      else if (templateLevel === 'fps_asset_base')      resultType = 'FPS Asset Base';
+      else if (templateLevel === 'movement_base')       resultType = 'Playable Movement Template';
+      else resultType = 'Playable Template (Verify Content)';
     }
 
     // Required checks (always scored)
@@ -8656,69 +8749,89 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
 
     // Determine missing systems and upgrade path
     const missingOptionalSystems = [];
-    if (!(templateFolderChecks.weaponsFolderExists || templateFolderChecks.shootingContentExists)) missingOptionalSystems.push('weapon');
-    if (!templateFolderChecks.shootingContentExists) missingOptionalSystems.push('shooting');
-    if (!(templateFolderChecks.hudContentExists || templateFolderChecks.uiFolderExists)) missingOptionalSystems.push('HUD');
-    if (!templateFolderChecks.damageContentExists)   missingOptionalSystems.push('damage system');
-    if (!templateFolderChecks.enemiesFolderExists)   missingOptionalSystems.push('enemies');
+    if (!templateFolderChecks.weaponAssetsDetected)  missingOptionalSystems.push('weapon');
+    if (!templateFolderChecks.shootingAssetsDetected) missingOptionalSystems.push('shooting');
+    if (!templateFolderChecks.hudAssetsDetected)     missingOptionalSystems.push('HUD');
+    if (!templateFolderChecks.damageAssetsDetected)  missingOptionalSystems.push('damage system');
+    if (!templateFolderChecks.enemyAssetsDetected)   missingOptionalSystems.push('enemies');
 
     const missingForNextStage = templateLevel === 'movement_base'
-      ? ['weapon', 'shooting', 'HUD', 'damage test']
+      ? ['BP_Weapon or weapon/ folder', 'BP_Projectile or shooting assets', 'WBP_ HUD widget', 'damage test blueprint']
+      : templateLevel === 'fps_asset_base'
+        ? ['active weapon fire confirmed in Play mode', 'WBP_ HUD widget', 'damage/health system']
       : templateLevel === 'fps_weapon_base'
-        ? ['zombie enemy', 'enemy AI', 'enemy spawner', 'health/damage loop', 'objective loop']
-        : templateLevel === 'zombie_shooter_base'
-          ? ['polish HUD', 'objectives', 'packaging setup']
-          : templateLevel === 'full_playable_template'
-            ? ['packaging setup']
-            : ['player', 'map', 'weapon', 'enemies', 'HUD'];
+        ? ['BP_Enemy or enemy/ folder', 'enemy AI or spawner', 'health/damage loop', 'objective loop']
+      : templateLevel === 'zombie_asset_base'
+        ? ['active weapon system confirmed in Play mode', 'enemy AI spawner', 'health/damage loop']
+      : templateLevel === 'zombie_shooter_base'
+        ? ['polish HUD', 'objectives', 'custom GameMode in Config/DefaultGame.ini', 'packaging setup']
+      : templateLevel === 'full_playable_template'
+        ? ['packaging setup']
+        : ['player blueprint', 'playable map', 'weapon assets', 'enemy assets', 'HUD widget'];
 
     const nextRecommendedUpgrade = templateLevel === 'movement_base'
-      ? 'Install or create an fps_weapon_base Unreal template with weapon, shooting, crosshair/HUD, and basic damage test.'
+      ? 'Install or create an fps_asset_base template — add BP_Weapon, BP_Projectile, and WBP_ HUD assets to Content/.'
+      : templateLevel === 'fps_asset_base'
+        ? 'Verify weapon/shooting/HUD assets are active in Play mode to reach fps_weapon_base. Check Config/DefaultGame.ini for a custom GameMode.'
       : templateLevel === 'fps_weapon_base'
-        ? 'Install or create a zombie_shooter_base template.'
-        : templateLevel === 'zombie_shooter_base'
-          ? 'Add HUD/UI Widgets and objective logic to reach full_playable_template.'
-          : templateLevel === 'full_playable_template'
-            ? 'Package the project as a Windows .exe via Unreal Editor — File > Package Project > Windows.'
-            : 'Install a playable template to enable autonomous generation.';
+        ? 'Add BP_Enemy/zombie enemy assets and a spawner to reach zombie_asset_base or zombie_shooter_base.'
+      : templateLevel === 'zombie_asset_base'
+        ? 'Confirm enemy AI and weapon fire active in Play mode. Add GameMode to Config/DefaultGame.ini.'
+      : templateLevel === 'zombie_shooter_base'
+        ? 'Add HUD Widgets and objective logic, confirm custom GameMode in config, to reach full_playable_template.'
+      : templateLevel === 'full_playable_template'
+        ? 'Package the project as a Windows .exe via Unreal Editor — File > Package Project > Windows.'
+        : 'Install a playable template to enable autonomous generation.';
 
     const overallGameCompletionEstimate = templateLevel === 'movement_base'
-      ? 'Early playable prototype foundation'
+      ? 'Early playable prototype foundation — movement only'
+      : templateLevel === 'fps_asset_base'
+        ? 'FPS asset base — weapon assets present, gameplay activation unverified'
       : templateLevel === 'fps_weapon_base'
         ? 'Playable FPS weapon prototype'
-        : templateLevel === 'zombie_shooter_base'
-          ? 'Playable zombie shooter prototype'
-          : templateLevel === 'full_playable_template'
-            ? 'Complete playable prototype — ready to package'
-            : templateUsed
-              ? 'Template copied — verify content'
-              : 'Project shell — no gameplay systems';
+      : templateLevel === 'zombie_asset_base'
+        ? 'Zombie asset base — enemy assets present, active AI unverified'
+      : templateLevel === 'zombie_shooter_base'
+        ? 'Playable zombie shooter prototype'
+      : templateLevel === 'full_playable_template'
+        ? 'Complete playable prototype — ready to package'
+        : templateUsed
+          ? 'Template copied — verify content'
+          : 'Project shell — no gameplay systems';
 
     const autonomousActionTaken = templateUsed
       ? `GameForge automatically detected and copied the ${templateLevel} template.`
       : 'GameForge automatically generated a safe Project Shell / Environment Walkthrough.';
 
     const manualActionRequired = templateLevel === 'movement_base'
-      ? 'A real fps_weapon_base Unreal template must be installed before GameForge can generate weapon gameplay automatically.'
+      ? 'Install an fps_asset_base or fps_weapon_base template with weapon/HUD assets to unlock the next stage automatically.'
+      : templateLevel === 'fps_asset_base'
+        ? 'Verify weapon, shooting, and HUD assets are active in Play mode. GameForge cannot confirm active gameplay from assets alone.'
       : templateLevel === 'fps_weapon_base'
-        ? 'Zombie enemy gameplay requires a zombie_shooter_base template or a future automated template upgrade system.'
-        : templateLevel === 'zombie_shooter_base'
-          ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
-          : templateLevel === 'full_playable_template'
-            ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
-            : !templateUsed
-              ? 'A local Unreal template must be installed. See docs/Template_Install_Guide.md.'
-              : 'None — template copied successfully.';
+        ? 'Install or create a zombie_shooter_base template with enemy assets to unlock the next stage automatically.'
+      : templateLevel === 'zombie_asset_base'
+        ? 'Confirm enemy AI and weapon fire are active in Play mode. Add a custom GameMode to Config/DefaultGame.ini.'
+      : templateLevel === 'zombie_shooter_base'
+        ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
+      : templateLevel === 'full_playable_template'
+        ? 'Packaging requires a user-controlled build/export step in Unreal Editor.'
+        : !templateUsed
+          ? 'A local Unreal template must be installed. See docs/Template_Install_Guide.md.'
+          : 'None — template copied successfully.';
 
     const nextAutomaticStepPrepared = templateLevel === 'movement_base'
-      ? `GameForge is ready to detect and classify fps_weapon_base when weapon/HUD content is installed.`
+      ? 'GameForge is ready to detect and classify fps_asset_base or fps_weapon_base when weapon/HUD content is installed.'
+      : templateLevel === 'fps_asset_base'
+        ? 'GameForge is ready to classify fps_weapon_base once active gameplay evidence is detected in config.'
       : templateLevel === 'fps_weapon_base'
-        ? `GameForge is ready to upgrade to zombie_shooter_base when enemy content is installed.`
-        : templateLevel === 'zombie_shooter_base'
-          ? `GameForge is ready to classify full_playable_template when HUD/objectives are detected.`
-          : templateLevel === 'full_playable_template'
-            ? `GameForge is ready to package. Future: automated packaging pipeline.`
-            : `GameForge will automatically classify the template on next generation.`;
+        ? 'GameForge is ready to upgrade to zombie_asset_base or zombie_shooter_base when enemy content is installed.'
+      : templateLevel === 'zombie_asset_base'
+        ? 'GameForge is ready to classify zombie_shooter_base once active gameplay evidence is detected in config.'
+      : templateLevel === 'zombie_shooter_base'
+        ? 'GameForge is ready to classify full_playable_template when HUD/objectives and custom GameMode are detected.'
+      : templateLevel === 'full_playable_template'
+        ? 'GameForge is ready to package. Future: automated packaging pipeline.'
+        : 'GameForge will automatically classify the template on next generation.';
 
     const nextStep = templateUsed
       ? `Double-click ${safeName}.uproject and press Play to test ${templateLevel === 'movement_base' ? 'movement' : 'gameplay'}`
@@ -8726,26 +8839,74 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
 
     const shellReadiness = 'Shell readiness complete';
     const templateReadiness = templateLevel === 'full_playable_template'
-      ? 'Playable Template Project ready — full gameplay systems present. Ready for next autonomous phase: packaging.'
+      ? 'Playable Template Project ready — full gameplay systems confirmed via assets and config. Ready for next autonomous phase: packaging.'
       : templateLevel === 'zombie_shooter_base'
-        ? 'Zombie Shooter Base ready — player, weapons, enemies present. Next automatic step prepared: classify as full_playable_template when HUD is added.'
-        : templateLevel === 'fps_weapon_base'
-          ? 'FPS Weapon Template ready — movement and weapons confirmed. Next automatic step prepared: upgrade to zombie_shooter_base when enemy content is installed.'
-          : templateLevel === 'movement_base'
-            ? 'Playable Movement Template ready — 100% ready for movement_base stage. Next automatic step prepared: upgrade to fps_weapon_base when weapon/HUD content is installed.'
-            : templateUsed
-              ? 'Template copied — GameForge handled this automatically. Verify content in Unreal Editor.'
-              : 'Playable template not installed yet. Safe fallback used: Project Shell generated.';
-    const packagingReadinessLabel = 'Packaging readiness pending — build gameplay systems then package via Unreal Editor';
+        ? 'Zombie Shooter Base ready — player, weapons, enemies present. Next: confirm custom GameMode in config and add HUD to reach full_playable_template.'
+      : templateLevel === 'zombie_asset_base'
+        ? 'Zombie Asset Base ready — enemy assets detected, active AI unverified. Next: confirm active gameplay in Play mode.'
+      : templateLevel === 'fps_weapon_base'
+        ? 'FPS Weapon Template ready — movement and weapon/HUD assets confirmed active via config. Next: add enemy content to upgrade to zombie_shooter_base.'
+      : templateLevel === 'fps_asset_base'
+        ? 'FPS Asset Base — weapon/HUD assets detected but active gameplay not confirmed. Open in Unreal Editor and test Play mode to verify. GameForge cannot confirm without config evidence.'
+      : templateLevel === 'movement_base'
+        ? 'Playable Movement Template ready — 100% complete for movement_base stage. Weapon, HUD, enemies, health, and objectives are not installed yet.'
+        : templateUsed
+          ? 'Template copied — GameForge handled this automatically. Verify content in Unreal Editor.'
+          : 'Playable template not installed yet. Safe fallback used: Project Shell generated.';
+    const packagingReadinessLabel = templateLevel === 'full_playable_template'
+      ? 'Packaging ready — use File > Package Project > Windows in Unreal Editor'
+      : 'Packaging readiness pending — build gameplay systems then package via Unreal Editor';
 
     const verdictStr = (() => {
-      if (!templateUsed) return 'Safe fallback used: Project Shell / Environment Walkthrough — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet. Install a local template to unlock autonomous playable generation.';
-      if (templateLevel === 'movement_base') return 'Playable Movement Template Ready — 100% ready for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full FPS game.';
-      if (templateLevel === 'fps_weapon_base') return 'FPS Weapon Template Ready — player movement and weapons/shooting/HUD present. Enemies, health system, and objectives are not installed yet.';
-      if (templateLevel === 'zombie_shooter_base') return 'Zombie Shooter Base Ready — player, weapons, and enemies present. Full HUD and objective loop may be incomplete.';
-      if (templateLevel === 'full_playable_template') return 'Playable Template Project Ready — full gameplay systems detected. Open in Unreal Editor and press Play to test.';
+      if (!templateUsed) return 'Safe fallback used: Project Shell / Environment Walkthrough — opens in Unreal with terrain and sky, but no player, HUD, weapons, enemies, health, or gameplay systems installed yet. Install a local template to unlock autonomous playable generation.';
+      if (templateLevel === 'movement_base') return 'Playable Movement Template Ready — 100% complete for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full FPS game.';
+      if (templateLevel === 'fps_asset_base') return 'FPS Asset Base — weapon and HUD assets detected in Content/, but active gameplay systems are NOT confirmed. Asset files alone do not prove weapons fire or enemies act in Play mode. Open in Unreal Editor and press Play to verify.';
+      if (templateLevel === 'fps_weapon_base') return 'FPS Weapon Template Ready — player movement and weapon/shooting/HUD assets confirmed with config evidence. Enemies, health system, and objectives are not installed yet.';
+      if (templateLevel === 'zombie_asset_base') return 'Zombie Asset Base — enemy assets detected in Content/, but active enemy AI is NOT confirmed. Asset files alone do not prove enemies spawn or attack in Play mode. Open in Unreal Editor and press Play to verify.';
+      if (templateLevel === 'zombie_shooter_base') return 'Zombie Shooter Base Ready — player, weapons, and enemies present. Full HUD, custom GameMode, and objective loop may be incomplete.';
+      if (templateLevel === 'full_playable_template') return 'Playable Template Project Ready — full gameplay systems confirmed via assets and config. Open in Unreal Editor and press Play to test.';
       return 'Template copied but content verification needed — open in Unreal Editor to confirm.';
     })();
+
+    // Active system confirmation: asset files alone do not prove systems are active in Play mode
+    const activeMovementSystemConfirmed = templateFolderChecks.playerFolderExists && templateFolderChecks.mapsHasFiles;
+    const activeWeaponSystemConfirmed   = templateFolderChecks.weaponAssetsDetected && templateConfigInfo.hasCustomGameMode;
+    const activeShootingSystemConfirmed = templateFolderChecks.shootingAssetsDetected && templateConfigInfo.hasCustomGameMode;
+    const activeHUDSystemConfirmed      = templateFolderChecks.hudAssetsDetected && templateConfigInfo.hasCustomGameMode;
+    const activeEnemySystemConfirmed    = templateFolderChecks.enemyAssetsDetected && templateConfigInfo.hasCustomGameMode;
+    const activeDamageSystemConfirmed   = templateFolderChecks.damageAssetsDetected && templateConfigInfo.hasCustomGameMode;
+    const activeObjectiveLoopConfirmed  = templateLevel === 'full_playable_template';
+
+    const gameplayActivationStatus = (() => {
+      if (!templateUsed) return 'No template installed — no gameplay systems present.';
+      if (templateLevel === 'full_playable_template') return 'All gameplay systems confirmed active via assets and config.';
+      if (templateLevel === 'zombie_shooter_base') return 'Player, weapons, and enemies detected. HUD and objectives may need verification.';
+      if (templateLevel === 'zombie_asset_base') return 'Enemy assets detected, but active enemy AI is not confirmed. Asset files alone do not prove gameplay is active.';
+      if (templateLevel === 'fps_weapon_base') return 'Weapon and HUD assets confirmed with config evidence. Enemy systems not installed.';
+      if (templateLevel === 'fps_asset_base') return 'Weapon and HUD assets detected, but active gameplay systems are not confirmed. Asset files alone do not prove systems are active in Play mode.';
+      if (templateLevel === 'movement_base') return 'Movement confirmed. Weapon, HUD, enemies, and objectives are not installed.';
+      return 'Template detected — verify gameplay systems manually in Unreal Editor.';
+    })();
+
+    const userPlayTestStatus = (() => {
+      if (!templateUsed) return 'No template — cannot playtest.';
+      if (activeMovementSystemConfirmed) {
+        const parts = ['Movement confirmed (player blueprint and map present).'];
+        if (activeWeaponSystemConfirmed) parts.push('Weapon system config confirmed.');
+        else if (templateFolderChecks.weaponAssetsDetected) parts.push('Weapon assets detected — NOT confirmed active in Play mode.');
+        else parts.push('Weapon system: NOT installed.');
+        if (activeHUDSystemConfirmed) parts.push('HUD confirmed.');
+        else if (templateFolderChecks.hudAssetsDetected) parts.push('HUD assets detected — NOT confirmed active.');
+        else parts.push('HUD: NOT installed.');
+        if (activeEnemySystemConfirmed) parts.push('Enemy system config confirmed.');
+        else if (templateFolderChecks.enemyAssetsDetected) parts.push('Enemy assets detected — NOT confirmed active in Play mode.');
+        else parts.push('Enemies: NOT installed.');
+        return parts.join(' ');
+      }
+      return 'Movement system not confirmed — map or player blueprint may be missing.';
+    })();
+
+    const manualVerificationNeeded = !activeWeaponSystemConfirmed || !activeEnemySystemConfirmed || !activeHUDSystemConfirmed;
 
     // Stage readiness score: 100% means all required checks for this stage pass
     const stageReadinessScore = totalScorable > 0 ? `${readinessScore}% (${templateLevel || 'shell'} stage)` : '0%';
@@ -8768,20 +8929,37 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       shellReadiness,
       templateReadiness,
       packagingReadiness: packagingReadinessLabel,
+      // Active system confirmation — asset detection alone does NOT prove systems are active in Play mode
+      activeMovementSystemConfirmed,
+      activeWeaponSystemConfirmed,
+      activeShootingSystemConfirmed,
+      activeHUDSystemConfirmed,
+      activeEnemySystemConfirmed,
+      activeDamageSystemConfirmed,
+      activeObjectiveLoopConfirmed,
+      gameplayActivationStatus,
+      userPlayTestStatus,
+      manualVerificationNeeded,
+      configEvidence: {
+        gameModeBP: templateConfigInfo.gameModeBP,
+        defaultPawnBP: templateConfigInfo.defaultPawnBP,
+        hasCustomGameMode: templateConfigInfo.hasCustomGameMode,
+      },
+      // Asset detection (presence in Content/ — does not confirm active gameplay)
       detectedMovementSystem: templateFolderChecks.playerFolderExists,
-      detectedWeaponSystem: templateFolderChecks.weaponsFolderExists || templateFolderChecks.shootingContentExists,
-      detectedShootingSystem: templateFolderChecks.shootingContentExists,
-      detectedHUDSystem: templateFolderChecks.hudContentExists || templateFolderChecks.uiFolderExists,
-      detectedDamageSystem: templateFolderChecks.damageContentExists,
-      detectedEnemySystem: templateFolderChecks.enemiesFolderExists,
+      detectedWeaponAssets: templateFolderChecks.weaponAssetsDetected,
+      detectedShootingAssets: templateFolderChecks.shootingAssetsDetected,
+      detectedHUDAssets: templateFolderChecks.hudAssetsDetected,
+      detectedDamageAssets: templateFolderChecks.damageAssetsDetected,
+      detectedEnemyAssets: templateFolderChecks.enemyAssetsDetected,
       detectedMaps: templateFolderChecks.detectedMaps,
       detectedBlueprintFolders: templateFolderChecks.detectedBlueprintFolders,
       detectedPlayerContent: templateFolderChecks.detectedPlayerContent,
-      detectedWeaponContent: templateFolderChecks.detectedWeaponContent,
-      detectedShootingContent: templateFolderChecks.detectedShootingContent,
-      detectedHUDContent: templateFolderChecks.detectedHUDContent,
-      detectedDamageContent: templateFolderChecks.detectedDamageContent,
-      detectedEnemyContent: templateFolderChecks.detectedEnemyContent,
+      detectedWeaponContent: templateFolderChecks.detectedWeaponAssets || [],
+      detectedShootingContent: templateFolderChecks.detectedShootingAssets || [],
+      detectedHUDContent: templateFolderChecks.detectedHUDAssets || [],
+      detectedDamageContent: templateFolderChecks.detectedDamageAssets || [],
+      detectedEnemyContent: templateFolderChecks.detectedEnemyAssets || [],
       missingForNextStage,
       missingOptionalSystems,
       nextRecommendedUpgrade,
@@ -8791,7 +8969,7 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       manifestScanWarnings,
       verdict: verdictStr,
       nextStep,
-      note: 'A packaged Windows .exe is the final delivery goal. GameForge handles all autonomous steps until packaging.',
+      note: 'Asset files detected in Content/ do not prove gameplay systems are active in Play mode. Config/DefaultGame.ini GameMode reference + strict BP asset names are required for active confirmation. A packaged Windows .exe is the final delivery goal.',
       checks: readinessChecks
     };
 
@@ -8897,6 +9075,19 @@ ${config.description || 'No description provided.'}
       manualActionRequired,
       nextAutomaticStepPrepared,
       overallGameCompletionEstimate,
+      activeMovementSystemConfirmed,
+      activeWeaponSystemConfirmed,
+      activeShootingSystemConfirmed,
+      activeHUDSystemConfirmed,
+      activeEnemySystemConfirmed,
+      activeDamageSystemConfirmed,
+      activeObjectiveLoopConfirmed,
+      gameplayActivationStatus,
+      userPlayTestStatus,
+      manualVerificationNeeded,
+      detectedWeaponAssets: templateFolderChecks.weaponAssetsDetected,
+      detectedEnemyAssets: templateFolderChecks.enemyAssetsDetected,
+      detectedHUDAssets: templateFolderChecks.hudAssetsDetected,
       uprojectFile: isUnreal ? uprojectPath : null,
       log
     };

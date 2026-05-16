@@ -526,10 +526,19 @@ async function startGameGeneration() {
         if (tLevel === 'movement_base') {
           _genLog(`Movement template confirmed — player movement ready. Weapons, enemies, HUD not installed.`, 'ok');
           _genLog(`Next upgrade: ${folderResult.nextRecommendedUpgrade || 'add weapon Blueprints'}`, 'ok');
+        } else if (tLevel === 'fps_asset_base') {
+          _genLog(`FPS Asset Base — weapon/HUD assets detected. Active gameplay NOT confirmed (no config evidence). Test Play mode in Unreal Editor to verify.`, 'warn');
+          _genLog(`Next upgrade: ${folderResult.nextRecommendedUpgrade || 'verify active gameplay in Play mode'}`, 'ok');
         } else if (tLevel === 'fps_weapon_base') {
-          _genLog(`FPS weapon template confirmed — movement and weapons ready.`, 'ok');
-        } else if (tLevel === 'full_playable_template' || tLevel === 'zombie_shooter_base') {
-          _genLog(`Full gameplay template confirmed — player, weapons, enemies detected.`, 'ok');
+          _genLog(`FPS Weapon Template confirmed — movement and weapon/HUD assets confirmed with config evidence.`, 'ok');
+          _genLog(`Next upgrade: ${folderResult.nextRecommendedUpgrade || 'add enemy content'}`, 'ok');
+        } else if (tLevel === 'zombie_asset_base') {
+          _genLog(`Zombie Asset Base — enemy assets detected. Active enemy AI NOT confirmed (no config evidence). Test Play mode in Unreal Editor to verify.`, 'warn');
+          _genLog(`Next upgrade: ${folderResult.nextRecommendedUpgrade || 'verify active enemy AI in Play mode'}`, 'ok');
+        } else if (tLevel === 'zombie_shooter_base') {
+          _genLog(`Zombie Shooter Base confirmed — player, weapons, and enemies detected.`, 'ok');
+        } else if (tLevel === 'full_playable_template') {
+          _genLog(`Full Playable Template confirmed — all systems detected and config verified.`, 'ok');
         }
         _genLog(`Project is Blueprint-only. No C++ modules required.`, 'ok');
         _genLog(`No missing plugin references found.`, 'ok');
@@ -556,27 +565,45 @@ async function startGameGeneration() {
 
     const isTemplate = folderResult && folderResult.templateUsed;
     const templateLevel = folderResult && folderResult.templateLevel ? folderResult.templateLevel : 'none';
-    const isMovementBase = templateLevel === 'movement_base';
-    const isFPSWeapon = templateLevel === 'fps_weapon_base';
-    const isFullTemplate = templateLevel === 'full_playable_template' || templateLevel === 'zombie_shooter_base';
-    const isPartial = templateLevel === 'incomplete' || resultType === 'Playable Template Project (Verify Content)';
+    const isMovementBase     = templateLevel === 'movement_base';
+    const isFPSAssetBase     = templateLevel === 'fps_asset_base';
+    const isFPSWeapon        = templateLevel === 'fps_weapon_base';
+    const isZombieAssetBase  = templateLevel === 'zombie_asset_base';
+    const isZombieShooter    = templateLevel === 'zombie_shooter_base';
+    const isFullTemplate     = templateLevel === 'full_playable_template';
+    const isAssetBase        = isFPSAssetBase || isZombieAssetBase;
+    const isConfirmedPlayable = isFullTemplate || isZombieShooter || isFPSWeapon;
+    const isPartial = templateLevel === 'incomplete' || (!isConfirmedPlayable && !isMovementBase && !isAssetBase && isTemplate);
 
     const titleText = !isTemplate
       ? 'Project Shell / Environment Walkthrough'
-      : isMovementBase ? 'Playable Movement Template'
-      : isFPSWeapon   ? 'FPS Weapon Template'
-      : isFullTemplate ? 'Playable Template Project Ready'
-      : 'Playable Template Project (Verify Content)';
+      : isMovementBase     ? 'Playable Movement Template'
+      : isFPSAssetBase     ? 'FPS Asset Base (Verify Active Gameplay)'
+      : isFPSWeapon        ? 'FPS Weapon Template Ready'
+      : isZombieAssetBase  ? 'Zombie Asset Base (Verify Active Gameplay)'
+      : isZombieShooter    ? 'Zombie Shooter Base Ready'
+      : isFullTemplate     ? 'Playable Template Project Ready'
+      : 'Template Copied (Verify Content)';
 
-    const titleColor = !isTemplate ? 'var(--warn)'
-      : isFullTemplate ? 'var(--success)'
+    const titleColor = !isTemplate              ? 'var(--warn)'
+      : isConfirmedPlayable                     ? 'var(--success)'
+      : isAssetBase                             ? 'var(--warn)'
       : 'var(--accent2)';
 
     const subtitleText = !isTemplate
-      ? 'Safe fallback used — Project Shell / Environment Walkthrough generated. Opens in Unreal with terrain and sky. No player HUD, weapons, enemies, or gameplay systems. Install a local template to unlock autonomous playable generation.'
-      : isMovementBase ? 'Playable Movement Template Ready — 100% ready for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full FPS game.'
-      : isFPSWeapon   ? 'FPS Weapon Template Ready — player movement and weapons/shooting/HUD present. Enemies, health system, and objectives are not installed yet.'
-      : isFullTemplate ? 'Playable Template Project Ready — full gameplay systems detected. Open in Unreal Editor and press Play to test gameplay.'
+      ? 'Safe fallback used — Project Shell / Environment Walkthrough generated. Opens in Unreal with terrain and sky. No player, HUD, weapons, enemies, or gameplay systems. Install a local template to unlock autonomous playable generation.'
+      : isMovementBase
+        ? 'Playable Movement Template — 100% complete for movement_base stage. Player/camera movement works. Weapon, HUD, enemies, health, damage, and objectives are not installed yet. This is not a full game.'
+      : isFPSAssetBase
+        ? 'FPS Asset Base — weapon and HUD assets detected in Content/. Active gameplay systems are NOT confirmed. Asset files alone do not prove weapons fire in Play mode. Open in Unreal Editor and press Play to verify.'
+      : isFPSWeapon
+        ? 'FPS Weapon Template Ready — player movement and weapon/HUD assets confirmed with config evidence. Enemies, health system, and objectives are not installed yet.'
+      : isZombieAssetBase
+        ? 'Zombie Asset Base — enemy assets detected in Content/. Active enemy AI is NOT confirmed. Asset files alone do not prove enemies spawn or act in Play mode. Open in Unreal Editor and press Play to verify.'
+      : isZombieShooter
+        ? 'Zombie Shooter Base Ready — player, weapons, and enemies detected. Full HUD, custom GameMode, and objective loop may still need verification.'
+      : isFullTemplate
+        ? 'Playable Template Project Ready — full gameplay systems confirmed via assets and config. Open in Unreal Editor and press Play to test.'
       : 'Template copied — GameForge handled this automatically. Verify content in Unreal Editor.';
 
     if (resultTitle) {
@@ -615,15 +642,30 @@ async function startGameGeneration() {
       const gameplayAssetsText = !isTemplate
         ? 'None — no gameplay systems installed. GameForge used safe fallback automatically.'
         : isMovementBase
-          ? `Movement confirmed. Missing for next stage: ${missing.join(', ') || 'none'}.`
-          : isFPSWeapon
-            ? `Movement + weapon/shooting/HUD present. Missing for next stage: ${missing.join(', ') || 'none'}.`
-            : isFullTemplate
-              ? '✓ Player, weapons, enemies, HUD detected — full gameplay systems present.'
-              : '! Verify template content in Unreal Editor';
+          ? `Movement confirmed (player blueprint + map). Missing for next stage: ${missing.join(', ') || 'none'}.`
+        : isFPSAssetBase
+          ? `Weapon/HUD assets detected — active gameplay NOT confirmed. Asset files do not prove systems fire in Play mode. Test Play mode in Unreal Editor.`
+        : isFPSWeapon
+          ? `Movement + weapon/HUD confirmed (assets + config evidence). Missing for next stage: ${missing.join(', ') || 'none'}.`
+        : isZombieAssetBase
+          ? `Enemy assets detected — active enemy AI NOT confirmed. Asset files do not prove enemies spawn in Play mode. Test Play mode in Unreal Editor.`
+        : isZombieShooter
+          ? `Player, weapons, and enemies detected. Missing for next stage: ${missing.join(', ') || 'none'}.`
+        : isFullTemplate
+          ? '✓ Player, weapons, enemies, HUD confirmed via assets and config — full gameplay systems verified.'
+          : '! Verify template content in Unreal Editor';
+      const gameplayAssetsLineColor = !isTemplate ? 'warn'
+        : isConfirmedPlayable ? 'success'
+        : isAssetBase ? 'warn'
+        : 'accent2';
       const gameplayAssetsLine = isUnrealEngine
-        ? `<b>Gameplay systems (${templateLevel || 'shell'}):</b> <span style="color:var(--${isTemplate && isFullTemplate ? 'success' : isTemplate ? 'accent2' : 'warn'})">${gameplayAssetsText}</span><br>`
+        ? `<b>Gameplay systems (${templateLevel || 'shell'}):</b> <span style="color:var(--${gameplayAssetsLineColor})">${gameplayAssetsText}</span><br>`
         : '';
+      const activationLine = isTemplate && (isFPSAssetBase || isZombieAssetBase)
+        ? `<b>Active gameplay status:</b> <span style="color:var(--warn);font-size:11px;">Asset files present but NOT confirmed active in Play mode. Manual verification needed.</span><br>`
+        : isTemplate && isConfirmedPlayable && folderResult.activeWeaponSystemConfirmed
+          ? `<b>Active gameplay status:</b> <span style="color:var(--success);font-size:11px;">Weapon system confirmed via config evidence.</span><br>`
+          : '';
       const scoreLine = score != null
         ? `<b>Stage Readiness (${templateLevel || 'shell'}):</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
         : '';
@@ -651,6 +693,7 @@ async function startGameGeneration() {
         ${pluginLine}
         ${templateLine}
         ${gameplayAssetsLine}
+        ${activationLine}
         <b>Config .ini files:</b> ${isUnrealEngine ? '✓ GameForge handled this automatically.' : 'N/A'}<br>
         <b>Docs:</b> ✓ GameDesignBrief, Controls, SetupChecklist, GameplayLoop, MeshyAssetPlan<br>
         <b>Meshy Assets:</b> ${config.useMeshy && config.meshyApiKey ? 'Queued' : config.useMeshy ? 'Skipped safely — MeshyAssetPlan.md created' : 'Disabled'}<br>
