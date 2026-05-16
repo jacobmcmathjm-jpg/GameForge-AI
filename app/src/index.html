@@ -4,1879 +4,1099 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.babylonjs.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GameForge AI Engine v3.3.1 PlayMode Hotfix</title>
+  <title>GameForge AI Engine v6.8.2</title>
   <link rel="stylesheet" href="./styles.css" />
+  <style>
+    /* ── Dashboard overrides ─────────────────────────────────────── */
+    :root {
+      --bg: #070d18;
+      --panel: #0d1628;
+      --panel2: #111d35;
+      --line: #1a2c4a;
+      --text: #e4eef8;
+      --muted: #6a88aa;
+      --accent: #3b82f6;
+      --accent2: #22d3ee;
+      --success: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #app {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+
+    .brand {
+      padding: 20px 18px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+      color: #fff;
+      flex-shrink: 0;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-text h1 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+    }
+
+    .brand-text p {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    nav {
+      flex: 1;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+    }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      transition: background 0.15s, color 0.15s;
+      width: 100%;
+    }
+
+    .nav-btn:hover { background: var(--panel2); color: var(--text); }
+    .nav-btn.active { background: rgba(59,130,246,0.15); color: var(--accent); }
+    .nav-btn .nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+
+    .sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--line);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Main area ───────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .topbar h2 { font-size: 17px; font-weight: 700; }
+    .topbar p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .topbar-actions { display: flex; gap: 8px; }
+
+    /* ── Panels ──────────────────────────────────────────────────── */
+    .panels {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Cards / Grid ────────────────────────────────────────────── */
+    .grid { display: grid; gap: 18px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .card h3 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .card h4 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 16px 0 8px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    button, .btn {
+      padding: 8px 16px;
+      border-radius: 7px;
+      border: 1px solid var(--line);
+      background: var(--panel2);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    button:hover { background: #1a2c4a; border-color: #2a4060; }
+    button:active { transform: scale(0.98); }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: #2563eb; border-color: #2563eb; }
+
+    button.success {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    button.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #fff;
+    }
+
+    button.wide { width: 100%; margin-top: 8px; }
+
+    /* ── Form elements ───────────────────────────────────────────── */
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      margin-top: 12px;
+    }
+
+    label:first-child { margin-top: 0; }
+
+    input[type=text], input[type=password], select, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea { resize: vertical; }
+    textarea.mono { font-family: 'Consolas', 'Monaco', monospace; font-size: 12px; }
+    textarea.tall { height: 200px; }
+    textarea.log { height: 280px; background: #040810; color: #7eeac0; }
+
+    select option { background: var(--panel2); }
+
+    /* ── Status dots ─────────────────────────────────────────────── */
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .dot.ok { background: var(--success); }
+    .dot.warn { background: var(--warn); }
+    .dot.err { background: var(--danger); }
+    .dot.info { background: var(--accent); }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      gap: 4px;
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-row .status-label { flex: 1; }
+    .status-row .status-val { font-size: 12px; color: var(--muted); }
+
+    /* ── Hero / dashboard intro ──────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #0d1e38 0%, #091529 100%);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .hero h2 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+    .hero p { font-size: 13px; color: var(--muted); max-width: 520px; line-height: 1.6; }
+
+    /* ── Big action buttons on dashboard ─────────────────────────── */
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .action-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 20px 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.2s, transform 0.12s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .action-card:hover {
+      background: var(--panel2);
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .action-card .ac-icon {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .action-card .ac-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .action-card .ac-sub {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    /* ── Game type grid ──────────────────────────────────────────── */
+    .gametype-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .gametype-btn {
+      padding: 10px 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      border-radius: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .gametype-btn.selected {
+      border-color: var(--accent);
+      background: rgba(59,130,246,0.12);
+      color: var(--accent);
+    }
+
+    .gametype-btn:hover:not(.selected) {
+      border-color: #2a4060;
+      color: var(--text);
+      background: var(--panel2);
+    }
+
+    /* ── Log output ──────────────────────────────────────────────── */
+    .log-output {
+      background: #040810;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 12px;
+      color: #7eeac0;
+      height: 320px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+
+    .log-output .log-err { color: #f87171; }
+    .log-output .log-warn { color: #fbbf24; }
+    .log-output .log-info { color: #60a5fa; }
+    .log-output .log-ok { color: #34d399; }
+    .log-output .log-dim { color: #4a6070; }
+
+    /* ── Checker items ───────────────────────────────────────────── */
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-item .ci-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .check-item .ci-body { flex: 1; }
+    .check-item .ci-title { font-size: 13px; font-weight: 600; }
+    .check-item .ci-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .check-item.ci-pass .ci-title { color: var(--success); }
+    .check-item.ci-fail .ci-title { color: var(--danger); }
+    .check-item.ci-warn .ci-title { color: var(--warn); }
+    .check-item.ci-pending .ci-title { color: var(--muted); }
+
+    /* ── Progress bar ────────────────────────────────────────────── */
+    .progress-bar-wrap {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 6px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+
+    /* ── Settings ────────────────────────────────────────────────── */
+    .settings-section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 14px;
+      background: var(--panel);
+    }
+
+    .settings-section h3 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text);
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .key-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    .key-row > div { flex: 1; }
+    .key-row button { flex-shrink: 0; margin-bottom: 0; padding: 8px 14px; }
+
+    /* ── Repair items ────────────────────────────────────────────── */
+    .repair-item {
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .repair-item .ri-icon { font-size: 18px; flex-shrink: 0; }
+    .repair-item .ri-body { flex: 1; }
+    .repair-item .ri-title { font-size: 13px; font-weight: 600; }
+    .repair-item .ri-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .repair-item button { flex-shrink: 0; font-size: 12px; padding: 5px 10px; }
+
+    /* ── Tag badge ───────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-ok { background: rgba(34,197,94,0.15); color: var(--success); border: 1px solid rgba(34,197,94,0.3); }
+    .badge-warn { background: rgba(245,158,11,0.15); color: var(--warn); border: 1px solid rgba(245,158,11,0.3); }
+    .badge-err { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+
+    /* ── Scrollbar ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1a2c4a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a4060; }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 18px;
+      background: var(--panel2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 360px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Responsive: collapse grid on narrow views */
+    @media (max-width: 1100px) {
+      .action-grid { grid-template-columns: repeat(3, 1fr); }
+      .gametype-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 800px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .action-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
 </head>
-<body class="ui-polish-v072 stable-prototype-mode smooth-window-mode always-smooth-window">
-  <div id="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo">GF</div>
-        <div>
-          <h1>GameForge AI</h1>
-          <p>Engine v3.3.1 Hotfix</p>
-        </div>
+<body>
+<div id="app">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">GF</div>
+      <div class="brand-text">
+        <h1>GameForge AI</h1>
+        <p>Engine v6.8.2</p>
       </div>
+    </div>
 
-      <button class="nav active" data-panel="dashboard">Dashboard</button>
-      <button class="nav" data-panel="hypergame">Hypergame Mode</button>
-      <button class="nav" data-panel="forge">Forge Mode</button>
-      <button class="nav" data-panel="studio">Studio Editor</button>
-      <button class="nav" data-panel="components">Components</button>
-      <button class="nav" data-panel="terrain">Terrain Tools</button>
-      <button class="nav" data-panel="realism">Realism Pack</button>
-      <button class="nav" data-panel="materials">Materials</button>
-      <button class="nav" data-panel="systems">Gameplay Systems</button>
-      <button class="nav" data-panel="assets">Asset Forge</button>
-      <button class="nav" data-panel="assetpacks">Asset Pack Manager</button>
-      <button class="nav" data-panel="curatedassets">Curated CC0 Assets</button>
-      <button class="nav" data-panel="characters">Characters</button>
-      <button class="nav" data-panel="testing">Test Agent</button>
-      <button class="nav" data-panel="playable">Playable Prototype</button>
-      <button class="nav" data-panel="audio">Audio Pack</button>
-      <button class="nav" data-panel="localmedia">Local Media</button>
-      <button class="nav" data-panel="websounds">Web Sounds</button>
-      <button class="nav" data-panel="legalsounds">Legal Sound Finder</button>
-      <button class="nav" data-panel="licenceaudit">Licence Auditor</button>
-      <button class="nav" data-panel="buildsystem">Build System</button>
-      <button class="nav" data-panel="nativeexport">Native EXE Export</button>
-      <button class="nav" data-panel="autonomous">Autonomous AI</button>
-      <button class="nav" data-panel="aicost">Startup Hotfix v3.3.1</button>
-      <button class="nav" data-panel="ai3dassets">AI 3D Assets</button>
-      <button class="nav" data-panel="free3d">Startup Hotfix v3.3.1</button>
-      <button class="nav" data-panel="oneclickforge">One-Click Forge</button>
-      <button class="nav" data-panel="playtestexport">Playtest / Export</button>
-      <button class="nav" data-panel="completegame">Complete Game EXE</button>
-      <button class="nav" data-panel="photoreal">Startup Hotfix v3.3.1</button>
-      <button class="nav" data-panel="gameintel">Game Intelligence</button>
-      <button class="nav" data-panel="visualtarget">Visual Target</button>
-      <button class="nav" data-panel="internalmesh">Internal Mesh</button>
-      <button class="nav" data-panel="autoassets">Auto Assets</button>
-      <button class="nav" data-panel="modelgatherer">Model Gatherer</button>
-      <button class="nav" data-panel="animationimporter">Animations</button>
-      <button class="nav" data-panel="animationgatherer">Animation Gatherer</button>
-      <button class="nav" data-panel="settings">Settings</button>
+    <nav>
+      <button class="nav-btn active" data-panel="dashboard">
+        <span class="nav-icon">⊞</span> Dashboard
+      </button>
+      <button class="nav-btn" data-panel="generate">
+        <span class="nav-icon">⚡</span> Generate Full Game
+      </button>
+      <button class="nav-btn" data-panel="checker">
+        <span class="nav-icon">✓</span> Launch Checker
+      </button>
+      <button class="nav-btn" data-panel="repair">
+        <span class="nav-icon">🔧</span> Repair GameForge
+      </button>
+      <button class="nav-btn" data-panel="settings">
+        <span class="nav-icon">⚙</span> Settings
+      </button>
+      <button class="nav-btn" data-panel="logs">
+        <span class="nav-icon">≡</span> Logs
+      </button>
+    </nav>
 
-      <div class="sidebar-footer">
-        <p><strong>Standalone engine direction</strong></p>
-        <p>No Unreal. No Unity. No Godot. No Roblox.</p>
-        <p>Offline generator included.</p>
+    <div class="sidebar-footer">
+      <div id="sidebarStatus">GameForge AI ready</div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══════════════════════════════════════════════════════════ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div>
+        <h2 id="topbarTitle">Dashboard</h2>
+        <p id="topbarSub">AI game builder — generate projects, check toolchain, manage assets</p>
       </div>
-    </aside>
+      <div class="topbar-actions">
+        <button id="refreshBtn">↻ Refresh Status</button>
+      </div>
+    </header>
 
-    <main class="main">
-      <header class="topbar">
-        <div>
-          <h2 id="pageTitle">Dashboard</h2>
-          <p id="pageSubtitle">Create, edit, generate, test, and play inside GameForge AI Engine.</p>
-        </div>
-        <div class="actions">
-          <button id="loadProjectBtn">Load</button>
-          <button id="saveProjectBtn">Save</button>
-          <button id="exportProjectBtn">Export JSON</button>
-          <button id="exportPlayableBtn">Export Draft</button>
-          <button id="playBtn" class="primary">Play</button>
-        </div>
-      </header>
+    <!-- Panels container -->
+    <div class="panels">
 
-      <section id="dashboard" class="panel active-panel">
+      <!-- ═══════════════════════════════════════════════════════ DASHBOARD -->
+      <section class="panel active" id="panel-dashboard">
+
         <div class="hero">
           <div>
-            <h2>Prompt-to-game engine prototype</h2>
-            <p>Describe your game, forge a playable draft, edit the 3D scene, generate systems, test the build, and save the project — all offline for now.</p>
+            <h2>GameForge AI Engine</h2>
+            <p>Generate complete game project folders, run 3D asset generation via Meshy, detect Unreal Engine, check your toolchain, and self-repair your setup — all from one desktop app.</p>
           </div>
-          <button id="openWizardBtn" class="primary">Open One-Click Forge Wizard</button>
+          <button class="primary" onclick="gotoPanel('generate')">⚡ Generate Full Game</button>
         </div>
 
-        <div class="grid two">
+        <div class="action-grid">
+          <div class="action-card" onclick="gotoPanel('generate')">
+            <div class="ac-icon">🎮</div>
+            <div class="ac-label">Generate Full Game</div>
+            <div class="ac-sub">FPS, Horror, Survival, RPG and more</div>
+          </div>
+          <div class="action-card" onclick="gotoPanel('checker')">
+            <div class="ac-icon">✅</div>
+            <div class="ac-label">Launch Checker</div>
+            <div class="ac-sub">Verify toolchain, paths, API keys</div>
+          </div>
+          <div class="action-card" onclick="gotoPanel('repair')">
+            <div class="ac-icon">🔧</div>
+            <div class="ac-label">Repair GameForge</div>
+            <div class="ac-sub">Fix config, folders, dependencies</div>
+          </div>
+          <div class="action-card" onclick="gotoPanel('settings')">
+            <div class="ac-icon">⚙️</div>
+            <div class="ac-label">Settings</div>
+            <div class="ac-sub">API keys, Unreal path, output folder</div>
+          </div>
+          <div class="action-card" onclick="gotoPanel('logs')">
+            <div class="ac-icon">📋</div>
+            <div class="ac-label">Logs</div>
+            <div class="ac-sub">Full session activity and error log</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2">
           <div class="card">
-            <h3>Game Description</h3>
+            <h3>System Status</h3>
+            <div id="dashStatusList">
+              <div class="status-row">
+                <span class="dot info"></span>
+                <span class="status-label">Loading system status...</span>
+              </div>
+            </div>
+            <div style="margin-top:14px;">
+              <button onclick="runLaunchChecker()" class="primary">Run Launch Checker Now</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Recent Activity</h3>
+            <div id="dashRecentLog" style="height:180px;overflow-y:auto;font-size:12px;color:var(--muted);font-family:monospace;">
+              Waiting for activity...
+            </div>
+            <div style="margin-top:14px;">
+              <button onclick="gotoPanel('logs')">View Full Logs</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════ GENERATE FULL GAME -->
+      <section class="panel" id="panel-generate">
+        <div class="grid grid-2" style="margin-bottom:18px;">
+          <div class="card">
+            <h3>Game Configuration</h3>
+
             <label>Game Name</label>
-            <input id="gameName" value="Dead Hollow Prototype" />
+            <input type="text" id="genGameName" value="My GameForge Project" />
 
-            <label>Describe the full game</label>
-            <textarea id="gamePrompt">Create a realistic 3D survival horror game set in an abandoned Australian town. The player explores, scavenges, crafts weapons, builds a safe base, fights infected enemies, unlocks a skill tree, survives day and night weather changes, and escapes before the final storm.</textarea>
-
-            <div class="row">
-              <div>
-                <label>Mode</label>
-                <select id="buildMode">
-                  <option>Hypergame</option>
-                  <option selected>Studio</option>
-                  <option>Forge Full Game Draft</option>
-                </select>
-              </div>
-              <div>
-                <label>Game Size</label>
-                <select id="gameSize">
-                  <option>Small Prototype</option>
-                  <option selected>Playable Demo</option>
-                  <option>Vertical Slice</option>
-                  <option>Full Game Draft</option>
-                </select>
-              </div>
+            <label>Game Type</label>
+            <div class="gametype-grid" id="gametypeGrid">
+              <button class="gametype-btn selected" data-type="fps">🔫 FPS</button>
+              <button class="gametype-btn" data-type="horror">👻 Horror</button>
+              <button class="gametype-btn" data-type="survival">🏕️ Survival</button>
+              <button class="gametype-btn" data-type="openworld">🌍 Open World</button>
+              <button class="gametype-btn" data-type="zombie">🧟 Zombie Shooter</button>
+              <button class="gametype-btn" data-type="racing">🚗 Racing</button>
+              <button class="gametype-btn" data-type="rpg">⚔️ RPG</button>
+              <button class="gametype-btn" data-type="custom">✏️ Custom</button>
             </div>
 
-            <div class="row">
-              <div>
-                <label>Graphics Target</label>
-                <select id="graphicsTarget">
-                  <option>Prototype</option>
-                  <option>Stylised</option>
-                  <option selected>Realistic</option>
-                  <option>Hyper-Realistic Target</option>
-                </select>
-              </div>
-              <div>
-                <label>Perspective</label>
-                <select id="perspective">
-                  <option selected>First Person</option>
-                  <option>Third Person</option>
-                  <option>Top Down</option>
-                  <option>Side View</option>
-                </select>
-              </div>
-            </div>
-
-            <label class="checkline"><input type="checkbox" id="useAssetPacks" checked /> Use imported/downloaded asset packs during generation</label>
-            <label class="checkline"><input type="checkbox" id="autoGenerateMedia" checked /> Auto-generate local media for this game</label>
-            <button id="autonomousGenerateBtn" class="primary wide">Autonomously Generate Playable Game</button>
-            <button id="forgeDraftBtn" class="wide">Emergency Offline Template Draft</button>
-          </div>
-
-          <div class="card">
-            
-        <div class="card quick-access-card">
-          <h3>Quick Access</h3>
-          <p>Use these if the sidebar is hard to reach on smaller screens.</p>
-          <div class="button-grid">
-            <button id="quickAICostBtn" class="primary">Open AI Cost Estimator</button>
-            <button id="quickHybridAIBtn">Open Hybrid AI</button>
-            <button id="quickForgeWizardBtn">Open Forge Wizard</button>
-            <button id="quickStudioBtn">Open Studio Editor</button>
-          </div>
-        </div>
-
-          <h3>Current Build Status</h3>
-            <div class="status-list" id="statusList">
-              <div><span class="dot ok"></span> Electron desktop shell ready</div>
-              <div><span class="dot ok"></span> Babylon.js internal 3D viewport ready</div>
-              <div><span class="dot ok"></span> Offline prompt generator ready</div>
-              <div><span class="dot ok"></span> Scene save/load foundation ready</div>
-              <div><span class="dot ok"></span> Offline realism environment pack ready</div>
-              <div><span class="dot ok"></span> Playable survival loop ready</div>
-              <div><span class="dot ok"></span> Placeholder audio pack ready</div>
-              <div><span class="dot ok"></span> Autonomous Local AI generation ready</div>
-              <div><span class="dot ok"></span> Asset Pack Manager ready</div>
-              <div><span class="dot ok"></span> Individual GLB/GLTF model placement ready</div>
-              <div><span class="dot ok"></span> Local media generator ready</div>
-              <div><span class="dot warn"></span> Optional web sound finder ready</div>
-              <div><span class="dot ok"></span> Legal sound filtering ready</div>
-              <div><span class="dot ok"></span> Licence auditor and credits manager ready</div>
-              <div><span class="dot ok"></span> 1920x1080 playable build system ready</div>
-              <div><span class="dot ok"></span> Native EXE package exporter ready</div>
-              <div><span class="dot ok"></span> Seamless forge wizard and auto-pipeline ready</div>
-              <div><span class="dot ok"></span> Character GLB model importer ready</div>
-              <div><span class="dot ok"></span> Curated CC0 asset downloader ready</div>
-              <div><span class="dot ok"></span> AI cost estimator ready</div>
-              <div><span class="dot ok"></span> Hybrid AI connector ready</div>
-              <div><span class="dot ok"></span> Stable prototype cleanup ready</div>
-              <div><span class="dot ok"></span> AI 3D asset pipeline ready</div>
-              <div><span class="dot ok"></span> Free 3D generator ready</div>
-              <div><span class="dot warn"></span> Real AI API not connected yet</div>
-              <div><span class="dot warn"></span> Hyper-realistic assets are roadmap targets</div>
-            </div>
-            <h4>Build Summary</h4>
-            <p id="currentBuildSummary">No draft generated yet. Use Generate Offline Game Draft to create the first playable scene.</p>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="forgewizard" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> One-Click Forge Wizard</h3>
-            <p>Describe your game, choose a preset, then let GameForge run the full pipeline automatically.</p>
-
-            <label>Game Preset</label>
-            <select id="wizardPreset">
-              <option>Survival Horror</option>
-              <option>Zombie Shooter</option>
-              <option>Forest Survival</option>
-              <option>Open World Survival</option>
-              <option>Dungeon Crawler</option>
-              <option>Sci-Fi Shooter</option>
-              <option>Fantasy Adventure</option>
-              <option>Driving Prototype</option>
-            </select>
-
-            <label>Graphics Target</label>
-            <select id="wizardGraphics">
-              <option selected>Realistic Prototype</option>
-              <option>Stylised Prototype</option>
-              <option>High Detail Prototype</option>
-              <option>Performance Mode</option>
-            </select>
-
-            <label>Playable Length</label>
-            <select id="wizardLength">
-              <option>5 minute demo</option>
-              <option selected>10 minute playable draft</option>
-              <option>Vertical slice</option>
-            </select>
-
-            <label>Pipeline Options</label>
-            <label class="checkline"><input type="checkbox" id="wizardGenerateMedia" checked /> Generate local media</label>
-            <label class="checkline"><input type="checkbox" id="wizardScanAssets" checked /> Scan imported assets</label>
-            <label class="checkline"><input type="checkbox" id="wizardRunRepair" checked /> Auto-repair missing systems</label>
-            <label class="checkline"><input type="checkbox" id="wizardRunLicence" checked /> Run licence audit</label>
-            <label class="checkline"><input type="checkbox" id="wizardValidateBuild" checked /> Validate playable build</label>
-            <label class="checkline"><input type="checkbox" id="wizardExportNative" /> Export native package automatically</label>
-
-            <button id="runForgeWizardBtn" class="primary wide">Forge Full Game Package</button>
-            <button id="makeItBetterBtn" class="wide">Make Current Game Better</button>
-          </div>
-
-          <div class="card">
-            <h3>Forge Pipeline Progress</h3>
-            <div id="wizardProgress" class="stage-list"></div>
-            <h4>Wizard Log</h4>
-            <textarea id="wizardLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-
-          <div class="card viewport-preview-card">
-            <div class="viewport-preview-head">
-              <strong>Viewport Preview <span>(Real-time)</span></strong>
-              <div class="viewport-tools">Perspective · Lit · 60 FPS</div>
-            </div>
-            <div class="mock-viewport">
-              <div class="mock-scene">
-                <div class="moon"></div>
-                <div class="road"></div>
-                <div class="building left"></div>
-                <div class="building right"></div>
-                <div class="zombie z1"></div>
-                <div class="zombie z2"></div>
-                <div class="zombie z3"></div>
-                <div class="weapon"></div>
-                <div class="pharmacy">PHARMACY</div>
-                <div class="fps">60 FPS</div>
-              </div>
-            </div>
-          </div>
-
-        <div class="grid two">
-          <div class="card">
-            <h3>Project Health Dashboard</h3>
-            <div id="healthScoreCards" class="health-grid"></div>
-            <button id="refreshHealthBtn">Refresh Health Score</button>
-          </div>
-
-          <div class="card">
-            <h3>Build Readiness Gate</h3>
-            <textarea id="readinessGateLog" class="mono tall"></textarea>
-            <button id="runReadinessGateBtn" class="primary">Run Readiness Gate</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="hypergame" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Hypergame Mode</h3>
-            <p>Create a smaller playable prototype quickly using offline templates.</p>
-            <label>Choose a quick game type</label>
-            <select id="hypergameTemplate">
-              <option>Zombie Wave Shooter</option>
-              <option>Horror Escape Room</option>
-              <option>Forest Survival</option>
-              <option>Dungeon Crawler</option>
-              <option>Parkour Runner</option>
-              <option>Abandoned Town Survival</option>
-            </select>
-            <button id="generateHypergameBtn" class="primary wide">Generate Hypergame</button>
-          </div>
-          <div class="card">
-            <h3>Hypergame Output</h3>
-            <textarea id="hypergameOutput" class="mono tall" readonly></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="forge" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Forge Mode</h3>
-            <p>Offline staged generator. Later this becomes the long-running real AI Forge system.</p>
-            <button id="runForgeStagesBtn" class="primary wide">Run Full Offline Forge Stages</button>
-            <div id="forgeStages" class="stage-list"></div>
-          </div>
-          <div class="card">
-            <h3>Forge Report</h3>
-            <textarea id="forgeReport" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="studio" class="panel editor-panel">
-        <div class="viewport-wrap">
-          <canvas id="renderCanvas"></canvas>
-          <div class="viewport-overlay">
-            <span id="modeBadge">EDIT MODE</span>
-            <span id="selectionBadge">No selection</span>
-            <span>Play: WASD + Mouse · Click Shoot · E Interact · R Reload · Esc Pause</span>
-          </div>
-          <div id="gameHud" class="game-hud hidden">
-            <div class="hud-row">
-              <div><strong>Health</strong><div class="bar"><span id="healthBar"></span></div></div>
-              <div><strong>Stamina</strong><div class="bar"><span id="staminaBar"></span></div></div>
-            </div>
-            <div class="hud-stats">
-              <span id="ammoHud">Ammo: 30 / 90</span>
-              <span id="scoreHud">Score: 0</span>
-              <span id="objectiveHud">Objective: Survive and find supplies</span>
-            </div>
-            <div id="interactionPrompt" class="interaction-prompt"></div>
-            <div class="crosshair">+</div>
-            <div id="pauseMenuOverlay" class="pause-menu hidden"><h2>Paused</h2><button id="resumeRuntimeBtn">Resume</button><button id="runtimeSaveBtn">Save Runtime</button><button id="runtimeLoadBtn">Load Runtime</button><button id="runtimeSettingsBtn">Settings</button></div>
-          </div>
-        </div>
-
-        <div class="inspector">
-          <h3>Studio Editor</h3>
-          <div class="button-grid">
-            <button id="addCubeBtn">Add Cube</button>
-            <button id="addEnemyBtn">Add Enemy</button>
-            <button id="addLightBtn">Add Light</button>
-            <button id="generateTownBtn">Generate Town</button>
-            <button id="generateForestBtn">Generate Forest</button>
-            <button id="generateSurvivalMapBtn">Survival Map</button>
-            <button id="generateRealisticWorldBtn">Realistic World</button>
-            <button id="generatePlayableSurvivalBtn" class="primary">Playable Survival</button>
-            <button id="addHumanBtn">Add Human</button>
-            <button id="addGrassBtn">Grass Patch</button>
-            <button id="addRockBtn">Add Rock</button>
-          </div>
-
-          <h4>Transform Selected</h4>
-          <div class="row3">
-            <button class="transformBtn" data-axis="x" data-delta="-1">X-</button>
-            <button class="transformBtn" data-axis="y" data-delta="1">Y+</button>
-            <button class="transformBtn" data-axis="x" data-delta="1">X+</button>
-            <button class="transformBtn" data-axis="z" data-delta="-1">Z-</button>
-            <button class="transformBtn" data-axis="y" data-delta="-1">Y-</button>
-            <button class="transformBtn" data-axis="z" data-delta="1">Z+</button>
-          </div>
-
-          <div class="row">
-            <button id="scaleUpBtn">Scale +</button>
-            <button id="scaleDownBtn">Scale -</button>
-          </div>
-
-          <button id="duplicateBtn">Duplicate Selected</button>
-          <button id="deleteSelectedBtn" class="danger">Delete Selected</button>
-          <button id="clearSceneBtn" class="danger">Clear Scene</button>
-
-          <h4>Scene Hierarchy</h4>
-          <div id="sceneHierarchy" class="hierarchy"></div>
-
-          <h4>Inspector</h4>
-          <div id="inspectorContent">
-            <p>Select an object in the viewport or hierarchy.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="components" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Component System</h3>
-            <p>v0.4 adds component-style data for objects. This is the foundation for real gameplay later.</p>
-            <label>Selected Object Components</label>
-            <div id="componentList" class="component-list"></div>
-            <div class="button-grid">
-              <button class="componentBtn" data-comp="Health">Add Health</button>
-              <button class="componentBtn" data-comp="Damage">Add Damage</button>
-              <button class="componentBtn" data-comp="Interactable">Add Interactable</button>
-              <button class="componentBtn" data-comp="EnemyAI">Add Enemy AI</button>
-              <button class="componentBtn" data-comp="Pickup">Add Pickup</button>
-              <button class="componentBtn" data-comp="CraftingStation">Add Crafting Station</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Component JSON</h3>
-            <textarea id="componentJson" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="terrain" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Terrain Tools</h3>
-            <p>Offline terrain presets for the v0.4 prototype.</p>
-            <button id="terrainFlatBtn">Flat Test Ground</button>
-            <button id="terrainForestBtn">Forest Terrain</button>
-            <button id="terrainTownBtn">Town Terrain</button>
-            <button id="terrainHorrorBtn" class="primary">Horror Survival Terrain</button>
-            <button id="terrainRealisticBtn" class="primary">Realistic Everyday Terrain</button>
-          </div>
-          <div class="card">
-            <h3>Terrain Notes</h3>
-            <textarea id="terrainNotes" class="mono tall" readonly></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="realism" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Offline Realism Pack</h3>
-            <p>This adds realistic-looking world foundations using offline procedural assets: grass, trees, rocks, terrain, fog, sunlight, atmosphere, and human placeholders.</p>
-            <button id="generateRealisticEnvironmentBtn" class="primary wide">Generate Realistic Environment</button>
-            <button id="generateBushlandBtn">Generate Bushland Area</button>
-            <button id="generateRockFieldBtn">Generate Rock Field</button>
-            <button id="generateHumanGroupBtn">Generate Human Placeholders</button>
-            <button id="applyRealisticLightingBtn">Apply Realistic Lighting / Fog</button>
-            <button id="generateRealismAssetPlanBtn">Generate Realism Asset Plan</button>
-          </div>
-          <div class="card">
-            <h3>Realism Notes</h3>
-            <textarea id="realismNotes" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="materials" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Material Controls</h3>
-            <p>Apply simple prototype materials to the selected object.</p>
-            <div class="button-grid">
-              <button class="materialBtn" data-mat="concrete">Concrete</button>
-              <button class="materialBtn" data-mat="wood">Old Wood</button>
-              <button class="materialBtn" data-mat="metal">Rusted Metal</button>
-              <button class="materialBtn" data-mat="forest">Forest Green</button>
-              <button class="materialBtn" data-mat="enemy">Enemy Red</button>
-              <button class="materialBtn" data-mat="water">Cold Blue</button>
-              <button class="materialBtn" data-mat="skin">Skin Tone</button>
-              <button class="materialBtn" data-mat="grass">Grass</button>
-              <button class="materialBtn" data-mat="rock">Rock</button>
-              <button class="materialBtn" data-mat="bark">Bark</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Material Plan</h3>
-            <textarea id="materialPlan" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="systems" class="panel">
-        <div class="grid three">
-          <div class="card"><h3>Player</h3><p>Movement, camera, stamina.</p><button data-system="player" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Weapons</h3><p>Fire, reload, ammo, damage.</p><button data-system="weapons" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Enemy AI</h3><p>Patrol, chase, attack.</p><button data-system="enemies" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Inventory</h3><p>Slots, pickups, hotbar.</p><button data-system="inventory" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Crafting</h3><p>Recipes and materials.</p><button data-system="crafting" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Skill Tree</h3><p>XP and unlocks.</p><button data-system="skills" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Base Building</h3><p>Walls, doors, campfire.</p><button data-system="building" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Weather</h3><p>Rain, fog, storm.</p><button data-system="weather" class="systemBtn">Generate</button></div>
-          <div class="card"><h3>Quest System</h3><p>Objectives and triggers.</p><button data-system="quests" class="systemBtn">Generate</button></div>
-        </div>
-        <div class="card">
-          <h3>Generated Gameplay Logic</h3>
-          <textarea id="logicScript" class="mono tall"></textarea>
-        </div>
-      </section>
-
-      <section id="assets" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Asset Forge</h3>
-            <p>Offline asset planning for characters, enemies, weapons, buildings, audio, UI and materials.</p>
-            <button id="generateAssetListBtn" class="primary">Generate Asset Plan</button>
-            <button id="createPlaceholderAssetsBtn">Create Placeholder Asset Notes</button>
-          </div>
-          <div class="card">
-            <h3>Asset Plan</h3>
-            <textarea id="assetPlan" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="assetpacks" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Asset Pack Manager</h3>
-            <p>Download or import asset packs, scan your GameForge asset library, and let autonomous generation use those assets instead of basic placeholders where possible.</p>
-
-            <label>Download Asset/Pack URL</label>
-            <input id="assetDownloadUrl" placeholder="https://example.com/asset-pack.zip" />
-            <label>Licence / Source Note</label>
-            <input id="assetLicenseNote" placeholder="Example: CC0, owned by me, attribution required, etc." />
-
-            <div class="button-grid">
-              <button id="downloadAssetBtn" class="primary">Download Pack</button>
-              <button id="importAssetFilesBtn">Import Local Files</button>
-              <button id="scanAssetLibraryBtn">Scan Library</button>
-              <button id="saveAssetManifestBtn">Save Manifest</button>
-              <button id="refreshModelRefsBtn">Refresh Model References</button>
-            </div>
-
-            <h4>Trusted Source Ideas</h4>
-            <ul>
-              <li>Kenney-style game asset packs</li>
-              <li>Quaternius-style 3D model packs</li>
-              <li>Poly Haven-style CC0 textures/HDRIs/models</li>
-              <li>OpenGameArt-style mixed asset packs</li>
-              <li>Your own purchased/owned packs</li>
-            </ul>
-            <p><strong>Licence note:</strong> only use packs you own or packs that allow your intended use.</p>
-          </div>
-
-          <div class="card">
-            <h3>Asset Library</h3>
-            <textarea id="assetLibraryLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Detected Assets</h3>
-          <div id="assetLibraryList" class="asset-list"></div>
-          <h3>GLB / GLTF Model References</h3>
-          <div id="modelReferenceList" class="asset-list"></div>
-        </div>
-      </section>
-
-      <section id="testing" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>GameForge Test Agent</h3>
-            <p>Checks the current offline scene and generated systems.</p>
-            <button id="runTestsBtn" class="primary wide">Run Test Pass</button>
-            <button id="repairWarningsBtn">Attempt Offline Auto-Repair</button>
-          </div>
-          <div class="card">
-            <h3>Test Report</h3>
-            <div id="testReport" class="test-report"></div>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="playable" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Playable Prototype Mode</h3>
-            <p>This mode makes the generated game feel more like a real playable draft, not just a walk-around editor scene.</p>
-            <button id="generatePlayablePrototypeBtn" class="primary wide">Generate Playable Survival Prototype</button>
-            <button id="resetRuntimeBtn">Reset Runtime Stats</button>
-            <button id="spawnLootBtn">Spawn Loot</button>
-            <button id="spawnEnemyWaveBtn">Spawn Enemy Wave</button>
-            <button id="enableAudioBtn">Enable Audio</button>
-            <button id="testAudioBtn">Test Audio</button>
-            <h4>Controls</h4>
-            <ul>
-              <li>WASD: Move</li>
-              <li>Mouse: Look</li>
-              <li>Left Click: Shoot</li>
-              <li>R: Reload</li>
-              <li>E: Interact / Pick up loot</li>
-              <li>Shift: Move faster through the prototype</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>Playable Systems Included</h3>
-            <textarea id="playableNotes" class="mono tall" readonly></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="audio" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Offline Audio Pack</h3>
-            <p>v0.4.3 includes generated placeholder WAV files and hooks them into the playable prototype.</p>
-            <button id="enableAudioPanelBtn" class="primary wide">Enable Audio System</button>
-            <button id="testGunshotBtn">Test Gunshot</button>
-            <button id="testReloadBtn">Test Reload</button>
-            <button id="testPickupBtn">Test Pickup</button>
-            <button id="testEnemyBtn">Test Enemy Hit</button>
-            <button id="testAmbientBtn">Test Ambient Wind</button>
-            <button id="generateAudioPlanBtn">Generate Audio Plan</button>
-          </div>
-          <div class="card">
-            <h3>Audio Plan</h3>
-            <textarea id="audioPlan" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="autonomous" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Autonomous Local AI</h3>
-            <p>Uses your own local model as the main generator. It creates the 3D scene, playable systems, objective, audio plan, asset plan, test plan, and prototype setup from your prompt. Imported GLB/GLTF assets are now passed in as individual model references.</p>
-            <label>Local Provider</label>
-            <select id="localProvider">
-              <option value="ollama">Ollama-compatible endpoint</option>
-              <option value="llamacpp">llama.cpp-compatible endpoint</option>
-              <option value="custom">Custom local HTTP endpoint</option>
-            </select>
-            <label>Local Endpoint</label>
-            <input id="localEndpoint" value="http://localhost:11434/api/generate" />
-            <label>Model Name</label>
-            <input id="localModel" value="llama3.1:8b" />
-            <label>Temperature</label>
-            <input id="localTemperature" value="0.35" />
-            <div class="button-grid">
-              <button id="saveLocalAiSettingsBtn">Save Settings</button>
-              <button id="testLocalAiBtn">Test Local AI</button>
-            </div>
-            <label class="checkline"><input type="checkbox" id="useAssetPacksPanel" checked /> Include asset library context in local AI prompt</label>
-            <label class="checkline"><input type="checkbox" id="autoGenerateMediaPanel" checked /> Auto-generate local texture/icon/audio pack</label>
-            <button id="autonomousPanelGenerateBtn" class="primary wide">Generate Full Playable Draft</button>
-            <button id="autonomousSceneOnlyBtn" class="wide">Generate Scene Only</button>
-          </div>
-          <div class="card">
-            <h3>Autonomous Generation Log</h3>
-            <textarea id="autonomousLog" class="mono tall"></textarea>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Local Model Setup</h3>
-          <pre class="mono">Recommended local setup:
-ollama pull llama3.1:8b
-ollama run llama3.1:8b
-
-Default endpoint:
-http://localhost:11434/api/generate</pre>
-        </div>
-      </section>
-
-
-      <section id="localmedia" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Local Media Generator</h3>
-            <p>Generates placeholder textures, icons and sounds directly on your PC without manual importing.</p>
-            <button id="generateLocalMediaBtn" class="primary wide">Generate Local Media Pack</button>
-            <button id="generateAndScanMediaBtn">Generate + Add to Asset Context</button>
-            <h4>Generated Media Includes</h4>
-            <ul>
-              <li>Terrain/grass/rock/bark/wood/concrete textures</li>
-              <li>Health/ammo/weapon/supplies/objective icons</li>
-              <li>Gunshot/reload/pickup/footstep/enemy/ambient sounds</li>
-            </ul>
-          </div>
-          <div class="card">
-            <h3>Generated Media Report</h3>
-            <textarea id="localMediaLog" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <section id="websounds" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Web Sound Finder</h3>
-            <p>Optional: search a Freesound-style API for sound previews, download selected sounds, and save licence metadata. Requires your own API token.</p>
-            <label>API Token</label>
-            <input id="webSoundToken" type="password" placeholder="Paste Freesound API token here" />
-            <label>Search Query</label>
-            <input id="webSoundQuery" value="horror ambience wind footsteps gunshot" />
-            <div class="button-grid">
-              <button id="suggestWebSoundKeywordsBtn">Suggest Queries</button>
-              <button id="searchWebSoundsBtn" class="primary">Search Sounds</button>
-            </div>
-            <p><strong>Licence note:</strong> always check the displayed licence/creator before commercial use.</p>
-          </div>
-          <div class="card">
-            <h3>Web Sound Results</h3>
-            <div id="webSoundResults" class="asset-list"></div>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="legalsounds" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Legal Sound Finder</h3>
-            <p>Search licence-aware sound sources, filter by legal-use settings, download approved previews, and generate audio credits.</p>
-
-            <label>API Token</label>
-            <input id="legalSoundToken" type="password" placeholder="Paste Freesound API token here" />
-
-            <label>Licence Mode</label>
-            <select id="licenceMode">
-              <option value="cc0_only" selected>CC0 / Public Domain only</option>
-              <option value="commercial_allowed">Commercial-use allowed</option>
-              <option value="allow_attribution">Allow attribution-required sounds</option>
-            </select>
-
-            <label>Search Query</label>
-            <input id="legalSoundQuery" value="horror ambience wind footsteps gunshot" />
-
-            <div class="button-grid">
-              <button id="generateSoundEventQueriesBtn">Generate Required Sound Queries</button>
-              <button id="searchLegalSoundsBtn" class="primary">Search Legal Sounds</button>
-              <button id="autoFindLegalSoundsBtn">Auto-Find Prompt Sounds</button>
-              <button id="generateCreditsBtn">Generate Credits File</button>
-            </div>
-
-            <p><strong>Default:</strong> CC0/Public Domain only. NonCommercial and Unknown licences are blocked.</p>
-          </div>
-
-          <div class="card">
-            <h3>Legal Sound Log</h3>
-            <textarea id="legalSoundLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Approved Sound Results</h3>
-          <div id="legalSoundResults" class="asset-list"></div>
-        </div>
-      </section>
-
-
-      <section id="licenceaudit" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Licence Auditor</h3>
-            <p>Gathers asset metadata, classifies licences, blocks risky items, and creates audit/credits files.</p>
-
-            <label>Audit Mode</label>
-            <select id="licenceAuditMode">
-              <option value="cc0_only">CC0 / Public Domain only</option>
-              <option value="commercial_safe" selected>Commercial-safe allowed</option>
-              <option value="allow_attribution">Allow attribution-required assets</option>
-            </select>
-
-            <label>Manual Licence Text / Terms</label>
-            <textarea id="manualLicenceText" placeholder="Paste licence text here if the asset has licence terms not stored in metadata."></textarea>
-
-            <div class="button-grid">
-              <button id="runLicenceAuditBtn" class="primary">Run Licence Audit</button>
-              <button id="collectLicenceMetadataBtn">Collect Metadata</button>
-              <button id="classifyLicenceBtn">Classify Manual Text</button>
-              <button id="openAuditNoteBtn">What This Checks</button>
-            </div>
-
-            <p><strong>Note:</strong> This helps reduce risk, but it is not legal advice. Always verify licences before commercial release.</p>
-          </div>
-
-          <div class="card">
-            <h3>Licence Audit Report</h3>
-            <textarea id="licenceAuditLog" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="buildsystem" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Playable Game Build System</h3>
-            <p>Prepare a more complete playable draft with 1920x1080 target, menus, validation and build export.</p>
-
-            <label>Target Resolution</label>
-            <select id="targetResolution">
-              <option value="1920x1080" selected>1920x1080 Full HD</option>
-              <option value="1600x900">1600x900</option>
-              <option value="1280x720">1280x720</option>
-            </select>
-
-            <label>Build Quality Target</label>
-            <select id="buildQuality">
-              <option value="prototype-realistic" selected>Prototype Realistic</option>
-              <option value="performance">Performance</option>
-              <option value="high-detail">High Detail</option>
-            </select>
-
-            <div class="button-grid">
-              <button id="generateCompletePlayableBtn" class="primary">Generate Complete Playable Draft</button>
-              <button id="validatePlayableBuildBtn">Validate Build</button>
-              <button id="exportPlayableBuildBtn">Export Playable Build</button>
-              <button id="generateMenuPlansBtn">Generate Menus/Save Plan</button>
-            </div>
-
-            <h4>v0.6 Adds</h4>
-            <ul>
-              <li>1920x1080 build target</li>
-              <li>Main menu / pause menu planning</li>
-              <li>Save/load planning</li>
-              <li>Build validation checklist</li>
-              <li>Playable build data export</li>
-              <li>Runtime pause overlay</li>
-            </ul>
-          </div>
-
-          <div class="card">
-            <h3>Build Report</h3>
-            <textarea id="buildSystemLog" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="nativeexport" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>Native EXE Exporter</h3>
-            <p>Prepare a standalone Windows game package with Electron runtime files and build scripts for creating an .exe.</p>
-
-            <label>Platform</label>
-            <select id="nativePlatform">
-              <option value="windows" selected>Windows .exe</option>
-            </select>
-
-            <label>Target Resolution</label>
-            <select id="nativeResolution">
-              <option value="1920x1080" selected>1920x1080 Full HD</option>
-            </select>
-
-            <div class="button-grid">
-              <button id="generateFullGamePackageBtn" class="primary">Generate Full Game Package</button>
-              <button id="validateNativePackageBtn">Validate Native Package</button>
-              <button id="exportNativePackageBtn">Export Native EXE Package</button>
-              <button id="nativeChecklistBtn">Show Checklist</button>
-            </div>
-
-            <h4>Output</h4>
-            <ul>
-              <li>Standalone game package folder</li>
-              <li>Runtime shell</li>
-              <li>Game data JSON</li>
-              <li>Scene/components data</li>
-              <li>build_windows.bat</li>
-              <li>electron-builder config</li>
-            </ul>
-          </div>
-
-          <div class="card">
-            <h3>Native Export Log</h3>
-            <textarea id="nativeExportLog" class="mono tall"></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="characters" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Import realistic human/zombie GLB or GLTF models through Asset Pack Manager, then let Local AI use them for enemies, survivors, NPCs and bosses.</p>
-
-            <div class="button-grid">
-              <button id="scanCharacterModelsBtn" class="primary">Scan Character Models</button>
-              <button id="autoAssignCharacterModelsBtn">Auto-Assign to Current Scene</button>
-              <button id="generateCharacterPlanBtn">Generate Character Plan</button>
-              <button id="openAssetPackFromCharactersBtn">Open Asset Pack Manager</button>
-            </div>
-
-            <h4>Recommended file names</h4>
-            <ul>
-              <li>zombie_male.glb</li>
-              <li>zombie_female.glb</li>
-              <li>survivor.glb</li>
-              <li>civilian.glb</li>
-              <li>boss_zombie.glb</li>
-              <li>soldier.glb</li>
-            </ul>
-
-            <p><strong>Licence note:</strong> only import character models you own or that are licensed for your intended use.</p>
-          </div>
-
-          <div class="card">
-            <h3>Detected Character Models</h3>
-            <div id="characterModelList" class="asset-list"></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Character AI Context / Plan</h3>
-          <textarea id="characterPlanLog" class="mono tall"></textarea>
-        </div>
-      </section>
-
-
-      <section id="curatedassets" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>This panel is designed to prevent copyright/licensing problems by only allowing approved, licence-safe asset imports.</p>
-
-            <label>Licence Mode</label>
-            <select id="curatedLicenceMode">
-              <option value="cc0_only" selected>CC0 / Public Domain only</option>
-            </select>
-
-            <label>Direct Asset URL</label>
-            <input id="curatedAssetUrl" placeholder="Paste direct .glb / .gltf / .zip / .png / .wav / .ogg URL from an approved source" />
-
-            <label>Source Page / Proof URL</label>
-            <input id="curatedSourcePage" placeholder="Paste the source page showing the licence" />
-
-            <label>Creator / Source Name</label>
-            <input id="curatedCreator" placeholder="Creator/source name" />
-
-            <label>Licence Proof Text</label>
-            <textarea id="curatedLicenceText" placeholder="Paste licence text. Must clearly say CC0, Creative Commons Zero, or Public Domain."></textarea>
-
-            <div class="button-grid">
-              <button id="generateCuratedPlanBtn" class="primary">Generate Asset Need Plan</button>
-              <button id="checkCuratedAssetBtn">Check Licence Gate</button>
-              <button id="downloadCuratedAssetBtn">Download Approved Asset</button>
-              <button id="openCuratedRegistryBtn">Show Approved Sources</button>
-            </div>
-
-            <p><strong>Blocked automatically:</strong> unknown licence, NonCommercial, personal-use-only, editorial-only, and non-approved domains.</p>
-          </div>
-
-          <div class="card">
-            <h3>Curated Asset Plan / Licence Gate</h3>
-            <textarea id="curatedAssetLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Approved Downloads</h3>
-          <div id="curatedDownloadList" class="asset-list"></div>
-        </div>
-      </section>
-
-
-      <section id="aicost" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Estimate the likely AI/API cost before using a future Hybrid AI generation run.</p>
-
-            <label>Generation Size</label>
-            <select id="costProfile">
-              <option value="small_draft">Small test draft</option>
-              <option value="playable_demo" selected>Playable demo</option>
-              <option value="polished_prototype">Bigger polished prototype</option>
-              <option value="ambitious_game">Large ambitious game draft</option>
-            </select>
-
-            <label>Quality Mode</label>
-            <select id="costQuality">
-              <option value="cheap">Cheap / Draft</option>
-              <option value="balanced" selected>Balanced</option>
-              <option value="high">High Quality</option>
-            </select>
-
-            <label class="checkline"><input type="checkbox" id="costRepairPasses" checked /> Include repair/test passes</label>
-            <label class="checkline"><input type="checkbox" id="costReleaseReview" checked /> Include release-readiness review</label>
-            <label class="checkline"><input type="checkbox" id="costAssetPlanning" checked /> Include asset/licence planning</label>
-            <label class="checkline"><input type="checkbox" id="costBatchMode" /> Estimate overnight/batch mode</label>
-
-            <div class="button-grid">
-              <button id="estimateAICostBtn" class="primary">Estimate AI Cost</button>
-              <button id="approveEstimatedRunBtn">Approve Estimated Run</button>
-              <button id="showCostPolicyBtn">Show Cost Policy</button>
-            </div>
-
-            <p><strong>Note:</strong> This prepares the app for Hybrid AI. It does not charge you or call an API yet.</p>
-          </div>
-
-          <div class="card">
-            <h3>Estimate Report</h3>
-            <textarea id="aiCostLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Hybrid AI Preparation</h3>
-          <p>The next full Hybrid AI version can use this estimate screen as a cost gate before calling OpenAI or another provider.</p>
-          <textarea class="mono tall" readonly>Suggested future workflow:
-
-1. User describes game.
-2. GameForge estimates AI cost.
-3. User approves generation.
-4. Cheap model creates draft.
-5. Advanced model repairs code and validates build.
-6. GameForge shows final actual usage/cost report.
-7. Local AI remains fallback if cloud AI is unavailable.</textarea>
-        </div>
-      </section>
-
-
-      <section id="hybridai" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Connect GameForge to OpenAI for smarter game planning, scene JSON, repair passes and build validation. Local AI remains the fallback.</p>
-
-            <label>AI Mode</label>
-            <select id="hybridMode">
-              <option value="local">Local AI only</option>
-              <option value="openai">OpenAI only</option>
-              <option value="hybrid" selected>Hybrid AI</option>
-            </select>
-
-            <label>OpenAI API Key</label>
-            <input id="openaiApiKey" type="password" placeholder="Paste your OpenAI API key here" />
-
-            <label>Draft/Balanced Model</label>
-            <select id="openaiModel">
-              <option value="gpt-5.4-mini" selected>GPT-5.4 mini / cheaper draft</option>
-              <option value="gpt-5.4">GPT-5.4 / balanced</option>
-              <option value="gpt-5.5">GPT-5.5 / advanced</option>
-            </select>
-
-            <label>Advanced Repair Model</label>
-            <select id="advancedModel">
-              <option value="gpt-5.5" selected>GPT-5.5 / advanced repair</option>
-              <option value="gpt-5.4">GPT-5.4 / balanced repair</option>
-            </select>
-
-            <label class="checkline"><input type="checkbox" id="hybridUseCostGate" checked /> Require approved cost estimate before cloud AI run</label>
-
-            <label>Max Approved Cost Per Run (USD)</label>
-            <input id="hybridMaxUsd" type="number" min="1" value="25" />
-
-            <div class="button-grid">
-              <button id="saveHybridSettingsBtn" class="primary">Save Hybrid AI Settings</button>
-              <button id="testHybridConnectionBtn">Test OpenAI Connection</button>
-              <button id="approveCurrentEstimateBtn">Use Current Cost Estimate</button>
-              <button id="generateWithHybridAIBtn">Generate With Hybrid AI</button>
-            </div>
-
-            <p><strong>Billing note:</strong> API usage is paid through your OpenAI Platform/API account. GameForge only uses your API key after you approve a run.</p>
-          </div>
-
-          <div class="card">
-            <h3>Hybrid AI Log</h3>
-            <textarea id="hybridAILog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>How Payment Works</h3>
-          <textarea class="mono tall" readonly>You add billing/credits in your OpenAI Platform account.
-You paste your API key here.
-GameForge estimates cost first.
-You approve the run.
-GameForge sends the generation request to OpenAI.
-OpenAI charges/deducts usage from your API account.
-GameForge displays the provider usage/cost estimate after the run.
-
-ChatGPT Plus is separate from API billing.</textarea>
-        </div>
-      </section>
-
-
-      <section id="ai3dassets" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Plan, safely prompt, generate/import, licence-check and assign 3D assets for realistic characters, buildings, props and environments.</p>
-
-            <label>3D Asset Provider</label>
-            <select id="ai3DProvider">
-              <option value="manual" selected>Manual / Provider-ready job records</option>
-              <option value="meshy">Meshy-style API connector</option>
-              <option value="tripo">Tripo-style API connector</option>
-              <option value="scenario">Scenario-style API connector</option>
-              <option value="custom">Custom GLB provider</option>
-            </select>
-
-            <label>3D Provider API Key</label>
-            <input id="ai3DProviderKey" type="password" placeholder="Paste 3D provider API key here if available" />
-
-            <label>Default Quality</label>
-            <select id="ai3DQuality">
-              <option value="fast_draft">Fast Draft</option>
-              <option value="game_ready" selected>Game Ready</option>
-              <option value="high_detail">High Detail</option>
-            </select>
-
-            <label>Licence Mode</label>
-            <select id="ai3DLicenceMode">
-              <option value="commercial_safe" selected>Commercial-safe / verify before release</option>
-              <option value="cc0_only">CC0 / Public Domain only</option>
-              <option value="manual_review">Manual review required</option>
-            </select>
-
-            <label class="checkline"><input type="checkbox" id="ai3DRequireApproval" checked /> Require human approval before provider submission</label>
-            <label class="checkline"><input type="checkbox" id="ai3DAutoImport" checked /> Auto-import approved GLB/GLTF model URLs</label>
-
-            <div class="button-grid">
-              <button id="saveAI3DSettingsBtn" class="primary">Save 3D Settings</button>
-              <button id="createAI3DPlanBtn">Create Asset Plan</button>
-              <button id="createAI3DJobsBtn">Create Provider Jobs</button>
-              <button id="openAI3DPolicyBtn">Show Copyright Policy</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>AI 3D Asset Plan / Job Log</h3>
-            <textarea id="ai3DLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="grid two">
-          <div class="card">
-            <h3>Import Generated GLB/GLTF Model URL</h3>
-            <label>Model URL</label>
-            <input id="ai3DModelUrl" placeholder="Paste direct .glb/.gltf model URL returned by provider" />
-
-            <label>Asset Name</label>
-            <input id="ai3DImportName" placeholder="zombie_male.glb, abandoned_house.glb, pine_tree.glb" />
-
-            <label>Asset Type</label>
-            <select id="ai3DImportType">
-              <option value="character">Character</option>
-              <option value="building">Building</option>
-              <option value="environment">Environment</option>
-              <option value="weapon">Weapon</option>
-              <option value="prop">Prop</option>
-            </select>
-
-            <label>Licence / Provider Terms Text</label>
-            <textarea id="ai3DLicenceText" placeholder="Paste provider licence/terms or commercial-use confirmation here."></textarea>
-
-            <div class="button-grid">
-              <button id="importAI3DModelBtn" class="primary">Import Generated Model</button>
-              <button id="scanAfterAI3DImportBtn">Scan Asset Library</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>Safe Prompt Rewriter</h3>
-            <label>Raw Asset Prompt</label>
-            <textarea id="rawAI3DPrompt" placeholder="Example: realistic zombie for my horror game"></textarea>
-            <label>Asset Type</label>
-            <select id="safePromptAssetType">
-              <option value="character">Character</option>
-              <option value="building">Building</option>
-              <option value="environment">Environment</option>
-              <option value="weapon">Weapon</option>
-              <option value="prop">Prop</option>
-            </select>
-            <button id="rewriteSafeAI3DPromptBtn" class="primary wide">Rewrite Safe 3D Prompt</button>
-            <textarea id="safeAI3DPromptResult" class="mono tall" readonly></textarea>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="free3d" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Generate original procedural prototype assets without paid APIs or external copyrighted models.</p>
-
-            <label>Asset Type</label>
-            <select id="free3DAssetType">
-              <option value="character">Character / Zombie</option>
-              <option value="building">Building</option>
-              <option value="environment">Tree / Rock / Grass</option>
-              <option value="weapon">Weapon Placeholder</option>
-              <option value="prop">Prop</option>
-            </select>
-
-            <label>Asset Name</label>
-            <input id="free3DAssetName" value="free_zombie" />
-
-            <label>Asset Prompt</label>
-            <textarea id="free3DPrompt" placeholder="Example: original infected zombie enemy, horror survival prototype"></textarea>
-
-            <label>Style</label>
-            <select id="free3DStyle">
-              <option value="realistic_prototype" selected>Realistic Prototype</option>
-              <option value="horror_dark">Horror Dark</option>
-              <option value="forest_survival">Forest Survival</option>
-              <option value="abandoned_town">Abandoned Town</option>
-            </select>
-
-            <div class="button-grid">
-              <button id="createFree3DJobBtn" class="primary">Create Free 3D Job</button>
-              <button id="createFree3DAssetPackBtn">Create Asset Pack From Game Prompt</button>
-              <button id="runFree3DQueueBtn">Generate Queue Into Scene</button>
-              <button id="clearFree3DLogBtn">Clear Log</button>
-            </div>
-
-            <p><strong>Free mode:</strong> creates procedural in-engine assets. No paid API. No internet. No external asset licence risk.</p>
-          </div>
-
-          <div class="card">
-            <h3>Free 3D Queue / Log</h3>
-            <textarea id="free3DLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="grid two">
-          <div class="card">
-            <h3>What Free Mode Can Generate</h3>
-            <ul>
-              <li>Humanoid zombie placeholders</li>
-              <li>Boss zombie placeholders</li>
-              <li>Buildings and abandoned houses</li>
-              <li>Trees, rocks and grass</li>
-              <li>Crates, props and objective items</li>
-              <li>Weapon pickup placeholders</li>
-            </ul>
-          </div>
-
-          <div class="card">
-            <h3>Free Mode Limitation</h3>
-            <p>This does not create AAA photoreal GLB people yet. It creates original procedural prototype assets so GameForge can build playable scenes for free.</p>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="visualtarget" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Create a visual target for the game, then convert it into a matched asset plan.</p>
-
-            <label>Visual Style</label>
-            <select id="visualTargetStyle">
-              <option value="zombie_shooter" selected>First-Person Zombie Shooter</option>
-              <option value="realistic_horror">Realistic Horror Survival</option>
-              <option value="abandoned_town">Abandoned Town</option>
-              <option value="forest_survival">Forest Survival</option>
-            </select>
+            <label>Game Description</label>
+            <textarea id="genGameDesc" rows="4" placeholder="Describe your game concept, setting, enemies, mechanics...">A realistic FPS set in an abandoned research facility. The player must survive waves of mutated enemies, solve puzzles to unlock new areas, and escape before the facility self-destructs.</textarea>
 
             <label>Perspective</label>
-            <select id="visualTargetPerspective">
-              <option value="first_person" selected>First Person</option>
+            <select id="genPerspective">
+              <option value="fps" selected>First Person (FPS)</option>
+              <option value="tps">Third Person (TPS)</option>
+              <option value="topdown">Top-Down</option>
+              <option value="sideview">Side View / 2.5D</option>
             </select>
 
-            <label>Target Quality</label>
-            <select id="visualTargetQuality">
-              <option value="realistic_prototype" selected>Realistic Prototype</option>
-              <option value="high_detail_target">High Detail Target</option>
-              <option value="cinematic_target">Cinematic Target</option>
+            <label>Graphics Quality Target</label>
+            <select id="genGraphics">
+              <option value="prototype">Prototype / Blockout</option>
+              <option value="stylised">Stylised</option>
+              <option value="realistic" selected>Realistic</option>
+              <option value="photoreal">Hyper-Realistic / Photoreal</option>
             </select>
 
-            <div class="button-grid">
-              <button id="createVisualTargetBtn" class="primary">Create Visual Target Plan</button>
-              <button id="copyVisualPromptBtn">Copy Visual Prompt</button>
-              <button id="createVisualFree3DJobsBtn">Create Free 3D Jobs</button>
-              <button id="createVisualAI3DJobsBtn">Create AI 3D Jobs</button>
-              <button id="runVisualFree3DQueueBtn">Generate Free Assets Into Scene</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <h3>Visual Target / Asset Match Log</h3>
-            <textarea id="visualTargetLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Target Workflow</h3>
-          <textarea class="mono tall" readonly>Game prompt
-↓
-Visual target prompt
-↓
-Asset list extraction
-↓
-Free 3D fallback jobs
-↓
-AI 3D provider job records
-↓
-Generated/imported assets
-↓
-Playable first-person scene
-↓
-Compare result to visual target</textarea>
-        </div>
-      </section>
-
-
-      <section id="internalmesh" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Internal Mesh Generator</h3>
-            <p>Create more detailed procedural mesh-style assets, PBR material recipes and GLB export plans.</p>
-
-            <label>Asset Type</label>
-            <select id="meshAssetType">
-              <option value="zombie" selected>Zombie / Humanoid</option>
-              <option value="boss_zombie">Boss Zombie</option>
-              <option value="gas_station">Gas Station</option>
-              <option value="building">Building / House</option>
-              <option value="tree">Tree</option>
-              <option value="rock">Rock</option>
-              <option value="weapon">Weapon</option>
-              <option value="prop">Prop</option>
+            <label>Output Engine</label>
+            <select id="genEngine">
+              <option value="unreal" selected>Unreal Engine 5 (project folder)</option>
+              <option value="godot">Godot 4 (project folder)</option>
+              <option value="unity">Unity (project folder)</option>
+              <option value="generic">Generic (folder + JSON plan)</option>
             </select>
+          </div>
 
-            <label>Asset Name</label>
-            <input id="meshAssetName" value="generated_zombie" />
+          <div class="card">
+            <h3>Generation Options</h3>
 
-            <label>Detail Level</label>
-            <select id="meshDetail">
-              <option value="low">Low</option>
-              <option value="medium" selected>Medium</option>
-              <option value="high">High Recipe Detail</option>
+            <label>Meshy 3D Asset Generation</label>
+            <label class="check-label" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="checkbox" id="genUseMeshy" checked />
+              <span style="font-size:13px;color:var(--text);">Use Meshy API for 3D asset generation</span>
+            </label>
+            <p style="font-size:11px;color:var(--muted);margin-top:4px;">Requires a valid Meshy API key in Settings. Skipped if key is missing.</p>
+
+            <label style="margin-top:16px;">Generate Audio Assets</label>
+            <label class="check-label" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="checkbox" id="genAudio" checked />
+              <span style="font-size:13px;color:var(--text);">Generate procedural audio placeholders</span>
+            </label>
+
+            <label style="margin-top:16px;">Unreal Engine Integration</label>
+            <label class="check-label" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+              <input type="checkbox" id="genUnreal" checked />
+              <span style="font-size:13px;color:var(--text);">Create Unreal Engine project structure</span>
+            </label>
+            <p style="font-size:11px;color:var(--muted);margin-top:4px;">Detects Unreal path automatically. Set manually in Settings if not found.</p>
+
+            <label style="margin-top:16px;">Output Folder</label>
+            <div class="key-row">
+              <div>
+                <input type="text" id="genOutputPath" placeholder="Default: Documents/GameForgeProjects" readonly />
+              </div>
+              <button onclick="browseOutputFolder()">Browse</button>
+            </div>
+
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+              <h4>Generation Summary</h4>
+              <div id="genSummary" style="font-size:12px;color:var(--muted);line-height:1.7;margin-top:6px;">
+                Configure options above, then click Generate.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Generation Progress</h3>
+
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
+            <button id="generateBtn" class="primary" onclick="startGameGeneration()" style="min-width:180px;">
+              ⚡ Generate Full Game Project
+            </button>
+            <button id="cancelGenBtn" onclick="cancelGeneration()" style="display:none;">Cancel</button>
+            <span id="genStatusBadge"></span>
+          </div>
+
+          <div class="progress-bar-wrap" id="genProgressWrap" style="display:none;">
+            <div class="progress-bar-fill" id="genProgressBar"></div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <div class="log-output" id="genLog">Ready. Configure your game above and click Generate Full Game Project.</div>
+          </div>
+
+          <div id="genResultCard" style="display:none;margin-top:14px;" class="card">
+            <h3 style="color:var(--success);">✅ Project Generated</h3>
+            <div id="genResultDetails" style="font-size:13px;line-height:1.8;"></div>
+            <div style="margin-top:12px;display:flex;gap:8px;">
+              <button id="openOutputBtn" class="primary" onclick="openOutputFolder()">Open Output Folder</button>
+              <button onclick="gotoPanel('checker')">Run Launch Checker</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════ LAUNCH CHECKER -->
+      <section class="panel" id="panel-checker">
+        <div class="grid grid-2" style="margin-bottom:18px;">
+          <div class="card">
+            <h3>Launch Checker</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Verifies all required components are present and correctly configured before you attempt to launch a project.</p>
+
+            <button class="primary wide" id="runCheckerBtn" onclick="runLaunchChecker()">
+              ▶ Run Full Launch Check
+            </button>
+            <button class="wide" onclick="runQuickCheck()" style="margin-top:6px;">Quick Check (fast)</button>
+
+            <div class="progress-bar-wrap" id="checkerProgress" style="display:none;margin-top:12px;">
+              <div class="progress-bar-fill" id="checkerProgressBar"></div>
+            </div>
+
+            <div id="checkerSummary" style="margin-top:14px;display:none;">
+              <h4>Summary</h4>
+              <div id="checkerSummaryText" style="font-size:13px;line-height:1.7;"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Check Results</h3>
+            <div id="checkerResults">
+              <div class="check-item ci-pending">
+                <div class="ci-icon">○</div>
+                <div class="ci-body">
+                  <div class="ci-title">Not checked yet</div>
+                  <div class="ci-detail">Click "Run Full Launch Check" to begin</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Checker Log</h3>
+          <div class="log-output" id="checkerLog">Run a check to see detailed output.</div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════ REPAIR GAMEFORGE -->
+      <section class="panel" id="panel-repair">
+        <div class="grid grid-2" style="margin-bottom:18px;">
+          <div class="card">
+            <h3>Self-Repair System</h3>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Automatically detects and fixes common GameForge issues — missing folders, broken config, invalid settings.</p>
+
+            <button class="primary wide" onclick="runAutoRepair()">🔧 Run Auto-Repair</button>
+            <button class="wide" style="margin-top:6px;" onclick="resetConfig()">Reset Config to Defaults</button>
+            <button class="wide" style="margin-top:6px;" onclick="createMissingFolders()">Create Missing Folders</button>
+
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+              <h4>What Auto-Repair Does</h4>
+              <ul style="font-size:12px;color:var(--muted);line-height:2;padding-left:16px;margin-top:6px;">
+                <li>Creates missing output/project folders</li>
+                <li>Validates and repairs settings JSON</li>
+                <li>Clears corrupted temporary files</li>
+                <li>Detects Unreal Engine path if missing</li>
+                <li>Verifies API key format (not the key itself)</li>
+                <li>Reports all changes made</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Repair Status</h3>
+            <div id="repairResults">
+              <div class="repair-item">
+                <div class="ri-icon">🔍</div>
+                <div class="ri-body">
+                  <div class="ri-title">Ready to scan</div>
+                  <div class="ri-sub">Click Run Auto-Repair to check your installation</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Repair Log</h3>
+          <div class="log-output" id="repairLog">No repairs run yet.</div>
+          <div style="margin-top:12px;display:flex;gap:8px;">
+            <button onclick="clearRepairLog()">Clear Log</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════ SETTINGS -->
+      <section class="panel" id="panel-settings">
+        <div class="grid grid-2">
+          <div>
+            <div class="settings-section">
+              <h3>Meshy API</h3>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Used for AI 3D asset generation. Get your key at meshy.ai</p>
+              <label>Meshy API Key</label>
+              <div class="key-row">
+                <div>
+                  <input type="password" id="settMeshyKey" placeholder="msy_xxxxxxxxxxxxxxxxxxxxxxxx" />
+                </div>
+                <button onclick="testMeshyKey()">Test</button>
+              </div>
+              <div id="meshyKeyStatus" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Unreal Engine</h3>
+              <label>Unreal Engine Path (UnrealEditor.exe)</label>
+              <div class="key-row">
+                <div>
+                  <input type="text" id="settUnrealPath" placeholder="C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\Win64\UnrealEditor.exe" />
+                </div>
+                <button onclick="detectUnrealPath()">Detect</button>
+              </div>
+              <div id="unrealPathStatus" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
+              <div style="margin-top:8px;">
+                <button onclick="browseUnrealExe()">Browse for UnrealEditor.exe</button>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Output Folder</h3>
+              <label>Game Projects Output Directory</label>
+              <div class="key-row">
+                <div>
+                  <input type="text" id="settOutputPath" placeholder="Default: Documents/GameForgeProjects" />
+                </div>
+                <button onclick="browseOutputFolder()">Browse</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="settings-section">
+              <h3>AI Provider (Optional)</h3>
+              <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">Used for game design suggestions. Leave blank to use offline mode.</p>
+              <label>Provider</label>
+              <select id="settAIProvider">
+                <option value="none">None (Offline only)</option>
+                <option value="openai">OpenAI</option>
+                <option value="ollama">Ollama (local)</option>
+                <option value="lmstudio">LM Studio (local)</option>
+              </select>
+              <label style="margin-top:10px;">API Key / Endpoint</label>
+              <input type="password" id="settAIKey" placeholder="sk-... or http://localhost:11434" />
+              <div style="margin-top:8px;">
+                <button onclick="testAIConnection()">Test Connection</button>
+              </div>
+              <div id="aiConnStatus" style="font-size:12px;margin-top:6px;color:var(--muted);"></div>
+            </div>
+
+            <div class="settings-section">
+              <h3>Application</h3>
+              <label>Theme</label>
+              <select id="settTheme">
+                <option value="dark" selected>Dark (default)</option>
+              </select>
+
+              <label style="margin-top:10px;">Log Level</label>
+              <select id="settLogLevel">
+                <option value="info" selected>Info</option>
+                <option value="verbose">Verbose</option>
+                <option value="debug">Debug</option>
+              </select>
+
+              <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="primary" onclick="saveSettings()">Save Settings</button>
+                <button onclick="loadSettings()">Reload Saved</button>
+              </div>
+              <div id="settSaveStatus" style="font-size:12px;margin-top:8px;color:var(--muted);"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════ LOGS -->
+      <section class="panel" id="panel-logs">
+        <div class="card" style="margin-bottom:18px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="margin-bottom:0;">Session Logs</h3>
+            <div style="display:flex;gap:8px;">
+              <button onclick="copyLogs()">Copy All</button>
+              <button onclick="clearLogs()" class="danger">Clear</button>
+            </div>
+          </div>
+          <div class="log-output" id="fullLogOutput" style="height:420px;">
+            GameForge AI Engine v6.8.2 — Session started<br>
+          </div>
+        </div>
+
+        <div class="grid grid-3">
+          <div class="card">
+            <h3>Log Stats</h3>
+            <div class="status-row">
+              <span class="dot ok"></span>
+              <span class="status-label">Info entries</span>
+              <span class="status-val" id="logCountInfo">0</span>
+            </div>
+            <div class="status-row">
+              <span class="dot warn"></span>
+              <span class="status-label">Warnings</span>
+              <span class="status-val" id="logCountWarn">0</span>
+            </div>
+            <div class="status-row">
+              <span class="dot err"></span>
+              <span class="status-label">Errors</span>
+              <span class="status-val" id="logCountErr">0</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Filter</h3>
+            <label>Show only</label>
+            <select id="logFilter" onchange="applyLogFilter()">
+              <option value="all">All entries</option>
+              <option value="info">Info only</option>
+              <option value="warn">Warnings only</option>
+              <option value="err">Errors only</option>
             </select>
-
-            <label>Material Preset</label>
-            <select id="pbrMaterialPreset">
-              <option value="zombie_skin">Zombie Skin</option>
-              <option value="damaged_clothing">Damaged Clothing</option>
-              <option value="wet_asphalt">Wet Asphalt</option>
-              <option value="weathered_concrete" selected>Weathered Concrete</option>
-              <option value="rusty_metal">Rusty Metal</option>
-              <option value="weathered_wood">Weathered Wood</option>
-              <option value="mossy_rock">Mossy Rock</option>
-            </select>
-
-            <div class="button-grid">
-              <button id="createMeshRecipeBtn" class="primary">Create Mesh Recipe</button>
-              <button id="placeMeshInSceneBtn">Place Last Mesh In Scene</button>
-              <button id="createPBRMaterialBtn">Create PBR Material</button>
-              <button id="generateMeshPackBtn">Generate Horror Asset Pack</button>
-              <button id="createGLBExportPlanBtn">Create GLB Export Plan</button>
-            </div>
           </div>
 
           <div class="card">
-            <h3>Mesh / PBR / Export Log</h3>
-            <textarea id="internalMeshLog" class="mono tall"></textarea>
+            <h3>Export</h3>
+            <button class="wide" onclick="exportLogs()">Export Log File</button>
+            <button class="wide" style="margin-top:6px;" onclick="openLogFolder()">Open Log Folder</button>
           </div>
-        </div>
-
-        <div class="card">
-          <h3>What This Upgrade Adds</h3>
-          <textarea class="mono tall" readonly>v1.3 Internal Mesh Generator:
-- better zombie/humanoid recipes
-- buildings, trees, rocks, weapons, props
-- random seeds and metadata
-- scene placement
-
-v1.4 PBR Material Generator:
-- wet asphalt
-- weathered concrete
-- rusty metal
-- zombie skin
-- damaged clothing
-- worn wood
-- mossy rock
-
-v3.3.1 GLB Exporter Framework:
-- export preparation records
-- provenance metadata
-- asset library metadata
-- ready for Babylon GLTF2 exporter integration</textarea>
         </div>
       </section>
 
+    </div><!-- /panels -->
+  </div><!-- /main -->
+</div><!-- /app -->
 
-      <section id="gameintel" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Gather the brief, asset list, materials, audio, triggers, HUD and validation checklist before generating the game.</p>
-            <div class="button-grid">
-              <button id="createGameIntelPlanBtn" class="primary">Create Game Intelligence Plan</button>
-              <button id="createGameIntelJobsBtn">Create All Downstream Jobs</button>
-              <button id="runGameIntelFree3DQueueBtn">Generate Free Assets Into Scene</button>
-              <button id="openGameIntelStudioBtn">Open Studio Editor</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Game Intelligence Report</h3>
-            <textarea id="gameIntelLog" class="mono tall"></textarea>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Autonomous Pipeline Order</h3>
-          <textarea class="mono tall" readonly>Game Description Prompt
-↓
-Game Intelligence Plan
-↓
-Visual Target
-↓
-Asset Requirements
-↓
-Free 3D Jobs
-↓
-Internal Mesh Recipes
-↓
-PBR Materials
-↓
-Scene Build
-↓
-Gameplay Systems / Triggers
-↓
-HUD / Audio
-↓
-Validation
-↓
-Play Mode</textarea>
-        </div>
-      </section>
+<!-- Toast notification -->
+<div id="toast"></div>
 
-
-      <section id="oneclickforge" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Paste the game prompt once, then let GameForge run the full pipeline automatically.</p>
-            <div class="button-grid">
-              <button id="runOneClickForgeBtn" class="primary">Forge Autonomous Game</button>
-              <button id="runOneClickForgePlayBtn">Forge + Auto Play</button>
-              <button id="openOneClickStudioBtn">Open Studio Editor</button>
-              <button id="clearOneClickLogBtn">Clear Log</button>
-            </div>
-            <h4>Pipeline</h4>
-            <div class="pipeline-list">
-              <div>Game Intelligence <span id="forgeStep_intel">WAITING</span></div>
-              <div>Visual Target <span id="forgeStep_visual">WAITING</span></div>
-              <div>Downstream Jobs <span id="forgeStep_jobs">WAITING</span></div>
-              <div>Model Gatherer + Auto Import <span id="forgeStep_models">WAITING</span></div>
-              <div>Scene Build <span id="forgeStep_scene">WAITING</span></div>
-              <div>Free 3D Assets <span id="forgeStep_free3d">WAITING</span></div>
-              <div>Internal Mesh Pack <span id="forgeStep_mesh">WAITING</span></div>
-              <div>Animation Asset Gatherer <span id="forgeStep_animgather">WAITING</span></div>
-              <div>Rigged Animation <span id="forgeStep_anim">WAITING</span></div>
-              <div>Photoreal Mode <span id="forgeStep_photo">WAITING</span></div>
-              <div>Validation / Runtime Reset <span id="forgeStep_validate">WAITING</span></div>
-              <div>Complete Game / EXE Prep <span id="forgeStep_exportprep">WAITING</span></div>
-              <div>Ready to Play <span id="forgeStep_ready">WAITING</span></div>
-            </div>
-          </div>
-          <div class="card"><h3>Autonomous Forge Log</h3><textarea id="oneClickForgeLog" class="mono tall"></textarea></div>
-        </div>
-        <div class="card"><h3>What This Button Does</h3><textarea class="mono tall" readonly>Prompt
-→ Game Intelligence Plan
-→ Visual Target
-→ Free 3D Jobs
-→ Internal Mesh Recipes
-→ PBR Materials
-→ Base Playable Scene
-→ Free Assets Into Scene
-→ Internal Mesh Pack
-→ Runtime Reset / Validation
-→ Studio Editor Ready To Play</textarea></div>
-      </section>
-
-
-      <section id="playtestexport" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Test the generated game outside the editor and export a playable demo folder.</p>
-
-            <div class="button-grid">
-              <button id="launchPlaytestWindowBtn" class="primary">Launch Playtest Window</button>
-              <button id="validatePlayableDemoBtn">Validate Demo</button>
-              <button id="exportPlayableDemoBtn">Export Playable Demo Folder</button>
-              <button id="openPlaytestStudioBtn">Open Studio Editor</button>
-            </div>
-
-            <p><strong>Playtest Window:</strong> launches a clean game-only window with HUD, objective, restart and quit controls.</p>
-            <p><strong>Export:</strong> creates a demo package in your Documents/GameForgeExportedDemos folder.</p>
-          </div>
-
-          <div class="card">
-            <h3>Playtest / Export Log</h3>
-            <textarea id="playtestExportLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Validation Checklist</h3>
-          <textarea class="mono tall" readonly>Checks include:
-- Player spawn exists
-- Runtime/camera data exists
-- Enemy exists
-- Objective exists
-- Pickup exists
-- World/environment exists
-- HUD can be shown
-- Playtest launcher can be created</textarea>
-        </div>
-      </section>
-
-
-      <section id="completegame" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Create a full-game prototype export package with menu, levels, co-op framework placeholders and a Windows EXE build script.</p>
-
-            <div class="button-grid">
-              <button id="createCompleteGamePlanBtn" class="primary">Create Complete Game Plan</button>
-              <button id="exportCompleteGameExeBtn">Export Full Game EXE Package</button>
-              <button id="openCompleteGameStudioBtn">Open Studio Editor</button>
-            </div>
-
-            <p><strong>Startup intro:</strong> exported games include an intro screen saying “Developed by GameForge AI”.</p>
-            <p><strong>EXE build:</strong> after export, open the generated folder and double-click BUILD_GAME_EXE.bat.</p>
-          </div>
-
-          <div class="card">
-            <h3>Complete Game / EXE Log</h3>
-            <textarea id="completeGameLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Full Game Runtime Includes</h3>
-          <textarea class="mono tall" readonly>Startup intro:
-Developed by GameForge AI
-
-Main menu:
-Start Single Player
-Host Co-op
-Join Co-op
-Settings
-Quit
-
-Game:
-Multiple levels
-Objectives
-HUD
-Pause / restart / quit
-Level transitions
-Co-op framework placeholders
-Windows EXE builder script</textarea>
-        </div>
-      </section>
-
-
-      <section id="photoreal" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Push the generated game closer to realism using free/local tools: cinematic lighting, fog, PBR surfaces, scene detail and realistic asset planning.</p>
-
-            <div class="button-grid">
-              <button id="createPhotorealModePlanBtn" class="primary">Create Photoreal Plan</button>
-              <button id="applyPhotorealLightingBtn">Apply Cinematic Lighting/Fog</button>
-              <button id="createPhotorealPBRPackBtn">Create PBR Surface Pack</button>
-              <button id="applyPhotorealDetailPassBtn">Apply Scene Detail Pass</button>
-              <button id="openPhotorealStudioBtn">Open Studio Editor</button>
-            </div>
-
-            <p><strong>Free path:</strong> improves lighting, materials and scene detail. True photoreal people/zombies need high-quality GLB/GLTF models.</p>
-          </div>
-
-          <div class="card">
-            <h3>Startup Hotfix v3.3.1 Log</h3>
-            <textarea id="photorealModeLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Photoreal Upgrade Stack</h3>
-          <textarea class="mono tall" readonly>Cinematic horror lighting
-Blue-grey fog
-Subtle bloom
-High contrast colour grading
-Wet surface look
-PBR material recipes
-Scene detail pass
-CC0/public-domain realistic asset checklist
-Photoreal Target graphics setting in exported games</textarea>
-        </div>
-      </section>
-
-
-      <section id="autoassets" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Automatically scan local model folders, match GLB/GLTF assets to the game plan, and use them before procedural fallbacks.</p>
-
-            <div class="button-grid">
-              <button id="scanAutoAssetsBtn" class="primary">Scan Local GLB/GLTF Models</button>
-              <button id="createAutoAssetPlanBtn">Create Auto Assignment Plan</button>
-              <button id="runAutoAssetPassBtn">Run Auto Import Pass</button>
-              <button id="openAutoAssetsStudioBtn">Open Studio Editor</button>
-            </div>
-
-            <p><strong>Model folders scanned:</strong> GameForge Asset Library, AI 3D generated models, and Auto Imported Assets.</p>
-            <p><strong>Fallback:</strong> If no matching GLB/GLTF exists, GameForge uses Internal Mesh / Free 3D assets.</p>
-          </div>
-
-          <div class="card">
-            <h3>Auto Import Log</h3>
-            <textarea id="autoAssetImportLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Automatic Import Rules</h3>
-          <textarea class="mono tall" readonly>zombie / infected / creature → character/enemy
-house / building / gas station → building
-tree / forest / grass → environment
-rock / debris → environment
-weapon / gun / rifle / pistol → weapon
-supply / medkit / ammo / radio / key / fuse → prop/pickup
-
-Use imported GLB/GLTF first.
-Use procedural fallback if no match exists.
-Warn if licence metadata is missing.
-Animation support comes in the rigged character importer update.</textarea>
-        </div>
-      </section>
-
-
-      <section id="modelgatherer" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Model Gatherer</h3>
-            <p>Gather approved GLB/GLTF models, save licence metadata, import into Asset Library, then run the Auto Asset Importer.</p>
-
-            <div class="button-grid">
-              <button id="createDefaultModelManifestBtn" class="primary">Create Approved Model Manifest</button>
-              <button id="createModelManifestFromGameBtn">Create Manifest From Game Plan</button>
-              <button id="runModelGathererBtn">Run Model Gatherer</button>
-              <button id="runGatherAndImportBtn">Gather + Auto Import Pass</button>
-            </div>
-
-            <p><strong>Safe rule:</strong> GameForge will not randomly scrape copyrighted models. Add direct GLB/GLTF URLs only when licence rights are clear.</p>
-          </div>
-
-          <div class="card">
-            <h3>Model Gatherer Log</h3>
-            <textarea id="modelGathererLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>How Automatic Gathering Works</h3>
-          <textarea class="mono tall" readonly>1. GameForge creates a manifest from your game plan.
-2. You or an approved source fills direct GLB/GLTF URLs and licence text.
-3. Enable the models in the manifest.
-4. Run Model Gatherer.
-5. GameForge downloads safe models into the Asset Library.
-6. Auto GLB/GLTF Importer matches models to the game.
-7. Missing models use Internal Mesh / Free 3D fallback.</textarea>
-        </div>
-      </section>
-
-
-      <section id="animationimporter" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Rigged Character + Animation Importer</h3>
-            <p>Detect character GLB/GLTF models, map animation clips, assign enemy/NPC controllers, and use procedural animation fallback if clips are missing.</p>
-
-            <div class="button-grid">
-              <button id="createAnimationImportPlanBtn" class="primary">Create Animation Import Plan</button>
-              <button id="runAnimationImportPassBtn">Run Animation Import Pass</button>
-              <button id="assignAnimationControllersBtn">Assign Controllers To Scene</button>
-              <button id="openAnimationStudioBtn">Open Studio Editor</button>
-            </div>
-
-            <p><strong>States:</strong> idle, walk, run, attack, hit, death.</p>
-            <p><strong>Fallback:</strong> if imported models have no animation clips, GameForge applies procedural zombie/NPC motion.</p>
-          </div>
-
-          <div class="card">
-            <h3>Animation Import Log</h3>
-            <textarea id="animationImportLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Animation Rules</h3>
-          <textarea class="mono tall" readonly>GLB/GLTF with animation clips:
-- idle → idle state
-- walk/run → chase/movement
-- attack → close-range enemy attack
-- hit → damage reaction
-- death → enemy death
-
-No animation clips:
-- procedural bob/lean movement
-- face-player movement
-- chase/attack state controller
-- hitbox metadata
-- health/damage metadata</textarea>
-        </div>
-      </section>
-
-
-      <section id="animationgatherer" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3><span class="spark">✦</span> Startup Hotfix v3.3.1</h3>
-            <p>Create approved manifests for rigged characters and animation packs, download enabled assets, then run animation import and missing-animation checks.</p>
-
-            <div class="button-grid">
-              <button id="createDefaultAnimationManifestBtn" class="primary">Create Approved Animation Manifest</button>
-              <button id="createAnimationManifestFromGameBtn">Create Manifest From Game Plan</button>
-              <button id="runAnimationGathererBtn">Run Animation Gatherer</button>
-              <button id="runFullAnimationGatherImportBtn">Gather + Import Animations</button>
-              <button id="createMissingAnimationReportBtn">Create Missing Animation Report</button>
-            </div>
-
-            <p><strong>Safe rule:</strong> only enabled direct GLB/GLTF URLs with licence metadata are downloaded.</p>
-          </div>
-
-          <div class="card">
-            <h3>Animation Gatherer Log</h3>
-            <textarea id="animationGathererLog" class="mono tall"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Animation Asset Workflow</h3>
-          <textarea class="mono tall" readonly>Game plan
-→ character/enemy requirements
-→ approved animation manifest
-→ rigged character GLB/GLTF URLs
-→ animation pack GLB/GLTF URLs
-→ licence metadata
-→ download/import to Asset Library
-→ map idle/walk/run/attack/hit/death
-→ assign enemy/NPC controller
-→ missing animation report
-→ procedural fallback if needed</textarea>
-        </div>
-      </section>
-
-      <section id="settings" class="panel">
-        <div class="grid two">
-          <div class="card">
-            <h3>AI Settings</h3>
-            <p>For now, this build runs offline with built-in generator templates. Real AI API connection can be added later.</p>
-            <label>AI Provider</label>
-            <select id="aiProvider">
-              <option selected>Offline Prototype Generator</option>
-              <option disabled>OpenAI API - future v0.5</option>
-              <option disabled>Local Model - future</option>
-              <option disabled>Cloud Forge - future</option>
-            </select>
-            <label>API Key Placeholder</label>
-            <input type="password" id="apiKey" placeholder="Future secure API key storage" />
-            <button id="saveSettingsBtn">Save Settings</button>
-          </div>
-          <div class="card">
-            <h3>Roadmap</h3>
-            <ul>
-              <li><strong>v0.4:</strong> Offline standalone editor foundation</li>
-              <li><strong>v0.5:</strong> Real AI API prompt-to-scene generation</li>
-              <li><strong>v0.6:</strong> Real runtime gameplay systems</li>
-              <li><strong>v0.7:</strong> AI asset generation pipeline</li>
-              <li><strong>v3.3.1:</strong> Automated test and repair agent</li>
-              <li><strong>v3.3.1:</strong> Public standalone beta</li>
-              <li><strong>v3.3.1:</strong> Autonomous realism asset pipeline</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <script src="https://cdn.babylonjs.com/babylon.js"></script>
-  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-  <script src="./engine/engine.js"></script>
-  <script src="./ai/offlineGenerator.js"></script>
-  <script src="./ai/localAI.js"></script>
-  <script src="./ai/assetManager.js"></script>
-  <script src="./ai/mediaGenerator.js"></script>
-  <script src="./ai/licenceAuditor.js"></script>
-  <script src="./ai/buildSystem.js"></script>
-  <script src="./ai/nativeExporter.js"></script>
-  <script src="./ai/forgeWizard.js"></script>
-  <script src="./ai/characterModelImporter.js"></script>
-  <script src="./ai/curatedDownloader.js"></script>
-  <script src="./ai/aiCostEstimator.js"></script>
-  <script src="./ai/hybridAI.js"></script>
-  <script src="./ai/ai3DAssetPipeline.js"></script>
-  <script src="./ai/free3DGenerator.js"></script>
-    <script src="./ai/appPerformanceMode.js"></script>
-    <script src="./ai/liveBuildWatcherOverlay.js"></script>
-    <script src="./ai/flawlessGenerationProcessController.js"></script>
-    <script src="./ai/nativeWindowPerformanceFix.js"></script>
-    <script src="./ai/unreal57DetectorFix.js"></script>
-  <script src="./app.js"></script>
-<div class="version-watermark">GameForge v3.3.1 Autonomous Realism</div>
-  <script src="./ai/visualTarget.js"></script>
-  <script src="./ai/internalMeshGenerator.js"></script>
-  <script src="./ai/gameIntelligence.js"></script>
-  <script src="./ai/oneClickForge.js"></script>
-  <script src="./ai/externalPlaytest.js"></script>
-  <script src="./ai/completeGameBuilder.js"></script>
-  <script src="./ai/photorealMode.js"></script>
-  <script src="./ai/generationETA.js"></script>
-  <script src="./ai/approvedAssetDownloader.js"></script>
-  <script src="./ai/selfAssetGenerator.js"></script>
-  <script src="./ai/audioAssetGenerator.js"></script>
-  <script src="./ai/photorealQualityGate.js"></script>
-  <script src="./ai/unrealExportPrep.js"></script>
-  <script src="./ai/toolchainOrchestrator.js"></script>
-  <script src="./ai/meshyFreeTestProvider.js"></script>
-  <script src="./ai/meshyAutonomousAPI.js"></script>
-  <script src="./ai/liveMeshySceneBuilder.js"></script>
-  <script src="./ai/unrealPhotorealExportBuilder.js"></script>
-  <script src="./ai/unrealAutoRepairRunner.js"></script>
-  <script src="./ai/unrealOneClickBuildRunner.js"></script>
-  <script src="./ai/gameStyleRatingManager.js"></script>
-  <script src="./ai/copyrightSafeVisualIdentityGuard.js"></script>
-  <script src="./ai/paranormalDeviceJumpscareSystem.js"></script>
-  <script src="./ai/unrealHorrorGameAssemblyBuilder.js"></script>
-  <script src="./ai/photorealScenePolishSystem.js"></script>
-  <script src="./ai/controlledFullAutomationRunner.js"></script>
-    <script src="./ai/globalHighEndRealismLock.js"></script>
-  <script src="./ai/autonomousBuildTestRepairLoop.js"></script>
-  <script src="./ai/realisticStructureGenerator.js"></script>
-  <script src="./ai/trueGameForgeStudioMode.js"></script>
-  <script src="./ai/highEndAssetLibraryManager.js"></script>
-  <script src="./ai/legalVisualSourceResolver.js"></script>
-  <script src="./ai/licensedVisualReferencePBRBuilder.js"></script>
-  <script src="./ai/requiredAppDetectorLauncher.js"></script>
-  <script src="./ai/approvedToolDownloadManager.js"></script>
-  <script src="./ai/autonomousFullGameBuilder.js"></script>
-  <script src="./ai/phasmophobiaQualityHauntedGameCore.js"></script>
-  <script src="./ai/playableEXEPackagingLaunchValidator.js"></script>
-  <script src="./ai/screenshotVisualScoringAutoRepair.js"></script>
-  <script src="./ai/cinematicGenreSceneComposer.js"></script>
-  <script src="./ai/heroAssetChecklistEnforcer.js"></script>
-  <script src="./ai/firstGoQualityGate.js"></script>
-  <script src="./ai/externalToolFailurePatternLibrary.js"></script>
-  <script src="./ai/externalToolDiagnosticsSelfRepairEngine.js"></script>
-  <script src="./ai/advancedUnrealSceneBuilder.js"></script>
-  <script src="./ai/fullGameDesignDirector.js"></script>
-  <script src="./ai/gameplaySystemsBuilder.js"></script>
-  <script src="./ai/intricateGameplaySystemsArchitectV12Bridge.js"></script>
-  <script src="./ai/advancedAIEnemyBehaviourBuilder.js"></script>
-  <script src="./ai/proceduralOpenWorldExpansionSystem.js"></script>
-  <script src="./ai/multiplayerOnlineSystemsBuilder.js"></script>
-  <script src="./ai/performanceOptimisationHardwareScaling.js"></script>
-  <script src="./ai/commercialReleaseReadinessSystem.js"></script>
-  <script src="./ai/pbrMaterialLibrary.js"></script>
-  <script src="./ai/characterCreatureRealismLibrary.js"></script>
-  <script src="./ai/animationPackManager.js"></script>
-  <script src="./ai/environmentKitManager.js"></script>
-  <script src="./ai/audioSfxLibrary.js"></script>
-  <script src="./ai/licenceCommercialTracker.js"></script>
-  <script src="./ai/assetQualityScorer.js"></script>
-  <script src="./ai/assetReplacementRules.js"></script>
-  <script src="./ai/offlineFallbackLibrary.js"></script>
-  <script src="./ai/aaaPhotorealEnforcementSystem.js"></script>
-  <script src="./ai/scannedAssetCharacterRealismConnector.js"></script>
-  <script src="./ai/simpleModeUI.js"></script>
-  <script src="./ai/autonomousRealismPipeline.js"></script>
-  <script src="./ai/autoAssetImporter.js"></script>
-  <script src="./ai/modelGatherer.js"></script>
-  <script src="./ai/animationImporter.js"></script>
-  <script src="./ai/animationAssetGatherer.js"></script>
-  <script src="./ai/pipelineRegistry.js"></script>
-  <script src="./ai/safePipeline.js"></script>
+<!-- ══ SCRIPTS ════════════════════════════════════════════════════════ -->
+<!-- AI module stubs (loaded first so app.js can reference them) -->
+<script src="./ai/localAI.js"></script>
+<script src="./ai/hybridAI.js"></script>
+<script src="./ai/mediaGenerator.js"></script>
+<script src="./ai/licenceAuditor.js"></script>
+<script src="./ai/buildSystem.js"></script>
+<script src="./ai/nativeExporter.js"></script>
+<script src="./ai/forgeWizard.js"></script>
+<script src="./ai/characterModelImporter.js"></script>
+<script src="./ai/curatedDownloader.js"></script>
+<script src="./ai/aiCostEstimator.js"></script>
+<script src="./ai/ai3DAssetPipeline.js"></script>
+<script src="./ai/free3DGenerator.js"></script>
+<script src="./ai/appPerformanceMode.js"></script>
+<script src="./ai/liveBuildWatcherOverlay.js"></script>
+<script src="./ai/nativeWindowPerformanceFix.js"></script>
+<script src="./ai/unreal57DetectorFix.js"></script>
+<script src="./ai/visualTarget.js"></script>
+<script src="./ai/internalMeshGenerator.js"></script>
+<script src="./ai/gameIntelligence.js"></script>
+<script src="./ai/oneClickForge.js"></script>
+<script src="./ai/externalPlaytest.js"></script>
+<script src="./ai/completeGameBuilder.js"></script>
+<script src="./ai/photorealMode.js"></script>
+<script src="./ai/generationETA.js"></script>
+<script src="./ai/approvedAssetDownloader.js"></script>
+<script src="./ai/selfAssetGenerator.js"></script>
+<script src="./ai/audioAssetGenerator.js"></script>
+<script src="./ai/photorealQualityGate.js"></script>
+<script src="./ai/unrealExportPrep.js"></script>
+<script src="./ai/toolchainOrchestrator.js"></script>
+<script src="./ai/meshyFreeTestProvider.js"></script>
+<script src="./ai/meshyAutonomousAPI.js"></script>
+<script src="./ai/liveMeshySceneBuilder.js"></script>
+<script src="./ai/unrealPhotorealExportBuilder.js"></script>
+<script src="./ai/unrealAutoRepairRunner.js"></script>
+<script src="./ai/unrealOneClickBuildRunner.js"></script>
+<script src="./ai/gameStyleRatingManager.js"></script>
+<script src="./ai/copyrightSafeVisualIdentityGuard.js"></script>
+<script src="./ai/paranormalDeviceJumpscareSystem.js"></script>
+<script src="./ai/unrealHorrorGameAssemblyBuilder.js"></script>
+<script src="./ai/photorealScenePolishSystem.js"></script>
+<script src="./ai/controlledFullAutomationRunner.js"></script>
+<script src="./ai/globalHighEndRealismLock.js"></script>
+<script src="./ai/autonomousBuildTestRepairLoop.js"></script>
+<script src="./ai/realisticStructureGenerator.js"></script>
+<script src="./ai/trueGameForgeStudioMode.js"></script>
+<script src="./ai/highEndAssetLibraryManager.js"></script>
+<script src="./ai/legalVisualSourceResolver.js"></script>
+<script src="./ai/licensedVisualReferencePBRBuilder.js"></script>
+<script src="./ai/requiredAppDetectorLauncher.js"></script>
+<script src="./ai/approvedToolDownloadManager.js"></script>
+<script src="./ai/autonomousFullGameBuilder.js"></script>
+<script src="./ai/phasmophobiaQualityHauntedGameCore.js"></script>
+<script src="./ai/playableEXEPackagingLaunchValidator.js"></script>
+<script src="./ai/screenshotVisualScoringAutoRepair.js"></script>
+<script src="./ai/cinematicGenreSceneComposer.js"></script>
+<script src="./ai/heroAssetChecklistEnforcer.js"></script>
+<script src="./ai/firstGoQualityGate.js"></script>
+<script src="./ai/externalToolFailurePatternLibrary.js"></script>
+<script src="./ai/externalToolDiagnosticsSelfRepairEngine.js"></script>
+<script src="./ai/advancedUnrealSceneBuilder.js"></script>
+<script src="./ai/fullGameDesignDirector.js"></script>
+<script src="./ai/gameplaySystemsBuilder.js"></script>
+<script src="./ai/intricateGameplaySystemsArchitectV12Bridge.js"></script>
+<script src="./ai/advancedAIEnemyBehaviourBuilder.js"></script>
+<script src="./ai/proceduralOpenWorldExpansionSystem.js"></script>
+<script src="./ai/multiplayerOnlineSystemsBuilder.js"></script>
+<script src="./ai/performanceOptimisationHardwareScaling.js"></script>
+<script src="./ai/commercialReleaseReadinessSystem.js"></script>
+<script src="./ai/pbrMaterialLibrary.js"></script>
+<script src="./ai/characterCreatureRealismLibrary.js"></script>
+<script src="./ai/animationPackManager.js"></script>
+<script src="./ai/environmentKitManager.js"></script>
+<script src="./ai/audioSfxLibrary.js"></script>
+<script src="./ai/licenceCommercialTracker.js"></script>
+<script src="./ai/assetQualityScorer.js"></script>
+<script src="./ai/assetReplacementRules.js"></script>
+<script src="./ai/offlineFallbackLibrary.js"></script>
+<script src="./ai/aaaPhotorealEnforcementSystem.js"></script>
+<script src="./ai/scannedAssetCharacterRealismConnector.js"></script>
+<script src="./ai/simpleModeUI.js"></script>
+<script src="./ai/autonomousRealismPipeline.js"></script>
+<script src="./ai/autoAssetImporter.js"></script>
+<script src="./ai/modelGatherer.js"></script>
+<script src="./ai/animationImporter.js"></script>
+<script src="./ai/animationAssetGatherer.js"></script>
+<script src="./ai/assetManager.js"></script>
+<script src="./ai/flawlessGenerationProcessController.js"></script>
+<script src="./ai/pipelineRegistry.js"></script>
+<script src="./ai/safePipeline.js"></script>
+<!-- app.js LAST — after all AI modules -->
+<script src="./app.js"></script>
 </body>
 </html>

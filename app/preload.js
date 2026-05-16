@@ -107,6 +107,22 @@ const gameforgeAPI = {
   animationGathererMissingReport: (payload) => ipcRenderer.invoke('animation-gatherer-missing-report', payload),
   intricateGameplayArchitectRun: (payload) => ipcRenderer.invoke('intricate-gameplay-architect-run', payload),
   readUnrealPathConfig: () => ipcRenderer.invoke('gameforge-read-unreal-path-config'),
+
+  // ── New core workflow IPC methods (v6.8.2) ─────────────────────────────────
+  meshyTestKey: (key) => ipcRenderer.invoke('gf-meshy-test-key', key),
+  generateGameFolders: (config) => ipcRenderer.invoke('gf-generate-game-folders', config),
+  generateUnrealStructure: (config) => ipcRenderer.invoke('gf-generate-unreal-structure', config),
+  meshyGenerateForGame: (config) => ipcRenderer.invoke('gf-meshy-generate-for-game', config),
+  generateAudioPack: (config) => ipcRenderer.invoke('gf-generate-audio-pack', config),
+  runLaunchCheck: () => ipcRenderer.invoke('gf-run-launch-check'),
+  runAutoRepair: () => ipcRenderer.invoke('gf-run-auto-repair'),
+  resetConfig: () => ipcRenderer.invoke('gf-reset-config'),
+  createProjectFolders: () => ipcRenderer.invoke('gf-create-project-folders'),
+  browseForFile: (opts) => ipcRenderer.invoke('gf-browse-for-file', opts),
+  browseForFolder: (opts) => ipcRenderer.invoke('gf-browse-for-folder', opts),
+  openFolder: (folderPath) => ipcRenderer.invoke('gf-open-folder', folderPath),
+  openLogFolder: () => ipcRenderer.invoke('gf-open-log-folder'),
+  saveLogFile: (text) => ipcRenderer.invoke('gf-save-log-file', text),
 };
 
 contextBridge.exposeInMainWorld('gameforgeAPI', gameforgeAPI);
