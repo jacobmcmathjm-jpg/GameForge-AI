@@ -1,0 +1,111 @@
+{
+  "version": "0.7.3",
+  "policy": {
+    "defaultLicenceMode": "cc0_only",
+    "allowedLicences": [
+      "CC0",
+      "PublicDomain"
+    ],
+    "blockedLicences": [
+      "NonCommercial",
+      "Unknown",
+      "EditorialOnly",
+      "PersonalUseOnly"
+    ],
+    "requiresHumanVerificationBeforeCommercialRelease": true,
+    "notes": "This registry is a curated-safe workflow. It stores source metadata and only auto-imports assets that declare CC0/Public Domain in their manifest. Users should still verify licences before commercial release."
+  },
+  "approvedSources": [
+    {
+      "name": "Kenney",
+      "homeUrl": "https://kenney.nl/assets",
+      "allowedUse": "Only packs/assets with confirmed CC0/public-domain style licence metadata should be imported.",
+      "sourceType": "manual_or_direct_url",
+      "formats": [
+        "zip",
+        "glb",
+        "gltf",
+        "png",
+        "ogg",
+        "wav"
+      ]
+    },
+    {
+      "name": "Quaternius",
+      "homeUrl": "https://quaternius.com",
+      "allowedUse": "Only assets with confirmed CC0/permissive licence metadata should be imported.",
+      "sourceType": "manual_or_direct_url",
+      "formats": [
+        "zip",
+        "glb",
+        "gltf",
+        "fbx",
+        "obj"
+      ]
+    },
+    {
+      "name": "Poly Haven",
+      "homeUrl": "https://polyhaven.com",
+      "allowedUse": "Known for CC0 assets; each asset should still be verified and metadata saved.",
+      "sourceType": "manual_or_direct_url",
+      "formats": [
+        "hdr",
+        "exr",
+        "png",
+        "jpg",
+        "glb"
+      ]
+    },
+    {
+      "name": "OpenGameArt",
+      "homeUrl": "https://opengameart.org",
+      "allowedUse": "Mixed licences; only import assets with explicit CC0/Public Domain metadata.",
+      "sourceType": "manual_or_direct_url",
+      "formats": [
+        "zip",
+        "glb",
+        "gltf",
+        "png",
+        "ogg",
+        "wav"
+      ]
+    }
+  ],
+  "assetNeedsMap": {
+    "zombie shooter": [
+      "zombie character model",
+      "pistol model",
+      "gunshot sound",
+      "reload sound",
+      "dark town props",
+      "forest trees",
+      "rocks",
+      "grass"
+    ],
+    "survival horror": [
+      "zombie/infected character",
+      "abandoned building props",
+      "wind ambience",
+      "door creak",
+      "footsteps",
+      "forest trees",
+      "fog texture"
+    ],
+    "forest survival": [
+      "trees",
+      "rocks",
+      "grass",
+      "campfire",
+      "axe/tool",
+      "ambient wind",
+      "footsteps"
+    ],
+    "sci-fi shooter": [
+      "sci-fi weapon",
+      "drone enemy",
+      "metal floor texture",
+      "facility props",
+      "laser sound"
+    ]
+  }
+}

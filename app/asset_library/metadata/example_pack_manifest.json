@@ -1,0 +1,39 @@
+{
+  "packName": "Example Realism Starter Pack",
+  "version": "0.1",
+  "source": "local placeholder",
+  "license": "Prototype placeholder only",
+  "categories": [
+    "trees",
+    "rocks",
+    "grass",
+    "audio",
+    "terrain"
+  ],
+  "assets": [
+    {
+      "name": "example_tree.glb",
+      "type": "model",
+      "category": "trees",
+      "path": "models/example_tree.glb"
+    },
+    {
+      "name": "example_rock.glb",
+      "type": "model",
+      "category": "rocks",
+      "path": "models/example_rock.glb"
+    },
+    {
+      "name": "example_grass.png",
+      "type": "texture",
+      "category": "grass",
+      "path": "textures/example_grass.png"
+    },
+    {
+      "name": "example_forest_ambience.wav",
+      "type": "audio",
+      "category": "ambient",
+      "path": "audio/example_forest_ambience.wav"
+    }
+  ]
+}

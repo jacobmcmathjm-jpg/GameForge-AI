@@ -1,0 +1,44 @@
+{
+  "name": "Example_Abandoned_Town_Survival",
+  "prompt": "Create a survival horror game in an abandoned town.",
+  "mode": "Forge Full Game Draft",
+  "size": "Playable Demo",
+  "graphics": "Realistic",
+  "perspective": "First Person",
+  "scene": {
+    "engine": "GameForge AI Engine",
+    "version": "0.4",
+    "objects": [
+      {
+        "name": "PlayerSpawn",
+        "type": "player_spawn",
+        "material": "player",
+        "position": {
+          "x": 0,
+          "y": 1,
+          "z": 0
+        },
+        "scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        }
+      },
+      {
+        "name": "Abandoned_Building_1",
+        "type": "building",
+        "material": "concrete",
+        "position": {
+          "x": -8,
+          "y": 1.5,
+          "z": -8
+        },
+        "scale": {
+          "x": 3.5,
+          "y": 3,
+          "z": 3.5
+        }
+      }
+    ]
+  }
+}

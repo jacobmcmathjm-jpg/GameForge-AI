@@ -1,0 +1,59 @@
+{
+  "version": "0.5.1",
+  "trustedSources": [
+    {
+      "name": "Kenney Game Assets",
+      "type": "general",
+      "licenseNote": "Check individual pack licence before commercial use.",
+      "formats": [
+        "zip",
+        "png",
+        "ogg",
+        "wav",
+        "glb"
+      ],
+      "url": "https://kenney.nl/assets"
+    },
+    {
+      "name": "Quaternius 3D Assets",
+      "type": "3d_models",
+      "licenseNote": "Known for free/CC0-style game models; verify current licence per pack.",
+      "formats": [
+        "glb",
+        "fbx",
+        "obj",
+        "blend",
+        "zip"
+      ],
+      "url": "https://quaternius.com"
+    },
+    {
+      "name": "Poly Haven",
+      "type": "textures_hdris_models",
+      "licenseNote": "Known for CC0 assets; verify current licence per asset.",
+      "formats": [
+        "hdr",
+        "exr",
+        "png",
+        "jpg",
+        "glb",
+        "blend"
+      ],
+      "url": "https://polyhaven.com"
+    },
+    {
+      "name": "OpenGameArt",
+      "type": "mixed",
+      "licenseNote": "Many licences; attribution may be required. Always check pack metadata.",
+      "formats": [
+        "zip",
+        "png",
+        "ogg",
+        "wav",
+        "obj",
+        "blend"
+      ],
+      "url": "https://opengameart.org"
+    }
+  ]
+}

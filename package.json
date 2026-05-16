@@ -1,0 +1,17 @@
+{
+  "name": "gameforge-ai-root",
+  "version": "6.8.2",
+  "private": true,
+  "description": "Root helper for the GameForge AI Electron app. The real app lives in ./app.",
+  "scripts": {
+    "start": "cd app && npm start",
+    "dev": "cd app && npm run dev",
+    "install:app": "cd app && npm install",
+    "repair": "cd app && npm install",
+    "doctor": "cd app && npm run doctor",
+    "check:js": "cd app && npm run check:js",
+    "dist": "cd app && npm run dist",
+    "build:portable": "cd app && npm run build:portable",
+    "build:installer": "cd app && npm run build:installer"
+  }
+}

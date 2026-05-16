@@ -1,0 +1,24 @@
+GAMEFORGE AI - GITHUB UPLOAD READY PACKAGE
+
+1. Extract this zip.
+2. Open the extracted folder: GameForge-AI_GitHub_Upload_Ready.
+3. Upload the CONTENTS of this folder to your GitHub repository using Add file > Upload files.
+   - Upload the folders/files inside it, not the zip itself.
+4. Commit the upload.
+5. The real Electron app is inside the /app folder.
+
+Safe checks already done:
+- No .env file included.
+- No node_modules included.
+- No generated .exe/.msi build artifacts included.
+- Added a root package.json so tools like Bolt/Cursor can detect the project from the repository root.
+- Kept the /app folder so existing launchers and GitHub Actions workflow still work.
+
+To run locally later:
+- Open a command prompt in the repository root.
+- Run: npm run install:app
+- Run: npm start
+
+Or open the /app folder and run:
+- npm install
+- npm start

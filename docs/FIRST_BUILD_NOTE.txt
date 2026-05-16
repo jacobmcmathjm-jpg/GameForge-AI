@@ -1,0 +1,9 @@
+On first build, npm may download/install dependencies.
+That is normal.
+
+If the build fails because package-lock.json is missing, run:
+cd app
+npm install
+
+Then run:
+npm run dist

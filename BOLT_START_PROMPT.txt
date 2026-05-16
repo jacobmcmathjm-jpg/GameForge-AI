@@ -1,0 +1,14 @@
+This repository is GameForge AI, an Electron desktop app. The main app is in /app, with package.json, main.js, preload.js, and src/index.html.
+
+Please inspect the whole project and repair it into a stable working desktop app. Priorities:
+1. Make the Electron app start reliably on Windows.
+2. Fix broken imports, missing files, package scripts, build scripts, and launch issues.
+3. Keep Meshy/API keys out of the repo and use safe placeholders only.
+4. Preserve the GameForge goal: AI game builder dashboard, Meshy integration, project generator, launch checker, Unreal detector, and self-repair pipeline.
+5. Add clear logs and user-friendly error messages.
+6. Do not remove existing features unless they are broken duplicates; consolidate them safely.
+
+Start by running/checking:
+- npm run install:app
+- npm run check:js
+- npm start

@@ -1,0 +1,89 @@
+{
+  "name": "gf-ai",
+  "version": "6.8.2",
+  "description": "GameForge AI v6.8.2 Unreal 5.7 Detector Fix.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "package": "echo \"Prototype packaging not configured yet. Use npm start.\"",
+    "dist": "electron-builder --win",
+    "pack-win": "electron-builder --win",
+    "start:safe": "electron . --disable-gpu --disable-gpu-compositing --disable-accelerated-2d-canvas",
+    "start:cpu": "electron . --disable-gpu --in-process-gpu",
+    "build:portable": "electron-builder --win portable",
+    "build:installer": "electron-builder --win nsis",
+    "start:debug": "electron . --enable-logging",
+    "start:stable": "electron . --disable-gpu --disable-gpu-compositing --disable-accelerated-2d-canvas --disable-features=VizDisplayCompositor",
+    "pack": "electron-builder --dir",
+    "dist:portable": "electron-builder --win portable",
+    "dist:nsis": "electron-builder --win nsis",
+    "check:js": "node --check main.js && node --check preload.js",
+    "fast:start": "electron .",
+    "repair": "npm install",
+    "doctor": "node tools/launch-doctor.js"
+  },
+  "keywords": [
+    "game-engine",
+    "ai",
+    "offline",
+    "electron",
+    "babylonjs",
+    "gameforge"
+  ],
+  "author": "GameForge AI",
+  "license": "PROTOTYPE",
+  "dependencies": {
+    "@babylonjs/core": "^7.54.3",
+    "@babylonjs/gui": "^7.54.3",
+    "@babylonjs/loaders": "^7.54.3"
+  },
+  "devDependencies": {
+    "electron-builder": "^25.1.8",
+    "electron": "^33.2.1"
+  },
+  "build": {
+    "appId": "com.gameforge.ai",
+    "productName": "GameForge AI",
+    "copyright": "Copyright \u00a9 2026 GameForge AI",
+    "directories": {
+      "output": "../release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.map",
+      "!**/node_modules/.cache/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "GameForge-AI-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GameForge AI"
+    }
+  },
+  "private": true
+}

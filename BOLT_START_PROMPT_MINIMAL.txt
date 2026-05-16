@@ -1,0 +1,12 @@
+This is the slim under-100-file GameForge AI codebase. Please inspect and repair it into a working Electron desktop app.
+
+Goal: GameForge AI should launch reliably and provide an AI game builder dashboard with Meshy API settings, Unreal Engine path detection, project generation, launch checking, and a self-fixing repair loop.
+
+Please do this in order:
+1. Inspect package.json at root and app/package.json.
+2. Confirm npm install and npm start work from the root.
+3. Fix broken imports, missing files, Electron startup issues, and UI errors.
+4. Preserve the app/main.js, app/preload.js, app/src/index.html, app/src/app.js, and app/src/styles.css structure unless there is a strong reason to simplify.
+5. Wire the key modules in app/src/ai into a clean pipeline: prompt -> plan -> asset generation -> Unreal/Godot project export -> build/test -> self-repair -> launch report.
+6. Do not require real API keys. Use placeholders and a settings screen.
+7. Produce a working minimal version first, then add features safely.

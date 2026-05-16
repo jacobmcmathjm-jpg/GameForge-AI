@@ -1,0 +1,10 @@
+GAMEFORGE AI - MINIMAL GITHUB UPLOAD PACKAGE
+
+This package is intentionally under 100 files so GitHub upload will accept it.
+
+Upload the CONTENTS of this extracted folder to GitHub, not the zip itself.
+
+This excludes the large archive of older README/version notes and non-essential support files.
+The important Electron app files, launcher files, Meshy/Unreal/self-repair modules, and starter docs are included.
+
+After upload, open the repo in Bolt or Cursor and use BOLT_START_PROMPT.txt.
