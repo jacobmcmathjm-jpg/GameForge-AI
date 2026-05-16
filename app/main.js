@@ -8048,8 +8048,9 @@ ipcMain.handle('gf-generate-game-folders', async (event, config) => {
       } else {
         // ── SHELL MODE: Generate Blueprint-only starter ───────────────────────
         const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType.toUpperCase();
-        log.push({ msg: `No playable ${gtLabel} template found — generating Blueprint-only project shell.`, level: 'warn' });
-        log.push({ msg: `To install a template: see app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/README_TEMPLATE.md`, level: 'warn' });
+        log.push({ msg: `No playable ${gtLabel} template installed — generating Environment Walkthrough / Project Shell.`, level: 'warn' });
+        log.push({ msg: `This output opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, health, or gameplay systems.`, level: 'warn' });
+        log.push({ msg: `To install a playable template: see docs/Template_Install_Guide.md`, level: 'warn' });
       }
     }
 
@@ -8219,9 +8220,23 @@ ${gameTypeNotes(config.gameType, config.perspective)}
 
 ## Project Mode
 ${templateUsed ? `**Playable Template** — a real Unreal template has been copied and customised.
-The project should contain working Blueprint assets and at least one playable map.` : `**Project Shell** — a Blueprint-only Unreal project structure was generated.
-The project opens in Unreal Editor but does not yet contain gameplay assets.
-See: \`app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/README_TEMPLATE.md\` to install a real template.`}
+The project should contain working Blueprint assets and at least one playable map.
+You can open it in Unreal Editor and press Play to test gameplay.` : `**Environment Walkthrough / Project Shell** — a Blueprint-only Unreal project structure was generated.
+
+IMPORTANT: This project opens in Unreal Editor with terrain and a sky, but it does NOT contain:
+- Player HUD or attributes
+- Weapons or weapon system
+- Health or damage system
+- Enemies or AI
+- Gameplay objectives or loops
+- Inventory, quests, or progression
+
+You can walk around in the environment, but there is no actual game yet.
+
+To upgrade to a Playable Template, install a working Unreal project into:
+\`app/templates/unreal/${TEMPLATE_FOLDER_MAP[gameType] || gameType + '_blueprint'}/\`
+
+See: \`docs/Template_Install_Guide.md\` for full instructions.`}
 
 ## Requirements
 - [ ] Unreal Engine 5.4+ installed via Epic Games Launcher
@@ -8442,7 +8457,7 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
         ? 'Playable template ready — open in Unreal Editor and press Play'
         : resultType === 'Playable Template (Partial)'
           ? 'Template copied but some gameplay folders appear empty — verify template content'
-          : 'Project shell ready — opens in Unreal Editor but no gameplay assets installed yet',
+          : 'Environment Walkthrough / Project Shell — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet',
       packagingReadiness: 'PENDING',
       nextStep,
       note: 'This is a playable starting point. A packaged Windows .exe is the final delivery goal.',
@@ -8507,7 +8522,7 @@ ${config.description || 'No description provided.'}
 `;
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
-    const resultLabel = templateUsed ? `${resultType} generated` : 'Project shell generated';
+    const resultLabel = templateUsed ? `${resultType} generated` : 'Environment Walkthrough / Project Shell generated';
     log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Readiness: ${readinessScore}%.`, level: 'ok' });
     if (templateUsed) {
       log.push({ msg: 'Playable template readiness check complete.', level: 'ok' });

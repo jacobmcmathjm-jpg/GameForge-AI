@@ -545,7 +545,7 @@
         <span class="nav-icon">⊞</span> Dashboard
       </button>
       <button class="nav-btn" data-panel="generate">
-        <span class="nav-icon">⚡</span> Generate Full Game
+        <span class="nav-icon">⚡</span> Generate Project
       </button>
       <button class="nav-btn" data-panel="checker">
         <span class="nav-icon">✓</span> Launch Checker
@@ -588,17 +588,17 @@
 
         <div class="hero">
           <div>
-            <h2>GameForge AI — Playable Indie Prototype Generator</h2>
-            <p>Generate Blueprint-only Unreal 5 project templates with strong realistic visuals, solid folder structures, gameplay loop docs, Meshy asset plans, and autonomous repair — designed to create playable high-end indie starting points, not finished AAA titles.</p>
+            <h2>GameForge AI — Unreal Project Generator</h2>
+            <p>Generates a Blueprint-only Unreal 5 project with correct folder structure, config files, and documentation. <b>Current output: Environment Walkthrough / Project Shell</b> — the project opens in Unreal with terrain and sky, but has no player attributes, HUD, weapons, enemies, or gameplay systems yet. Install a local template to upgrade to a fully playable prototype.</p>
           </div>
-          <button class="primary" onclick="gotoPanel('generate')">Generate Prototype</button>
+          <button class="primary" onclick="gotoPanel('generate')">Generate Project</button>
         </div>
 
         <div class="action-grid">
           <div class="action-card" onclick="gotoPanel('generate')">
             <div class="ac-icon">🎮</div>
-            <div class="ac-label">Generate Full Game</div>
-            <div class="ac-sub">FPS, Horror, Survival, RPG and more</div>
+            <div class="ac-label">Generate Unreal Project</div>
+            <div class="ac-sub">Environment Shell or Playable Template</div>
           </div>
           <div class="action-card" onclick="gotoPanel('checker')">
             <div class="ac-icon">✅</div>
@@ -650,9 +650,20 @@
 
       <!-- ══════════════════════════════════════════════ GENERATE FULL GAME -->
       <section class="panel" id="panel-generate">
+
+        <!-- Output type explanation banner -->
+        <div style="margin-bottom:18px;padding:14px 16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;">
+          <div style="font-size:13px;font-weight:700;color:var(--warn);margin-bottom:6px;">What GameForge generates right now</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.7;">
+            <b style="color:var(--warn);">Environment Walkthrough / Project Shell</b> — A Blueprint-only Unreal project that opens with terrain and sky. You can walk around, but there is no player HUD, no weapons, no health, no enemies, and no gameplay systems. The folders, config files, and documentation are correct and ready for you to build in Unreal Editor.<br><br>
+            <b style="color:var(--accent2);">Playable Template (coming when you install a template)</b> — If you place a working Blueprint-only Unreal project into <code style="font-size:11px;">app/templates/unreal/fps_blueprint/</code>, GameForge will copy it instead and you get a real playable game with FPS movement, weapons, and enemies.<br><br>
+            See <b>docs/Template_Install_Guide.md</b> for instructions.
+          </div>
+        </div>
+
         <div class="grid grid-2" style="margin-bottom:18px;">
           <div class="card">
-            <h3>Game Configuration</h3>
+            <h3>Project Configuration</h3>
 
             <label>Game Name</label>
             <input type="text" id="genGameName" value="My GameForge Project" />
@@ -759,7 +770,7 @@
 
           <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px;">
             <button id="generateBtn" class="primary" onclick="startGameGeneration()" style="min-width:220px;">
-              Generate Playable Prototype
+              Generate Unreal Project
             </button>
             <button id="cancelGenBtn" onclick="cancelGeneration()" style="display:none;">Cancel</button>
             <span id="genStatusBadge"></span>

@@ -346,7 +346,11 @@ function _updateGenSummary() {
       <b>Project Mode:</b> ${unrealNote}<br>
       <b>Meshy 3D assets:</b> ${useMeshy ? (SETTINGS.meshyApiKey ? 'Yes (key configured)' : 'MeshyAssetPlan.md created (no key)') : 'No'}<br>
       <b>Audio placeholders:</b> ${useAudio ? 'Yes' : 'No'}<br>
-      <span style="color:var(--muted);font-size:11px;">Output: playable Unreal prototype, not a finished title</span>
+      <div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.1);border-radius:4px;font-size:11px;color:var(--warn);line-height:1.6;">
+        <b>Expected output:</b> Environment Walkthrough / Project Shell<br>
+        Opens in Unreal with terrain and sky. No player HUD, weapons, enemies, or gameplay systems.<br>
+        Install a local template to generate a playable project.
+      </div>
     `;
   }
 }
@@ -520,10 +524,13 @@ async function startGameGeneration() {
         _genLog(`No missing plugin references found.`, 'ok');
         _genLog(`Double-click ${sn}.uproject in Unreal Editor — press Play to test.`, 'ok');
       } else {
-        _genLog(`No playable template found — generated Blueprint-only project shell.`, 'warn');
+        _genLog(`Result: Environment Walkthrough / Project Shell.`, 'warn');
+        _genLog(`No playable template installed for this game type.`, 'warn');
+        _genLog(`The project opens in Unreal with terrain and sky. There is no player HUD, no weapons, no health, no enemies, and no gameplay systems.`, 'warn');
         _genLog(`Project is Blueprint-only. No C++ modules required.`, 'ok');
         _genLog(`No missing plugin references found.`, 'ok');
-        _genLog(`Double-click ${sn}.uproject in Unreal Editor to begin building.`, 'ok');
+        _genLog(`To upgrade to Playable Template: see docs/Template_Install_Guide.md.`, 'ok');
+        _genLog(`Double-click ${sn}.uproject in Unreal Editor to open the project.`, 'ok');
       }
     }
 
@@ -540,15 +547,19 @@ async function startGameGeneration() {
     const isPartial = resultType === 'Playable Template (Partial)';
 
     if (resultTitle) {
-      resultTitle.textContent = resultType;
-      resultTitle.style.color = isTemplate && !isPartial ? 'var(--success)' : isTemplate ? 'var(--warn)' : 'var(--accent)';
+      resultTitle.textContent = isTemplate && !isPartial
+        ? 'Playable Template Ready'
+        : isTemplate
+          ? 'Template Copied (Verify Content)'
+          : 'Environment Walkthrough / Project Shell';
+      resultTitle.style.color = isTemplate && !isPartial ? 'var(--success)' : isTemplate ? 'var(--warn)' : 'var(--warn)';
     }
     if (resultSubtitle) {
       resultSubtitle.textContent = isTemplate && !isPartial
-        ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test.'
+        ? 'A tested Unreal template was copied. Open in Unreal Editor and press Play to test gameplay.'
         : isTemplate
-          ? 'Template was copied, but some gameplay folders may be empty. Verify template content.'
-          : 'Blueprint-only Unreal project shell generated. Opens in Unreal Editor. Build gameplay Blueprints inside.';
+          ? 'Template was copied, but some gameplay folders may be empty. Verify template content in Unreal Editor.'
+          : 'Environment Walkthrough / Project Shell generated. The project opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, or gameplay systems. Build those in Unreal Editor, or install a local template (see docs/Template_Install_Guide.md).';
     }
 
     if (resultDetails) {
@@ -572,7 +583,7 @@ async function startGameGeneration() {
         ? `<b>Generation mode:</b> <span style="color:var(--${isTemplate ? (isPartial ? 'warn' : 'success') : 'muted'})">${resultType}</span><br>`
         : '';
       const gameplayAssetsLine = isUnrealEngine
-        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && !keyFoldersEmpty ? 'success' : 'warn'})">${isTemplate && !keyFoldersEmpty ? '✓ Template assets present' : isTemplate ? '! Template folders appear empty — verify template' : 'None yet — build in Unreal Editor'}</span><br>`
+        ? `<b>Gameplay assets:</b> <span style="color:var(--${isTemplate && !keyFoldersEmpty ? 'success' : 'warn'})">${isTemplate && !keyFoldersEmpty ? '✓ Template assets present' : isTemplate ? '! Template folders appear empty — verify template' : 'None — player, HUD, weapons, enemies, health not installed. Build in Unreal Editor or install a template.'}</span><br>`
         : '';
       const scoreLine = score != null
         ? `<b>Readiness Score:</b> <span style="color:var(--${score >= 80 ? 'success' : score >= 50 ? 'warn' : 'danger'})">${score}%</span><br>`
