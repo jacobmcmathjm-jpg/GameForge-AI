@@ -1,0 +1,16 @@
+{
+  "templateId": "fps_blueprint",
+  "name": "First-Person Shooter Blueprint Template",
+  "engine": "UnrealEngine",
+  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "projectMode": "BlueprintOnly",
+  "requiresCpp": false,
+  "requiresPlugins": [],
+  "hasPlayableMap": false,
+  "hasPlayer": false,
+  "hasWeapons": false,
+  "hasEnemies": false,
+  "hasHUD": false,
+  "status": "not-installed",
+  "notes": "Place a working Blueprint-only Unreal 5 FPS project in this folder. Set status to 'stable' when ready. See README_TEMPLATE.md for required systems and folder structure."
+}

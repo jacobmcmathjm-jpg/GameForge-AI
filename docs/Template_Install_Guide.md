@@ -8,25 +8,73 @@ There are three output levels:
 
 | Level | Description | What it means |
 |-------|-------------|---------------|
-| **Project Shell** | Blueprint-only Unreal project with correct folder structure, config, and docs | Opens in Unreal, but no gameplay assets yet |
-| **Playable Template** | A real tested Unreal project copied and customised | Opens in Unreal and is immediately testable |
+| **Project Shell / Environment Walkthrough** | Blueprint-only Unreal project with correct folder structure, config, and docs | Opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems |
+| **Playable Template Project** | A real tested Unreal project copied and customised | Opens in Unreal and is immediately testable |
 | **Packaged Build** | A compiled Windows .exe | A downloadable playable game |
 
-GameForge currently generates **Project Shell** by default.
-To generate **Playable Template**, you must install a real Unreal template.
+GameForge currently generates **Project Shell / Environment Walkthrough** by default.
+To generate **Playable Template Project**, you must install a real Unreal template.
 
 ---
 
 ## Template Detection
 
-GameForge detects templates by looking for a `.uproject` file inside:
+GameForge validates templates by checking **all** of the following:
 
-```
-app/templates/unreal/<template_folder>/
+1. `template_manifest.json` exists in the template folder
+2. `template_manifest.json` is valid JSON with `projectMode: "BlueprintOnly"`, `requiresCpp: false`, and `status: "stable"` or `"ready"`
+3. A `.uproject` file exists in the template folder root
+4. A `Content/` folder exists
+5. A `Config/` folder exists
+
+If all checks pass → GameForge copies the template (**Playable Template Project** mode).
+If any check fails → GameForge generates a project shell (**Project Shell / Environment Walkthrough** mode).
+
+---
+
+## template_manifest.json Standard
+
+Every template folder must include a `template_manifest.json` file. This file tells GameForge whether the template is installed and valid.
+
+**Required fields:**
+
+```json
+{
+  "templateId": "fps_blueprint",
+  "name": "First-Person Shooter Blueprint Template",
+  "engine": "UnrealEngine",
+  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "projectMode": "BlueprintOnly",
+  "requiresCpp": false,
+  "requiresPlugins": [],
+  "hasPlayableMap": true,
+  "hasPlayer": true,
+  "hasWeapons": true,
+  "hasEnemies": true,
+  "hasHUD": true,
+  "status": "stable"
+}
 ```
 
-If a `.uproject` file is found → GameForge copies the template (Playable Template mode).
-If no `.uproject` file is found → GameForge generates a project shell (Project Shell mode).
+**Field reference:**
+
+| Field | Required value to activate | Description |
+|-------|---------------------------|-------------|
+| `templateId` | Any string | Unique ID for this template |
+| `name` | Any string | Human-readable name |
+| `engine` | `"UnrealEngine"` | Engine type |
+| `compatibleVersions` | Array of strings | UE versions tested |
+| `projectMode` | `"BlueprintOnly"` | Must be BlueprintOnly — C++ templates not supported |
+| `requiresCpp` | `false` | Must be false |
+| `requiresPlugins` | `[]` | List any non-standard plugins (empty = no extra plugins) |
+| `hasPlayableMap` | `true` | Set to true once a .umap file is in Content/Maps/ |
+| `hasPlayer` | `true` | Set to true once a player Blueprint is installed |
+| `hasWeapons` | `true` | Set to true once weapon Blueprints are installed |
+| `hasEnemies` | `true` | Set to true once enemy AI Blueprints are installed |
+| `hasHUD` | `true` | Set to true once a HUD Widget Blueprint is installed |
+| `status` | `"stable"` or `"ready"` | **Set this last** — this is what activates the template |
+
+**Important:** GameForge only uses the template if `status` is `"stable"` or `"ready"`. While you are building or testing, keep it as `"not-installed"` to avoid using an incomplete template.
 
 ---
 
@@ -80,7 +128,8 @@ Copy to:    GameForge\app\templates\unreal\fps_blueprint\
 The result should look like:
 ```
 app/templates/unreal/fps_blueprint/
-  MyFPSTemplate.uproject     ← GameForge detects this
+  template_manifest.json     ← GameForge validates this first
+  MyFPSTemplate.uproject     ← GameForge detects and renames this
   Config/
     DefaultEngine.ini
     DefaultGame.ini
@@ -95,14 +144,27 @@ app/templates/unreal/fps_blueprint/
       UI/...
 ```
 
-### Step 4: Test in GameForge
+### Step 4: Update template_manifest.json
+
+Open `app/templates/unreal/fps_blueprint/template_manifest.json` and:
+
+1. Set `"hasPlayableMap": true`
+2. Set `"hasPlayer": true`
+3. Set `"hasWeapons": true`
+4. Set `"hasEnemies": true`
+5. Set `"hasHUD": true`
+6. Set `"status": "stable"` ← This activates the template
+
+### Step 5: Test in GameForge
 
 1. Open GameForge
 2. Select **FPS** (or matching game type)
 3. Click **Generate Prototype**
-4. GameForge detects the template and copies it
-5. Check logs for: `Playable FPS template copied successfully`
-6. Result card shows: **Playable Template**
+4. Watch the logs for:
+   - `Checking local template library...`
+   - `Template manifest found: ...`
+   - `Playable template copied successfully`
+5. Result card shows: **Playable Template Project**
 
 ---
 
@@ -175,7 +237,7 @@ Everything in FPS, plus:
 ## Important Notes
 
 - GameForge renames the `.uproject` file to match the user's chosen project name
-- GameForge updates `Config/DefaultEngine.ini` and `Config/DefaultGame.ini` with the new name
+- GameForge updates `Config/DefaultEngine.ini` with the new name
 - GameForge does NOT modify any Blueprint `.uasset` files (these are binary)
 - If your template uses hardcoded project name references inside Blueprints, you may need to manually update them in Unreal Editor after generation
 - GameForge adds `Docs/`, `Output/`, `Scripts/`, and `Scenes/` folders with its own documentation
@@ -196,7 +258,9 @@ Everything in FPS, plus:
 
 | Problem | Solution |
 |---------|----------|
-| GameForge shows "Project Shell" instead of "Playable Template" | Verify a `.uproject` file exists in the template folder |
+| GameForge shows "Project Shell" instead of "Playable Template Project" | Verify `template_manifest.json` exists and `status` is `"stable"` or `"ready"` |
+| Manifest found but template not used | Check `projectMode` is `"BlueprintOnly"` and `requiresCpp` is `false` |
+| GameForge shows "Template manifest not found" | Create `template_manifest.json` in the template folder (see standard above) |
 | Unreal shows "Missing Plugin" on open | Check `.uproject` — remove any non-standard plugin entries |
 | Unreal asks to rebuild (C++) | Check `.uproject` — remove the `Modules` array |
 | Template opens but gameplay broken | Test and fix the template in Unreal Editor before placing it in GameForge |

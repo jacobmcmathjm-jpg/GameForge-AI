@@ -454,9 +454,9 @@ async function startGameGeneration() {
 
       // Log result type (template vs shell)
       if (folderResult.templateUsed) {
-        _genLog(`Result type: ${folderResult.resultType || 'Playable Template'}`, 'ok');
+        _genLog(`Result type: ${folderResult.resultType || 'Playable Template Project'}`, 'ok');
       } else {
-        _genLog(`Result type: Project Shell — no playable template installed for this game type.`, 'warn');
+        _genLog(`Result type: Project Shell / Environment Walkthrough — no playable template installed for this game type.`, 'warn');
       }
 
       // Log each step that was reported by the backend
@@ -511,7 +511,7 @@ async function startGameGeneration() {
     await _sleep(200);
     _setGenProgress(100);
     _genLog('---');
-    const resultType = folderResult && folderResult.resultType ? folderResult.resultType : (folderResult && folderResult.templateUsed ? 'Playable Template' : 'Project Shell');
+    const resultType = folderResult && folderResult.resultType ? folderResult.resultType : (folderResult && folderResult.templateUsed ? 'Playable Template Project' : 'Project Shell / Environment Walkthrough');
     _genLog(`Generation complete — ${config.gameName} [${resultType}]`, 'ok');
     if (lastOutputPath) _genLog(`Output folder: ${lastOutputPath}`, 'ok');
     if (isUnrealEngine) {
@@ -544,14 +544,14 @@ async function startGameGeneration() {
     if (resultCard) resultCard.style.display = 'block';
 
     const isTemplate = folderResult && folderResult.templateUsed;
-    const isPartial = resultType === 'Playable Template (Partial)';
+    const isPartial = resultType === 'Playable Template Project (Verify Content)';
 
     if (resultTitle) {
       resultTitle.textContent = isTemplate && !isPartial
-        ? 'Playable Template Ready'
+        ? 'Playable Template Project Ready'
         : isTemplate
-          ? 'Template Copied (Verify Content)'
-          : 'Environment Walkthrough / Project Shell';
+          ? 'Playable Template Project (Verify Content)'
+          : 'Project Shell / Environment Walkthrough';
       resultTitle.style.color = isTemplate && !isPartial ? 'var(--success)' : isTemplate ? 'var(--warn)' : 'var(--warn)';
     }
     if (resultSubtitle) {

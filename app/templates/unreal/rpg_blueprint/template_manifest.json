@@ -1,0 +1,16 @@
+{
+  "templateId": "rpg_blueprint",
+  "name": "RPG Blueprint Template",
+  "engine": "UnrealEngine",
+  "compatibleVersions": ["5.4", "5.5", "5.6"],
+  "projectMode": "BlueprintOnly",
+  "requiresCpp": false,
+  "requiresPlugins": [],
+  "hasPlayableMap": false,
+  "hasPlayer": false,
+  "hasWeapons": false,
+  "hasEnemies": false,
+  "hasHUD": false,
+  "status": "not-installed",
+  "notes": "Place a working Blueprint-only Unreal 5 RPG project in this folder. Set status to 'stable' when ready."
+}

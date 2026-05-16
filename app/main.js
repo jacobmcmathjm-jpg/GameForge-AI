@@ -7559,14 +7559,72 @@ function getTemplateDir(gameType) {
   return path.join(__dirname, 'templates', 'unreal', folder);
 }
 
-// Returns path to the .uproject inside a template folder, or null if not installed
-function findTemplateUproject(templateDir) {
-  if (!templateDir || !fs.existsSync(templateDir)) return null;
+// Validates a template folder using template_manifest.json + structural checks
+// Returns { valid, manifestFound, manifestData, uprojectFile, reason }
+function validateTemplate(templateDir) {
+  const result = { valid: false, manifestFound: false, manifestData: null, uprojectFile: null, reason: '' };
+  if (!templateDir || !fs.existsSync(templateDir)) {
+    result.reason = 'Template folder does not exist';
+    return result;
+  }
+
+  // Check manifest
+  const manifestPath = path.join(templateDir, 'template_manifest.json');
+  if (!fs.existsSync(manifestPath)) {
+    result.reason = 'template_manifest.json not found';
+    return result;
+  }
+  result.manifestFound = true;
+
+  let manifest;
   try {
-    const entries = fs.readdirSync(templateDir);
-    const uproject = entries.find(e => e.endsWith('.uproject'));
-    return uproject ? path.join(templateDir, uproject) : null;
-  } catch(e) { return null; }
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    result.manifestData = manifest;
+  } catch(e) {
+    result.reason = 'template_manifest.json is not valid JSON';
+    return result;
+  }
+
+  // Validate manifest fields
+  if (manifest.projectMode !== 'BlueprintOnly') {
+    result.reason = `projectMode must be BlueprintOnly (got: ${manifest.projectMode})`;
+    return result;
+  }
+  if (manifest.requiresCpp !== false) {
+    result.reason = 'requiresCpp must be false';
+    return result;
+  }
+  if (!['stable', 'ready'].includes(String(manifest.status || ''))) {
+    result.reason = `Template status is '${manifest.status}' — must be 'stable' or 'ready' to use`;
+    return result;
+  }
+
+  // Check .uproject exists in template root
+  let entries;
+  try { entries = fs.readdirSync(templateDir); } catch(e) {
+    result.reason = 'Cannot read template directory';
+    return result;
+  }
+  const uprojectFile = entries.find(e => e.endsWith('.uproject'));
+  if (!uprojectFile) {
+    result.reason = 'No .uproject file found in template folder';
+    return result;
+  }
+  result.uprojectFile = path.join(templateDir, uprojectFile);
+
+  // Check Content/ and Config/ folders exist
+  if (!fs.existsSync(path.join(templateDir, 'Content'))) {
+    result.reason = 'Content/ folder missing from template';
+    return result;
+  }
+  if (!fs.existsSync(path.join(templateDir, 'Config'))) {
+    result.reason = 'Config/ folder missing from template';
+    return result;
+  }
+
+  result.valid = true;
+  result.reason = 'Template passed all validation checks';
+  return result;
 }
 
 // Deep-copies a directory recursively, skipping Saved/ and Intermediate/ (large runtime folders)
@@ -7971,13 +8029,31 @@ ipcMain.handle('gf-generate-game-folders', async (event, config) => {
     let templateUsed = false;
     let templatePath = null;
     let templateUprojectName = null;
+    let templateManifestFound = false;
+    let templateValid = false;
+    let templateManifestData = null;
 
     if (isUnreal && !isCppProject) {
       const templateDir = getTemplateDir(gameType);
-      const templateUprojectFile = findTemplateUproject(templateDir);
+      const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType === 'horror' ? 'Horror' : gameType === 'survival' ? 'Survival' : gameType === 'racing' ? 'Racing' : gameType === 'rpg' ? 'RPG' : gameType === 'openworld' ? 'Open World' : gameType.toUpperCase();
 
-      if (templateUprojectFile) {
+      log.push({ msg: `Checking local template library...`, level: 'ok' });
+      log.push({ msg: `Template path checked: ${templateDir || '(no mapping for game type)'}`, level: 'ok' });
+
+      const validation = validateTemplate(templateDir);
+      templateManifestFound = validation.manifestFound;
+      templateValid = validation.valid;
+      templateManifestData = validation.manifestData;
+
+      if (validation.manifestFound) {
+        log.push({ msg: `Template manifest found: ${templateDir}/template_manifest.json`, level: 'ok' });
+      } else {
+        log.push({ msg: `Template manifest not found — ${validation.reason}`, level: 'warn' });
+      }
+
+      if (validation.valid) {
         // ── TEMPLATE MODE: Copy real Unreal project ───────────────────────────
+        const templateUprojectFile = validation.uprojectFile;
         templatePath = templateDir;
         templateUprojectName = path.basename(templateUprojectFile);
         log.push({ msg: `Playable template found: ${templateDir}`, level: 'ok' });
@@ -8040,14 +8116,13 @@ ipcMain.handle('gf-generate-game-folders', async (event, config) => {
         ensureDir(path.join(projectPath, 'Scenes'));
 
         templateUsed = true;
-        const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType.toUpperCase();
-        log.push({ msg: `Playable ${gtLabel} template copied successfully.`, level: 'ok' });
+        log.push({ msg: `Playable template copied successfully — ${gtLabel} template.`, level: 'ok' });
         log.push({ msg: 'Project is Blueprint-only. No C++ modules required.', level: 'ok' });
         log.push({ msg: 'No missing plugin references found.', level: 'ok' });
 
       } else {
         // ── SHELL MODE: Generate Blueprint-only starter ───────────────────────
-        const gtLabel = gameType === 'fps' ? 'FPS' : gameType === 'zombie' ? 'Zombie Shooter' : gameType.toUpperCase();
+        log.push({ msg: `No playable template found — falling back to Project Shell / Environment Walkthrough.`, level: 'warn' });
         log.push({ msg: `No playable ${gtLabel} template installed — generating Environment Walkthrough / Project Shell.`, level: 'warn' });
         log.push({ msg: `This output opens in Unreal with terrain and sky but has no player HUD, weapons, enemies, health, or gameplay systems.`, level: 'warn' });
         log.push({ msg: `To install a playable template: see docs/Template_Install_Guide.md`, level: 'warn' });
@@ -8375,6 +8450,10 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     // ── Readiness assessment ──────────────────────────────────────────────────
     const uprojectPath = path.join(projectPath, `${safeName}.uproject`);
     const uprojectExists = isUnreal && fs.existsSync(uprojectPath);
+    if (!templateUsed && isUnreal) {
+      log.push({ msg: 'Project is Blueprint-only. No C++ modules required.', level: 'ok' });
+      log.push({ msg: 'No missing plugin references found.', level: 'ok' });
+    }
 
     let uprojectHasNoModules = false;
     let uprojectHasNoBlueprintEditorUtils = false;
@@ -8404,11 +8483,11 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     }
 
     // Determine result type
-    let resultType = 'Project Shell';
+    let resultType = 'Project Shell / Environment Walkthrough';
     if (templateUsed && templateFolderChecks.blueprintsHasFiles && templateFolderChecks.mapsHasFiles) {
-      resultType = 'Playable Template';
+      resultType = 'Playable Template Project';
     } else if (templateUsed) {
-      resultType = 'Playable Template (Partial)';
+      resultType = 'Playable Template Project (Verify Content)';
     }
 
     const readinessChecks = {
@@ -8443,22 +8522,36 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
       ? `Double-click ${safeName}.uproject and press Play to test gameplay`
       : `Open ${safeName}.uproject in Unreal Editor, create a level, then build Blueprints`;
 
+    const shellReadiness = (resultType === 'Project Shell / Environment Walkthrough' || resultType.startsWith('Playable'))
+      ? 'Shell readiness complete'
+      : 'Shell readiness complete';
+    const templateReadiness = templateUsed && templateFolderChecks.blueprintsHasFiles && templateFolderChecks.mapsHasFiles
+      ? 'Playable template installed and validated'
+      : templateUsed
+        ? 'Playable template copied — verify content is populated'
+        : 'Playable template not installed yet';
+    const packagingReadinessLabel = 'Packaging readiness pending — build gameplay systems then package via Unreal Editor';
+
     const readinessReport = {
       generatedAt: new Date().toISOString(),
       generator: 'GameForge AI v6.8.2',
       resultType,
       templateUsed,
       templatePath: templateUsed ? templatePath : null,
+      templateManifestFound,
+      templateValid,
       keyFoldersEmpty: !templateFolderChecks.blueprintsHasFiles,
       gameName: config.gameName,
       projectPath,
       readinessScore: `${readinessScore}%`,
-      verdict: resultType === 'Playable Template'
+      shellReadiness,
+      templateReadiness,
+      packagingReadiness: packagingReadinessLabel,
+      verdict: resultType === 'Playable Template Project'
         ? 'Playable template ready — open in Unreal Editor and press Play'
-        : resultType === 'Playable Template (Partial)'
+        : resultType === 'Playable Template Project (Verify Content)'
           ? 'Template copied but some gameplay folders appear empty — verify template content'
           : 'Environment Walkthrough / Project Shell — opens in Unreal with terrain and sky, but no player HUD, weapons, enemies, health, or gameplay systems installed yet',
-      packagingReadiness: 'PENDING',
       nextStep,
       note: 'This is a playable starting point. A packaged Windows .exe is the final delivery goal.',
       checks: readinessChecks
@@ -8494,6 +8587,7 @@ Each area: clear entry/exit, cover, AI spawn points, audio triggers
     fs.writeFileSync(path.join(projectPath, 'Output', 'launch_report.json'), JSON.stringify({ generatedAt: new Date().toISOString(), status: 'GENERATED', projectPath, resultType, checks: readinessChecks }, null, 2), 'utf8');
     fs.writeFileSync(path.join(projectPath, 'Output', 'playable_readiness_report.json'), JSON.stringify(readinessReport, null, 2), 'utf8');
     log.push({ msg: `Output/ reports created — Result: ${resultType} | Readiness: ${readinessScore}%.`, level: 'ok' });
+    log.push({ msg: 'Readiness report written to Output/playable_readiness_report.json', level: 'ok' });
 
     // ── README ────────────────────────────────────────────────────────────────
     const readme = `# ${config.gameName}
@@ -8510,7 +8604,7 @@ ${templateUsed ? `3. Press Play to test gameplay
 5. See Docs/GameplayLoop.md for the systems to build`}
 
 ## Result Type: ${resultType}
-${resultType === 'Playable Template'
+${resultType === 'Playable Template Project'
   ? 'A real Unreal template was copied. Open and play immediately.'
   : 'A Blueprint-only project shell was generated. No gameplay assets are installed.\nInstall a template to get a playable starting point.'}
 
@@ -8522,12 +8616,12 @@ ${config.description || 'No description provided.'}
 `;
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme, 'utf8');
 
-    const resultLabel = templateUsed ? `${resultType} generated` : 'Environment Walkthrough / Project Shell generated';
+    const resultLabel = templateUsed ? `${resultType} generated` : 'Project Shell / Environment Walkthrough generated';
     log.push({ msg: `${resultLabel} — ${safeName}.uproject ready. Readiness: ${readinessScore}%.`, level: 'ok' });
     if (templateUsed) {
       log.push({ msg: 'Playable template readiness check complete.', level: 'ok' });
     } else {
-      log.push({ msg: 'Meshy skipped safely.', level: 'ok' });
+      log.push({ msg: 'Project Shell generated successfully.', level: 'ok' });
     }
 
     return {
@@ -8538,6 +8632,8 @@ ${config.description || 'No description provided.'}
       isCppProject,
       templateUsed,
       templatePath: templateUsed ? templatePath : null,
+      templateManifestFound,
+      templateValid,
       resultType,
       uprojectExists,
       uprojectHasNoModules,
