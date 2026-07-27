@@ -70,6 +70,28 @@ web_modules/
 .env.*
 !.env.example
 
+# Jarvis autonomous framework runtime
+jarvis/project_state.json
+jarvis/project_state.backup.json
+jarvis/project_state.tmp
+jarvis/.venv/
+jarvis/res/downloads/*
+!jarvis/res/downloads/.gitkeep
+jarvis/res/assets/*
+!jarvis/res/assets/.gitkeep
+jarvis/installers/*
+!jarvis/installers/.gitkeep
+jarvis/godot_project/scripts/
+jarvis/godot_project/scenes/
+jarvis/godot_project/assets/*
+!jarvis/godot_project/assets/.gitkeep
+jarvis/godot_project/project.godot
+jarvis/godot_project/icon.svg
+jarvis/**/*.gd.failed
+jarvis/**/*.tscn.failed
+jarvis/__pycache__/
+jarvis/**/__pycache__/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

@@ -1,0 +1,5 @@
+# Jarvis Autonomous Game Generation Framework
+# Target: local Windows 11 + Ollama + Playwright + Godot 4
+
+playwright>=1.40.0
+requests>=2.31.0

@@ -1,0 +1,12 @@
+{
+  "ollama_url": "http://127.0.0.1:11434",
+  "default_model": "llama3.2",
+  "idle_sleep_seconds": 15,
+  "harvest": {
+    "default_platforms": ["opengameart", "itchio"],
+    "max_pages": 2,
+    "max_assets": 3
+  },
+  "godot_project_path": "godot_project",
+  "assets_path": "res/assets"
+}
