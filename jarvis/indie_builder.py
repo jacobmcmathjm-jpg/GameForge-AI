@@ -124,13 +124,17 @@ def _wave(path: Path, data: bytes, rate: int) -> None:
         audio.writeframes(data)
 
 
-def run_engine(godot: str, project: Path, args: list[str], label: str, timeout: int = 90) -> dict:
+def run_engine(godot: str, project: Path, args: list[str], label: str, timeout: int = 90, standalone: bool = False) -> dict:
     log = project / f"{label}.log"
-    command = [godot, "--headless", "--path", str(project), "--log-file", str(log), *args]
+    command = [godot, "--headless", "--log-file", str(log)]
+    if not standalone:
+        command += ["--path", str(project)]
+    command += args
     started = time.monotonic()
     try:
         result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                timeout=timeout, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+                                timeout=timeout, cwd=str(project / "build") if standalone else None,
+                                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         output = result.stdout + result.stderr
         if log.exists():
             output += "\n" + log.read_text(encoding="utf-8", errors="replace")
@@ -234,7 +238,13 @@ def export_windows(output: Path, godot: str, report: dict) -> dict:
     result = run_engine(godot, output, ["--export-release", "Windows Desktop", str(executable)], "windows_export", 180)
     result["passed"] = result["passed"] and executable.is_file() and executable.stat().st_size > 1000000
     if result["passed"]:
+        # Run the embedded game, never the editable source project, before enabling Play.
+        smoke = run_engine(str(executable), output, ["--quit-after", "30"], "export_startup", standalone=True)
+        result["startup"] = smoke
+        result["passed"] = smoke["passed"]
+    if result["passed"]:
         result["executable"] = str(executable)
+        result["sha256"] = hashlib.sha256(executable.read_bytes()).hexdigest()
         for file in ["README.txt", "ASSET_CREDITS.txt", "PLAYTEST_CHECKLIST.md"]:
             shutil.copy2(output / file, build / file)
     report["export"] = result

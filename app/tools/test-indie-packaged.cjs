@@ -15,7 +15,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const port = server.address().port;
   await new Promise(resolve => server.close(resolve));
   const child = spawn(executable, [`--remote-debugging-port=${port}`, `--user-data-dir=${path.join(output,'profile')}`], {windowsHide:true, stdio:'pipe'});
-  let log = '', socket, sequence = 0;
+  let log = '', socket, closeApp, sequence = 0;
   child.stdout.on('data', data => {log += data;});
   child.stderr.on('data', data => {log += data;});
   const pending = new Map();
@@ -23,7 +23,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let result;
   try {
     let page;
-    for (let attempt = 0; attempt < 50; attempt++) {
+    for (let attempt = 0; attempt < 150; attempt++) {
       try {
         const pages = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
         page = pages.find(value => value.type === 'page' && value.url.includes('index.html'));
@@ -46,6 +46,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
       socket.send(JSON.stringify({id,method,params}));
     });
     await send('Runtime.enable');
+    closeApp = () => send('Browser.close');
     const evaluate = async expression => {
       const response = await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});
       if(response.exceptionDetails) throw Error(JSON.stringify(response.exceptionDetails));
@@ -78,6 +79,7 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
     result = {ok:playEnabled && errors.length===0,playEnabled,errors,build};
   } catch(error) {result={ok:false,error:error.stack,errors};}
   finally {
+    if(closeApp) await Promise.race([closeApp().catch(()=>{}),pause(2000)]);
     if(socket) socket.close();
     child.kill();
     fs.writeFileSync(path.join(output,'packaged-test.json'),JSON.stringify(result,null,2));

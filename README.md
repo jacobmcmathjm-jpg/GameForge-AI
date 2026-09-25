@@ -13,7 +13,7 @@ The first supported game is **Lanternfall**, a complete three-chapter 2D action 
 
 ## Quality contract
 
-`jarvis/indie_goal.json` stores the explicit indie goal. Export is blocked unless layout checks, Godot import, 17 engine gameplay assertions, a complete keyboard-driven playthrough of all three chapters, and a startup smoke test pass. Each generated project includes `quality_report.json`, test results, source, asset credits and a human playtest checklist. A passing report means **engine-verified prototype**, not commercial release approval.
+`jarvis/indie_goal.json` stores the explicit indie goal. Export is blocked unless layout checks, Godot import, 17 engine gameplay assertions, a complete keyboard-driven playthrough of all three chapters, and a startup smoke test pass. The exported executable must then start successfully using its embedded game before Play is enabled. Each generated project includes `quality_report.json`, test results, source, asset credits and a human playtest checklist. A passing report means **engine-verified prototype**, not commercial release approval.
 
 Generation currently varies a proven platformer template with a reproducible seed. Optional local Ollama can suggest the brief; it does not invent arbitrary games or bypass validation. The original Unreal tools remain available as a separate project-shell workflow. Bundled Unreal template manifests are not installed playable assets.
 

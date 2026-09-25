@@ -109,6 +109,28 @@ class PipelineTests(unittest.TestCase):
             result = run_engine("mock", self.root, [], "probe")
         self.assertFalse(result["passed"])
 
+    def test_export_that_cannot_start_does_not_enable_play(self):
+        (self.root / "game_data.json").write_text('{"title":"Test"}')
+        build = self.root / "build"
+        build.mkdir()
+        with (build / "Test.exe").open("wb") as executable:
+            executable.truncate(1000001)
+        report = {"passed": True}
+        with patch("indie_builder.run_engine", side_effect=[{"passed":True}, {"passed":False}]) as engine:
+            result = export_windows(self.root, "godot", report)
+        self.assertFalse(result["passed"])
+        self.assertNotIn("executable", result)
+        self.assertTrue(engine.call_args.kwargs["standalone"])
+
+    def test_standalone_smoke_uses_embedded_game_without_source_path(self):
+        from indie_builder import run_engine
+        from types import SimpleNamespace
+        with patch("indie_builder.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")) as process:
+            result = run_engine("game.exe", self.root, ["--quit-after","30"], "export_startup", standalone=True)
+        self.assertTrue(result["passed"])
+        self.assertNotIn("--path", process.call_args.args[0])
+        self.assertEqual(process.call_args.kwargs["cwd"], str(self.root / "build"))
+
 
 if __name__ == "__main__":
     unittest.main()
