@@ -44,7 +44,7 @@ function createWindow() {
     height: 800,
     minWidth: 1000,
     minHeight: 650,
-    title: 'GameForge AI Engine v6.8.2',
+    title: 'GameForge AI — Indie Studio v6.9.0',
     webPreferences: {
       backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.js'),
@@ -7509,6 +7509,8 @@ function gfProjectsRoot(settings) {
   ensureDir(p);
   return p;
 }
+
+require('./indie').registerIndie({app, ipcMain, shell: require('electron').shell, readSettings: gfReadSettings});
 
 ipcMain.handle('save-settings', async (event, data) => {
   try { return { ok: true, settings: gfWriteSettings(data) }; }

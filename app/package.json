@@ -1,12 +1,12 @@
 {
   "name": "gf-ai",
-  "version": "6.8.2",
-  "description": "GameForge AI v6.8.2 Unreal 5.7 Detector Fix.",
+  "version": "6.9.0",
+  "description": "GameForge AI Indie Studio with Jarvis generation and verified Godot games.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "package": "echo \"Prototype packaging not configured yet. Use npm start.\"",
+    "package": "electron-builder --dir",
     "dist": "electron-builder --win",
     "pack-win": "electron-builder --win",
     "start:safe": "electron . --disable-gpu --disable-gpu-compositing --disable-accelerated-2d-canvas",
@@ -52,14 +52,31 @@
     },
     "files": [
       "main.js",
+      "indie.js",
       "preload.js",
       "package.json",
       "src/**/*",
       "assets/**/*",
+      "templates/**/*",
+      "asset_library/**/*",
       "!**/*.map",
       "!**/node_modules/.cache/**/*"
     ],
     "asar": true,
+    "extraResources": [
+      {
+        "from": "../jarvis",
+        "to": "jarvis",
+        "filter": [
+          "*.py",
+          "*.json",
+          "README.md",
+          "requirements.txt",
+          "templates/indie/**/*",
+          "!project_state*.json"
+        ]
+      }
+    ],
     "win": {
       "target": [
         {

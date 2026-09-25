@@ -1,5 +1,11 @@
 # Jarvis Autonomous Game Generation Framework
 
+## Supported indie workflow
+
+The GameForge desktop app now uses `indie_builder.py` to create, verify and export a complete three-chapter platformer. Run `python main.py --build-indie --output <new-empty-folder> --export` for the same workflow without the app. Python 3.10+, Godot 4 and matching export templates are required; no pip packages or external services are needed. See the repository README for the quality contract and tests.
+
+The general-purpose daemon described below is an experimental earlier workflow. Its task retries are bounded and failed validation is now reported honestly. Use `--build-indie` for the playable game pipeline.
+
 State-persistent Python daemon that plans, harvests assets, and iteratively builds a Godot 4 project — designed to run unattended for hours on a local Windows 11 machine with Ollama and Playwright.
 
 ## Modules

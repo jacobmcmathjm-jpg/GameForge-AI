@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdn.babylonjs.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GameForge AI Engine v6.8.2</title>
+  <title>GameForge AI Engine v6.9.0</title>
   <link rel="stylesheet" href="./styles.css" />
   <style>
     /* ── Dashboard overrides ─────────────────────────────────────── */
@@ -536,12 +536,13 @@
       <div class="logo">GF</div>
       <div class="brand-text">
         <h1>GameForge AI</h1>
-        <p>Engine v6.8.2</p>
+        <p>Indie Studio · v6.9</p>
       </div>
     </div>
 
     <nav>
-      <button class="nav-btn active" data-panel="dashboard">
+      <button class="nav-btn active" data-panel="indie"><span class="nav-icon">✦</span> Indie Studio</button>
+      <button class="nav-btn" data-panel="dashboard">
         <span class="nav-icon">⊞</span> Dashboard
       </button>
       <button class="nav-btn" data-panel="generate">
@@ -572,8 +573,8 @@
     <!-- Topbar -->
     <header class="topbar">
       <div>
-        <h2 id="topbarTitle">Dashboard</h2>
-        <p id="topbarSub">AI game builder — generate projects, check toolchain, manage assets</p>
+        <h2 id="topbarTitle">Indie Studio</h2>
+        <p id="topbarSub">Make a game. Test the whole loop. Play the result.</p>
       </div>
       <div class="topbar-actions">
         <button id="refreshBtn">↻ Refresh Status</button>
@@ -584,7 +585,37 @@
     <div class="panels">
 
       <!-- ═══════════════════════════════════════════════════════ DASHBOARD -->
-      <section class="panel active" id="panel-dashboard">
+      <section class="panel active" id="panel-indie">
+        <div class="indie-hero">
+          <div><p class="indie-eyebrow">GAMEFORGE + JARVIS</p><h2>A little world.<br>A complete adventure.</h2><p>Build a playable indie platformer with three chapters, original art and sound, and checks that test the game before export.</p></div>
+          <div class="indie-emblem" aria-hidden="true">✧</div>
+        </div>
+        <div class="indie-layout">
+          <div class="indie-card">
+            <p class="indie-eyebrow">YOUR NEXT GAME</p>
+            <label for="indieTitle">Game title</label><input id="indieTitle" maxlength="40" value="Lanternfall">
+            <label for="indieSeed">World seed</label><input id="indieSeed" type="number" min="-2147483647" max="2147483647" step="1" value="417">
+            <p class="indie-help">Change the seed for a new layout. Keep it to rebuild the same world.</p>
+            <button id="indieBuildBtn" class="indie-primary">Build &amp; test game</button>
+            <label class="indie-toggle"><input id="indieOllama" type="checkbox"> Let local AI suggest the game's tagline</label>
+            <p class="indie-help">Optional. Uses local Ollama when available. The game also builds offline.</p>
+            <p id="indieSetup" role="status" class="indie-help">Checking game-building tools…</p>
+            <button id="indieCheckBtn">Check setup</button>
+            <details class="indie-details"><summary>Tool locations</summary><p class="indie-help">Only needed if automatic detection cannot find Python or Godot.</p><label for="indiePython">Python executable</label><input id="indiePython" placeholder="Auto-detect"><label for="indieGodot">Godot executable</label><input id="indieGodot" placeholder="Auto-detect"><button id="indieSaveTools">Save &amp; check</button></details>
+          </div>
+          <div class="indie-card">
+            <p class="indie-eyebrow">THE QUALITY BAR</p><h3>Playable comes first.</h3>
+            <p class="indie-goal">A cohesive indie adventure with responsive controls, readable visuals, a clear objective, fair checkpoints and a real ending.</p>
+
+            <div id="indieResult" aria-live="polite" class="indie-result"><strong>Ready to create your first game</strong><p>The result will include a playable Windows game, its editable project and a test report.</p></div>
+            <div class="indie-actions"><button id="indiePlayBtn" disabled>▶ Play game</button><button id="indieFolderBtn" disabled>Open project</button></div>
+            <details class="indie-details"><summary>What the game includes</summary>            <ul class="indie-contract"><li>Three connected chapters and collectible objectives</li><li>Jump, dash combat, enemies and checkpoint recovery</li><li>Original visuals, ambience and sound effects</li><li>Working pause, game over, victory and restart</li><li>Engine checks and gameplay tests before export</li></ul></details>
+            <p class="indie-help">Automated tests verify behavior. Your playtest judges the feel. Commercial release needs further review.</p>
+          </div>
+        </div>
+        <details class="indie-details"><summary>Build activity</summary><pre id="indieBuildLog" aria-live="polite"></pre></details>
+      </section>
+      <section class="panel" id="panel-dashboard">
 
         <div class="hero">
           <div>
@@ -1003,7 +1034,7 @@
             </div>
           </div>
           <div class="log-output" id="fullLogOutput" style="height:420px;">
-            GameForge AI Engine v6.8.2 — Session started<br>
+            GameForge AI Engine v6.9.0 — Session started<br>
           </div>
         </div>
 
@@ -1096,8 +1127,6 @@
 <script src="./ai/paranormalDeviceJumpscareSystem.js"></script>
 <script src="./ai/unrealHorrorGameAssemblyBuilder.js"></script>
 <script src="./ai/photorealScenePolishSystem.js"></script>
-<script src="./ai/controlledFullAutomationRunner.js"></script>
-<script src="./ai/globalHighEndRealismLock.js"></script>
 <script src="./ai/autonomousBuildTestRepairLoop.js"></script>
 <script src="./ai/realisticStructureGenerator.js"></script>
 <script src="./ai/trueGameForgeStudioMode.js"></script>
@@ -1135,7 +1164,6 @@
 <script src="./ai/offlineFallbackLibrary.js"></script>
 <script src="./ai/aaaPhotorealEnforcementSystem.js"></script>
 <script src="./ai/scannedAssetCharacterRealismConnector.js"></script>
-<script src="./ai/simpleModeUI.js"></script>
 <script src="./ai/autonomousRealismPipeline.js"></script>
 <script src="./ai/autoAssetImporter.js"></script>
 <script src="./ai/modelGatherer.js"></script>
@@ -1147,5 +1175,7 @@
 <script src="./ai/safePipeline.js"></script>
 <!-- app.js LAST — after all AI modules -->
 <script src="./app.js"></script>
+<script src="./indie.js"></script>
+<link rel="stylesheet" href="./indie.css">
 </body>
 </html>

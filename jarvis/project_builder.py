@@ -133,7 +133,7 @@ renderer/rendering_method="forward_plus"
         main_result = self._write_main_scene_and_script()
         autoload = self._write_game_manager()
         return {
-            "ok": True,
+            "ok": bool(main_result.get("ok") and autoload.get("ok")),
             "files": main_result.get("files", []) + autoload.get("files", []),
             "message": "Godot 4 project skeleton ready.",
         }
@@ -521,8 +521,7 @@ script = ExtResource("1_script")
             path.write_text(cleaned, encoding="utf-8")
             _console("BUILDER", f"Wrote validated script → {path}")
             # Optional headless Godot check if binary exists
-            self._optional_godot_check(path)
-            return True
+            return self._optional_godot_check(path)
         except Exception as exc:
             _console("BUILDER", f"Write error for {path}: {exc}")
             return False
@@ -620,11 +619,13 @@ script = ExtResource("1_script")
             errors.append(f"Scene validator error: {exc}")
         return (len(errors) == 0), errors
 
-    def _optional_godot_check(self, script_path: Path) -> None:
-        """If a Godot binary is on PATH, attempt a headless check — never crash."""
-        godot = shutil.which("godot") or shutil.which("godot4")
+    def _optional_godot_check(self, script_path: Path) -> bool:
+        """Only engine-validated scripts can be reported as successful."""
+        from indie_builder import find_godot
+        godot = find_godot()
         if not godot:
-            return
+            _console("BUILDER", "Godot is unavailable; script remains unverified.")
+            return False
         try:
             _console("BUILDER", f"Optional Godot headless check for {script_path.name}…")
             proc = subprocess.run(
@@ -635,10 +636,13 @@ script = ExtResource("1_script")
             )
             if proc.returncode != 0:
                 _console("BUILDER", f"Godot check warnings: {proc.stderr[:400]}")
+                return False
             else:
                 _console("BUILDER", "Godot check passed.")
+                return not any(token in proc.stdout + proc.stderr for token in ("SCRIPT ERROR:", "ERROR:"))
         except Exception as exc:
             _console("BUILDER", f"Godot check skipped: {exc}")
+            return False
 
     @staticmethod
     def _name_from_desc(description: str) -> str:

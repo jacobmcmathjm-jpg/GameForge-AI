@@ -101,7 +101,7 @@ class StateEngine:
                     recovered = 0
                     for task in self._state.get("Task_Backlog", []):
                         if task.get("status") == "running":
-                            task["status"] = "pending"
+                            task["status"] = "failed" if task.get("attempts", 0) >= 3 else "pending"
                             task.setdefault("logs", []).append(
                                 f"[{_utc_now()}] Recovered from interrupted 'running' state after restart."
                             )
@@ -154,6 +154,7 @@ class StateEngine:
             task.setdefault("logs", [])
             task.setdefault("type", "generic")
             task.setdefault("payload", {})
+            task.setdefault("attempts", 0)
 
     def save(self) -> None:
         """Flush state to disk instantly after every task transition."""
@@ -234,6 +235,7 @@ class StateEngine:
                 "status": status if status in VALID_STATUSES else "pending",
                 "type": task_type,
                 "payload": payload or {},
+                "attempts": 0,
                 "logs": [f"[{_utc_now()}] Task enqueued."],
                 "created_at": _utc_now(),
                 "updated_at": _utc_now(),
@@ -260,24 +262,36 @@ class StateEngine:
     def get_next_pending_task(self) -> Optional[Dict[str, Any]]:
         """
         Return exactly one next actionable task.
-        Prefer 'pending_fix', then 'pending'. Never return completed/running/failed/skipped.
+        Finish untouched tasks before retrying failures. Never return settled tasks.
         """
         with self._lock:
             backlog = self._state.get("Task_Backlog", [])
-            for status in ("pending_fix", "pending"):
+            for status in ("pending", "pending_fix"):
                 for task in backlog:
                     if task.get("status") == status:
                         return dict(task)
             return None
 
     def mark_running(self, task_id: str) -> None:
-        self._set_status(task_id, "running", log=f"Started execution.")
+        with self._lock:
+            for task in self._state.get("Task_Backlog", []):
+                if task["task_id"] == task_id:
+                    task["attempts"] = task.get("attempts", 0) + 1
+                    break
+            self._set_status(task_id, "running", log="Started execution.")
 
     def mark_completed(self, task_id: str, log: str = "Completed successfully.") -> None:
         self._set_status(task_id, "completed", log=log)
 
     def mark_pending_fix(self, task_id: str, log: str) -> None:
-        self._set_status(task_id, "pending_fix", log=log)
+        with self._lock:
+            task = next((t for t in self._state["Task_Backlog"] if t["task_id"] == task_id), {})
+            exhausted = task.get("attempts", 0) >= 3
+            self._set_status(task_id, "failed" if exhausted else "pending_fix",
+                             log=("Retry limit reached. " if exhausted else "") + log)
+
+    def mark_skipped(self, task_id: str, log: str) -> None:
+        self._set_status(task_id, "skipped", log=log)
 
     def mark_failed(self, task_id: str, log: str) -> None:
         self._set_status(task_id, "failed", log=log)

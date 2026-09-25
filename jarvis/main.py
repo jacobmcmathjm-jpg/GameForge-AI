@@ -130,7 +130,7 @@ class JarvisDaemon:
             return True
 
         # Interpret result
-        if result.get("pending_fix") or (result.get("ok") is False and result.get("error")):
+        if result.get("pending_fix") or not result.get("ok"):
             err = result.get("error") or "Validation / execution failure"
             self.state.mark_pending_fix(task_id, log=str(err))
             if result.get("traceback"):
@@ -139,12 +139,12 @@ class JarvisDaemon:
                 "DAEMON",
                 f"Task {task_id} marked pending_fix — moving to next item (no crash).",
             )
+        elif result.get("skipped"):
+            self.state.mark_skipped(task_id, log=result.get("message", "Skipped"))
         elif result.get("ok"):
             msg = result.get("message") or f"OK — files={result.get('files', result.get('count', ''))}"
             self.state.mark_completed(task_id, log=str(msg))
             _console("DAEMON", f"Task {task_id} completed.")
-        else:
-            self.state.mark_completed(task_id, log=f"Finished with result: {result}")
 
         # Instant disk flush already happens inside mark_*; call save for belt-and-suspenders
         self.state.save()
@@ -158,7 +158,7 @@ class JarvisDaemon:
         if task_type in ("harvest", "crawl", "assets"):
             if self.skip_harvest:
                 _console("DAEMON", "Harvest skipped (--skip-harvest).")
-                return {"ok": True, "message": "Harvest skipped by flag.", "count": 0}
+                return {"ok": True, "skipped": True, "message": "Harvest skipped by flag.", "count": 0}
             return self.crawler.execute_task(task)
 
         if task_type in ("install", "installer"):
@@ -257,6 +257,13 @@ def build_parser() -> argparse.ArgumentParser:
         prog="jarvis",
         description="Jarvis — autonomous, state-persistent Godot 4 game generation daemon.",
     )
+    p.add_argument("--build-indie", action="store_true", help="Generate a complete indie platformer and run its engine quality gate.")
+    p.add_argument("--output", type=str, help="New, empty output folder for the generated indie game.")
+    p.add_argument("--godot", type=str, help="Path to the Godot 4 executable.")
+    p.add_argument("--seed", type=int, help="Seed for reproducible generated chapters.")
+    p.add_argument("--title", type=str, help="Title for the indie game.")
+    p.add_argument("--export", action="store_true", help="Export a Windows game only after all automated checks pass.")
+    p.add_argument("--use-ollama", action="store_true", help="Let local Ollama vary the indie brief within the supported genre.")
     p.add_argument(
         "--goal",
         type=str,
@@ -322,6 +329,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list] = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     args = build_parser().parse_args(argv)
 
     print(BANNER)
@@ -349,6 +359,20 @@ def main(argv: Optional[list] = None) -> int:
         for t in state.get("Task_Backlog", []):
             print(f"  [{t.get('status'):12}] {t.get('task_id')}: {t.get('description')}")
         return 0
+
+    if args.build_indie:
+        from indie_builder import build_indie
+        output = Path(args.output) if args.output else ROOT / "generated" / datetime.now().strftime("indie-%Y%m%d-%H%M%S")
+        local_ai = OllamaClient(base_url=args.ollama_url, model=args.model) if args.use_ollama else None
+        try:
+            result = build_indie(output, godot=args.godot, seed=args.seed, title=args.title,
+                                 export=args.export, ollama=local_ai, state=state)
+            return 0 if result["ok"] else 1
+        except Exception as exc:
+            _console("BUILD FAILED", str(exc))
+            state.state["indie_build"] = {"ok": False, "status": "blocked", "error": str(exc), "output": str(output)}
+            state.save()
+            return 1
 
     # ---- Pre-Flight Approval Queue ----
     ollama = OllamaClient(base_url=args.ollama_url, model=args.model)

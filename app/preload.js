@@ -1,6 +1,16 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const gameforgeAPI = {
+  indieCheck: () => ipcRenderer.invoke('indie-check'),
+  indieBuild: options => ipcRenderer.invoke('indie-build', options),
+  indieLastBuild: () => ipcRenderer.invoke('indie-last-build'),
+  indiePlay: () => ipcRenderer.invoke('indie-play'),
+  indieOpenOutput: () => ipcRenderer.invoke('indie-open-output'),
+  onIndieProgress: callback => {
+    const listener = (_event, message) => callback(message);
+    ipcRenderer.on('indie-progress', listener);
+    return () => ipcRenderer.removeListener('indie-progress', listener);
+  },
   saveProject: (payload) => ipcRenderer.invoke('save-project', payload),
   loadProject: () => ipcRenderer.invoke('load-project'),
   exportProject: (payload) => ipcRenderer.invoke('export-project', payload),

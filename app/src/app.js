@@ -1,4 +1,4 @@
-// GameForge AI Engine v6.8.2 — Main renderer
+// GameForge AI Engine v6.9.0 — Main renderer
 
 // ── Log system ────────────────────────────────────────────────────────────────
 const LOG_ENTRIES = [];
@@ -38,6 +38,7 @@ function _updateLogStats() {
 
 // ── Panel navigation ──────────────────────────────────────────────────────────
 const PANEL_TITLES = {
+  indie: ['Indie Studio', 'Make a game. Test the whole loop. Play the result.'],
   dashboard: ['Dashboard', 'AI game builder — generate projects, check toolchain, manage assets'],
   generate:  ['Generate Full Game', 'Create a complete game project folder with assets and configuration'],
   checker:   ['Launch Checker', 'Verify all components, paths, and API keys before generating'],
@@ -1058,7 +1059,7 @@ function _initDashStatus() {
   const el = document.getElementById('dashStatusList');
   if (!el) return;
   el.innerHTML = `
-    <div class="status-row"><span class="dot ok"></span><span class="status-label">GameForge AI Engine</span><span class="status-val">v6.8.2</span></div>
+    <div class="status-row"><span class="dot ok"></span><span class="status-label">GameForge AI Engine</span><span class="status-val">v6.9.0</span></div>
     <div class="status-row"><span class="dot ${api ? 'ok' : 'warn'}"></span><span class="status-label">Electron IPC</span><span class="status-val">${api ? 'Connected' : 'Browser preview'}</span></div>
     <div class="status-row"><span class="dot info"></span><span class="status-label">Meshy API key</span><span class="status-val" id="dashMeshyStatus">Not checked</span></div>
     <div class="status-row"><span class="dot info"></span><span class="status-label">Unreal Engine</span><span class="status-val" id="dashUnrealStatus">Not checked</span></div>
@@ -1080,7 +1081,7 @@ document.getElementById('refreshBtn').addEventListener('click', async () => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function boot() {
-  gfLog('info', 'GameForge AI Engine v6.8.2 initialising...');
+  gfLog('info', 'GameForge AI Engine v6.9.0 initialising...');
   gfLog('info', `IPC bridge: ${api ? 'Connected (Electron)' : 'Browser preview mode'}`);
 
   _initGametypeGrid();
@@ -1099,7 +1100,7 @@ async function boot() {
 
   gfLog('ok', 'GameForge AI ready.');
   const sidebar = document.getElementById('sidebarStatus');
-  if (sidebar) sidebar.textContent = 'Ready — v6.8.2';
+  if (sidebar) sidebar.textContent = 'Ready — v6.9.0';
 }
 
 document.addEventListener('DOMContentLoaded', boot);
