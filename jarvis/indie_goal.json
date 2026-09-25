@@ -1,0 +1,26 @@
+{
+  "title": "Lanternfall",
+  "tagline": "Carry the light home.",
+  "genre": "2d_action_platformer",
+  "master_goal": "Autonomously build and verify a cohesive indie 2D action platformer: three traversable chapters, responsive movement with jump buffering and coyote time, a dash attack, enemies, collectible objectives, checkpoints, readable UI, original sound, pause, win/lose states and restart. Never claim a finished game from file creation alone. Engine import, gameplay assertions, complete keyboard-driven campaign traversal and a startup smoke test must pass; visual and human playtesting remain explicitly reported.",
+  "quality_target": "polished_indie_prototype",
+  "seed": 417,
+  "chapters": 3,
+  "shards_per_chapter": 6,
+  "requirements": [
+    "responsive_movement",
+    "jump_and_dash",
+    "three_chapters",
+    "enemies_and_damage",
+    "six_shards_per_chapter",
+    "checkpoints",
+    "win_lose_restart",
+    "pause_and_mute",
+    "original_art_and_audio",
+    "engine_import",
+    "gameplay_tests",
+    "full_campaign_keyboard_traversal",
+    "startup_smoke"
+  ],
+  "release_rule": "Automated checks establish an engine-verified prototype, not commercial release readiness. Keep the visual/playtest checklist open until reviewed."
+}

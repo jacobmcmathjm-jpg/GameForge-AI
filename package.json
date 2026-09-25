@@ -1,6 +1,6 @@
 {
   "name": "gameforge-ai-root",
-  "version": "6.8.2",
+  "version": "6.9.0",
   "private": true,
   "description": "Root helper for the GameForge AI Electron app. The real app lives in ./app.",
   "scripts": {
