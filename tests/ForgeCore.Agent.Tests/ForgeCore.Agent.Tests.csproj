@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../../src/ForgeCore.Core/ForgeCore.Core.csproj" />
+    <ProjectReference Include="../../src/ForgeCore.Agent/ForgeCore.Agent.csproj" />
+    <ProjectReference Include="../../src/ForgeCore.Memory/ForgeCore.Memory.csproj" />
+    <ProjectReference Include="../../src/ForgeCore.Security/ForgeCore.Security.csproj" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+</Project>

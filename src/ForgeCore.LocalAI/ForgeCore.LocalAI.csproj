@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../ForgeCore.Core/ForgeCore.Core.csproj" />
+    <PackageReference Include="LLamaSharp" Version="0.27.0" />
+    <PackageReference Include="LLamaSharp.Backend.Vulkan.Windows" Version="0.27.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+</Project>

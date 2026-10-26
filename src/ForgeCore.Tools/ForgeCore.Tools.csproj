@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <EmbeddedResource Include="Blender/WeatheredBarrel.py" />
+    <ProjectReference Include="../ForgeCore.Core/ForgeCore.Core.csproj" />
+    <ProjectReference Include="../ForgeCore.Security/ForgeCore.Security.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ForgeCore.Core/ForgeCore.Core.csproj" />
+    <Project Path="src/ForgeCore.Security/ForgeCore.Security.csproj" />
+    <Project Path="src/ForgeCore.Tools/ForgeCore.Tools.csproj" />
+    <Project Path="src/ForgeCore.Memory/ForgeCore.Memory.csproj" />
+    <Project Path="src/ForgeCore.LocalAI/ForgeCore.LocalAI.csproj" />
+    <Project Path="src/ForgeCore.Agent/ForgeCore.Agent.csproj" />
+    <Project Path="src/ForgeCore.Desktop/ForgeCore.Desktop.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ForgeCore.Core.Tests/ForgeCore.Core.Tests.csproj" />
+    <Project Path="tests/ForgeCore.Security.Tests/ForgeCore.Security.Tests.csproj" />
+    <Project Path="tests/ForgeCore.Agent.Tests/ForgeCore.Agent.Tests.csproj" />
+  </Folder>
+</Solution>

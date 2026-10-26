@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../ForgeCore.Core/ForgeCore.Core.csproj" />
+    <ProjectReference Include="../ForgeCore.LocalAI/ForgeCore.LocalAI.csproj" />
+    <ProjectReference Include="../ForgeCore.Agent/ForgeCore.Agent.csproj" />
+    <ProjectReference Include="../ForgeCore.Tools/ForgeCore.Tools.csproj" />
+    <ProjectReference Include="../ForgeCore.Security/ForgeCore.Security.csproj" />
+    <ProjectReference Include="../ForgeCore.Memory/ForgeCore.Memory.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.10" />
+  </ItemGroup>
+  <ItemGroup><None Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+</Project>
