@@ -6,7 +6,7 @@ namespace ForgeCore.Tools;
 
 internal static partial class UnityGameTemplateKit
 {
-    public const string Version = "0.16.33";
+    public const string Version = "0.16.35";
     private const string Root = "Assets/ForgeCoreGameTemplates";
     private const string ManifestName = "forgecore-game-templates.manifest.json";
     private static readonly IReadOnlySet<string> Templates = new HashSet<string>(
@@ -16,6 +16,8 @@ internal static partial class UnityGameTemplateKit
     {
         ["Runtime/PrototypeTypes.cs"] = PrototypeTypesSource,
         ["Runtime/PrototypeGame.cs"] = PrototypeGameSource,
+        ["Runtime/PrototypeGame.Timing.cs"] = ProfileTimingSource,
+        ["Runtime/ProfileTimingDiagnostics.cs"] = ReadProfileTimingSource(),
         ["Runtime/PrototypeCampaignProgress.cs"] = PrototypeCampaignProgressSource,
         ["Runtime/PrototypeFeedback.cs"] = PrototypeFeedbackSource,
         ["Runtime/PrototypeSurfaceLibrary.cs"] = PrototypeSurfaceLibrarySource,
@@ -40,6 +42,56 @@ internal static partial class UnityGameTemplateKit
     private static readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> UpgradeableInstallations =
         new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal)
     {
+        ["0.16.34"] = new Dictionary<string,string>(StringComparer.Ordinal)
+        {
+            ["Runtime/PrototypeTypes.cs"] = "873b45942f3b6d2f28eaf0cff7097272228a46b8addb8e13f29bcab882103b06",
+            ["Runtime/PrototypeGame.cs"] = "dc3f773e1acba96c5047c465a8d882a1d1e8e2663d31436ab677005da2ed7be8",
+            ["Runtime/PrototypeGame.Timing.cs"] = "c649a69c84e96bc9f03c061b7a3715d56b6e41619577fd84003b9325b7529930",
+            ["Runtime/ProfileTimingDiagnostics.cs"] = "4e8a8d17abde6b2f313ca4cf5e153dc883f0a383e00719d719116e5df7afb9e5",
+            ["Runtime/PrototypeCampaignProgress.cs"] = "da9e701c70b33415b30770a5ba3453168194ba6fe1771f8c2307b7db757ee5fe",
+            ["Runtime/PrototypeFeedback.cs"] = "6df3c5310af389a297cf6fdb992acc15c40422bc90c0e0b7bc984f5e17670dbb",
+            ["Runtime/PrototypeSurfaceLibrary.cs"] = "fabb0d89b3faaf1aecfc2fc4cc33fde6ec4284ee5d091825a1e09adb19239238",
+            ["Runtime/PrototypeArtDirection.cs"] = "f09257a7f7730b1a9717fcf8e11fc2c33f0c2378a03a97a2f232831c96f8e5d4",
+            ["Runtime/PrototypeCombatAnimation.cs"] = "0fc1d301967dee84840d4f784a7df2448fabef075cd21e5e8b221a3901507088",
+            ["Runtime/PrototypeProjectile.cs"] = "050ebd338ddddf6ac40a9ab398225ad1b8ca0a2f8ad631ecb7a372171229974e",
+            ["Runtime/PrototypeRangedEnemy.cs"] = "9efa3e67c23f9b56675e967402968c4319e206ba40d6d268ae283b19f85b3d18",
+            ["Runtime/PrototypeActor.cs"] = "98f41b0500b7356a548882586966bb3b245eec0853ed481c31ce39cb8cc0c0ae",
+            ["Runtime/PrototypeObjective.cs"] = "4cde4186f9d7bb4acc720b020df1c9e8c857032a94592f3ade9b36b5806014e2",
+            ["Runtime/PrototypeCamera.cs"] = "023bc3279fbde5b7c15d2372f7b1cc7a6315ffe986e6c56163da63a39d468a47",
+            ["Runtime/ForgeCoreGameTemplates.Runtime.asmdef"] = "d1d5f91090190d3ef9bb303045af83fe734c03abf0f26ca3544df74c14411fc4",
+            ["Editor/ForgeCorePrototypeBuilder.cs"] = "5538c35ab5d0a5726fd206854643408de7f702ed6c3cd0fefc0b47f708589d84",
+            ["Editor/ForgeCoreIndustrialYard.cs"] = "317802ef8b851c94e171d9ab2b34fe1f309ddf016921afc9286ee37636e3817c",
+            ["Editor/ForgeCoreGameTemplates.Editor.asmdef"] = "d8e72113c4c03e8b399ac317972d6f15ff608d25a335ca680daf2f786529bae0",
+            ["Tests/EditMode/PrototypeCampaignTests.cs"] = "1b2503a1c3ea415d98179fe8cc269ceb32d384b537c06a0e9b1874890afc4b25",
+            ["Tests/EditMode/ForgeCoreGameTemplates.Tests.EditMode.asmdef"] = "8b20c3f15aa6a52f2c22b52b912ff3d0ef493a9f7d3052e6de497140dab33643",
+            ["Tests/PlayMode/PrototypeRuntimeInputTests.cs"] = "3b870837534de4aba72fc5a2473ac4fdce7d92b57a2db70aa3560f735a2505dd",
+            ["Tests/PlayMode/PrototypeCombatTests.cs"] = "d4c7fd8d79bdcf669328cc6cd7d6c81d0e420ad8a6852599af305951ce7cd684",
+            ["Tests/PlayMode/ForgeCoreGameTemplates.Tests.PlayMode.asmdef"] = "c3df688c802c5d209f6c5daa9abc85733fae1c226eec0032fc9b7a311368a0c8",
+        },
+        ["0.16.33"] = new Dictionary<string,string>(StringComparer.Ordinal)
+        {
+            ["Runtime/PrototypeTypes.cs"] = "873b45942f3b6d2f28eaf0cff7097272228a46b8addb8e13f29bcab882103b06",
+            ["Runtime/PrototypeGame.cs"] = "0fb4a457083e47709213ac147867bc58e421b0857096ae16b3d64c3969dde53b",
+            ["Runtime/PrototypeCampaignProgress.cs"] = "da9e701c70b33415b30770a5ba3453168194ba6fe1771f8c2307b7db757ee5fe",
+            ["Runtime/PrototypeFeedback.cs"] = "6df3c5310af389a297cf6fdb992acc15c40422bc90c0e0b7bc984f5e17670dbb",
+            ["Runtime/PrototypeSurfaceLibrary.cs"] = "fabb0d89b3faaf1aecfc2fc4cc33fde6ec4284ee5d091825a1e09adb19239238",
+            ["Runtime/PrototypeArtDirection.cs"] = "f09257a7f7730b1a9717fcf8e11fc2c33f0c2378a03a97a2f232831c96f8e5d4",
+            ["Runtime/PrototypeCombatAnimation.cs"] = "0fc1d301967dee84840d4f784a7df2448fabef075cd21e5e8b221a3901507088",
+            ["Runtime/PrototypeProjectile.cs"] = "050ebd338ddddf6ac40a9ab398225ad1b8ca0a2f8ad631ecb7a372171229974e",
+            ["Runtime/PrototypeRangedEnemy.cs"] = "9efa3e67c23f9b56675e967402968c4319e206ba40d6d268ae283b19f85b3d18",
+            ["Runtime/PrototypeActor.cs"] = "98f41b0500b7356a548882586966bb3b245eec0853ed481c31ce39cb8cc0c0ae",
+            ["Runtime/PrototypeObjective.cs"] = "4cde4186f9d7bb4acc720b020df1c9e8c857032a94592f3ade9b36b5806014e2",
+            ["Runtime/PrototypeCamera.cs"] = "023bc3279fbde5b7c15d2372f7b1cc7a6315ffe986e6c56163da63a39d468a47",
+            ["Runtime/ForgeCoreGameTemplates.Runtime.asmdef"] = "d1d5f91090190d3ef9bb303045af83fe734c03abf0f26ca3544df74c14411fc4",
+            ["Editor/ForgeCorePrototypeBuilder.cs"] = "5538c35ab5d0a5726fd206854643408de7f702ed6c3cd0fefc0b47f708589d84",
+            ["Editor/ForgeCoreIndustrialYard.cs"] = "317802ef8b851c94e171d9ab2b34fe1f309ddf016921afc9286ee37636e3817c",
+            ["Editor/ForgeCoreGameTemplates.Editor.asmdef"] = "d8e72113c4c03e8b399ac317972d6f15ff608d25a335ca680daf2f786529bae0",
+            ["Tests/EditMode/PrototypeCampaignTests.cs"] = "1b2503a1c3ea415d98179fe8cc269ceb32d384b537c06a0e9b1874890afc4b25",
+            ["Tests/EditMode/ForgeCoreGameTemplates.Tests.EditMode.asmdef"] = "8b20c3f15aa6a52f2c22b52b912ff3d0ef493a9f7d3052e6de497140dab33643",
+            ["Tests/PlayMode/PrototypeRuntimeInputTests.cs"] = "3b870837534de4aba72fc5a2473ac4fdce7d92b57a2db70aa3560f735a2505dd",
+            ["Tests/PlayMode/PrototypeCombatTests.cs"] = "d4c7fd8d79bdcf669328cc6cd7d6c81d0e420ad8a6852599af305951ce7cd684",
+            ["Tests/PlayMode/ForgeCoreGameTemplates.Tests.PlayMode.asmdef"] = "c3df688c802c5d209f6c5daa9abc85733fae1c226eec0032fc9b7a311368a0c8",
+        },
         ["0.16.32"] = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["Runtime/PrototypeTypes.cs"] = "7324e949236249393e6b1d13335696dd21c0265078a07b81753e02a42013dbb1",
@@ -1534,9 +1586,9 @@ using UnityEngine.SceneManagement;
 namespace ForgeCoreGameTemplates
 {
     [DefaultExecutionOrder(-1000)]
-    public sealed class PrototypeGame : MonoBehaviour
+    public sealed partial class PrototypeGame : MonoBehaviour
     {
-        private const string PlayerProfileTemplateKitVersion = "0.16.33";
+        private const string PlayerProfileTemplateKitVersion = "0.16.35";
         private const string PlayerProfileScenario = "scripted_gameplay_v1";
         [Serializable]
         private sealed class PlayerProfileRequest
@@ -1562,6 +1614,7 @@ namespace ForgeCoreGameTemplates
             public int qualityLevel; public int vSyncCount; public int targetFrameRate; public string profileScenario;
             public string templateId; public int gameplayFrames; public double playerTravelMetres; public int actionEvents;
             public int completedObjectives; public int requiredObjectives; public int minimumHealth; public string completedUtc;
+            public ForgeCore.Diagnostics.ProfileTimingReport timingDiagnostics;
         }
         public static PrototypeGame Instance { get; private set; }
         public string templateId = "prototype";
@@ -1771,7 +1824,7 @@ namespace ForgeCoreGameTemplates
                 if (bytes.Length < 2 || bytes.Length > 1048576 || !FixedTimeEqualsHex(Hash(bytes), playerProfileRequestSha256))
                     throw new InvalidDataException("ForgeCore player profile request bytes do not match the approved hash.");
                 playerProfileRequest = JsonUtility.FromJson<PlayerProfileRequest>(Encoding.UTF8.GetString(bytes));
-                if (playerProfileRequest == null || playerProfileRequest.schemaVersion != 2 ||
+                if (playerProfileRequest == null || playerProfileRequest.schemaVersion != 3 ||
                     string.IsNullOrEmpty(playerProfileRequest.requestId) || playerProfileRequest.requestId.Length != 32 || !IsLowerHex(playerProfileRequest.requestId) ||
                     !string.Equals(playerProfileRequest.templateKitVersion, PlayerProfileTemplateKitVersion, StringComparison.Ordinal) ||
                     !IsLowerSha256(playerProfileRequest.executableSha256) || !IsLowerSha256(playerProfileRequest.level0Sha256) ||
@@ -1789,7 +1842,11 @@ namespace ForgeCoreGameTemplates
                 playerProfilePeakMemory = Profiler.GetTotalAllocatedMemoryLong();
                 playerProfileLastPosition = player.transform.position;
                 playerProfileMinimumHealth = Health;
-                playerProfileWarmupEndsAt = Time.realtimeSinceStartupAsDouble + 1d;
+                if (!profileRuntimeHookObserved) throw new InvalidDataException("Required timing runtime hook was not observed.");
+                var initializedAt = Time.realtimeSinceStartupAsDouble;
+                playerProfileTiming = new ForgeCore.Diagnostics.ProfileTimingCollector(profileBeforeSceneLoadSeconds, initializedAt,
+                    playerProfileRequest.durationSeconds, profileBeforeSceneContext, CaptureProfileTimingContext());
+                playerProfileWarmupEndsAt = initializedAt + ForgeCore.Diagnostics.ProfileTimingCollector.WarmupSeconds;
                 playerProfileEndsAt = playerProfileWarmupEndsAt + playerProfileRequest.durationSeconds;
                 playerProfileActive = true;
                 Debug.Log("ForgeCore standalone player profile started for " + playerProfileRequest.durationSeconds + " seconds at " + playerProfileRequest.width + "x" + playerProfileRequest.height + ".");
@@ -1806,6 +1863,13 @@ namespace ForgeCoreGameTemplates
             if (!playerProfileActive) return false;
             FrameTimingManager.CaptureFrameTimings();
             var now = Time.realtimeSinceStartupAsDouble;
+            var observedFrameMilliseconds = Time.unscaledDeltaTime * 1000d;
+            try { playerProfileTiming.Record(now, observedFrameMilliseconds, CaptureProfileTimingContext()); }
+            catch (Exception exception)
+            {
+                playerProfileActive = false; PrototypeInput.ClearScriptedFrame();
+                Debug.LogError("ForgeCore bounded timing capture failed: " + exception); Application.Quit(4); return true;
+            }
             var currentPosition = player.transform.position;
             if (now >= playerProfileWarmupEndsAt)
             {
@@ -1872,7 +1936,7 @@ namespace ForgeCoreGameTemplates
                 throw new InvalidDataException("ForgeCore scripted gameplay profile did not exercise movement and genre action paths.");
             var result = new PlayerProfileResult
             {
-                schemaVersion = 2, requestId = playerProfileRequest.requestId, requestSha256 = playerProfileRequestSha256,
+                schemaVersion = 3, requestId = playerProfileRequest.requestId, requestSha256 = playerProfileRequestSha256,
                 templateKitVersion = PlayerProfileTemplateKitVersion, environment = "standalone_player",
                 executableSha256 = playerProfileRequest.executableSha256, level0Sha256 = playerProfileRequest.level0Sha256,
                 buildProvenanceSha256 = playerProfileRequest.buildProvenanceSha256, scenePath = playerProfileRequest.scenePath,
@@ -1891,9 +1955,11 @@ namespace ForgeCoreGameTemplates
                 profileScenario = PlayerProfileScenario, templateId = templateId, gameplayFrames = playerProfileGameplayFrames,
                 playerTravelMetres = playerProfileTravelMetres, actionEvents = player.ActionEvents,
                 completedObjectives = CompletedObjectives, requiredObjectives = requiredObjectives, minimumHealth = playerProfileMinimumHealth,
-                completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+                completedUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture), timingDiagnostics = playerProfileTiming.Snapshot()
             };
             PopulateSceneComplexity(result);
+            ForgeCore.Diagnostics.ProfileTimingCollector.Validate(result.timingDiagnostics, result.durationSeconds,
+                result.sampledFrames, result.averageFrameMilliseconds, result.maximumFrameMilliseconds);
             var temporary = playerProfileResultPath + ".tmp." + Guid.NewGuid().ToString("N");
             try
             {

@@ -1170,7 +1170,7 @@ public sealed partial class SecurityTests : IDisposable
         using (var provenance = JsonDocument.Parse(await File.ReadAllBytesAsync(provenancePath)))
         {
             Assert.Equal(3, provenance.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.33", provenance.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.35", provenance.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(64, provenance.RootElement.GetProperty("templateKitManifestSha256").GetString()!.Length);
         }
         var policyResult = await policy.ValidateAsync(profile, default);
@@ -1180,27 +1180,34 @@ public sealed partial class SecurityTests : IDisposable
 
         static async Task WriteProfileResultAsync(string requestPath, string resultPath, string requestSha256,
             string logPath, double p95Frame, string? requestIdOverride, CancellationToken token,
-            double playerTravelMetres = 17.5, int actionEvents = 24)
+            double playerTravelMetres = 17.5, int actionEvents = 24, double? maximumFrame = null,
+            Action<ForgeCore.Diagnostics.ProfileTimingReport>? mutateTiming = null, int schema = 3, double warmupFrame = 16, bool incompleteTiming = false)
         {
             using var request = JsonDocument.Parse(await File.ReadAllBytesAsync(requestPath, token)); var root = request.RootElement;
-            Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(3, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal("scripted_gameplay_v1", root.GetProperty("profileScenario").GetString());
+            var maximum = maximumFrame ?? Math.Max(25, p95Frame + 5);
+            var collector = new ForgeCore.Diagnostics.ProfileTimingCollector(1, 2, 10, default, default);
+            collector.Record(2.8, warmupFrame, default);
+            for(var i=0;i<600;i++)collector.Record(3.1+i*10d/599, i==599?maximum:(7500-maximum)/599, default);
+            var timing = collector.Snapshot(); mutateTiming?.Invoke(timing);
             await File.WriteAllTextAsync(logPath, "Player initialized. ForgeCore standalone player profile completed.", token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                schemaVersion = 2, requestId = requestIdOverride ?? root.GetProperty("requestId").GetString(), requestSha256,
-                templateKitVersion = "0.16.33", environment = "standalone_player",
+                schemaVersion = schema, requestId = requestIdOverride ?? root.GetProperty("requestId").GetString(), requestSha256,
+                templateKitVersion = "0.16.35", environment = "standalone_player",
                 executableSha256 = root.GetProperty("executableSha256").GetString(), level0Sha256 = root.GetProperty("level0Sha256").GetString(),
                 buildProvenanceSha256 = root.GetProperty("buildProvenanceSha256").GetString(), scenePath = root.GetProperty("scenePath").GetString(),
                 sceneSha256 = root.GetProperty("sceneSha256").GetString(), durationSeconds = root.GetProperty("durationSeconds").GetInt32(),
                 width = 1280, height = 720, sceneBuildIndex = 0, sceneName = "Profile", sampledFrames = 600,
-                averageFrameMilliseconds = 12.5, p95FrameMilliseconds = p95Frame, maximumFrameMilliseconds = Math.Max(25, p95Frame + 5),
+                averageFrameMilliseconds = 12.5, p95FrameMilliseconds = p95Frame, maximumFrameMilliseconds = maximum,
                 gpuTimingAvailable = false, sampledGpuFrames = 0, averageGpuMilliseconds = 0, p95GpuMilliseconds = 0, maximumGpuMilliseconds = 0,
                 peakAllocatedMemoryBytes = 536870912L, rendererCount = 20, meshCount = 8, vertexCount = 25000L, triangleCount = 12000L,
                 cameraCount = 1, graphicsDeviceName = "Test GPU", graphicsDeviceType = "Direct3D12", graphicsDeviceVersion = "Direct3D 12",
                 qualityLevel = 2, vSyncCount = 0, targetFrameRate = -1, profileScenario = "scripted_gameplay_v1",
                 templateId = "first_person_action", gameplayFrames = 600, playerTravelMetres, actionEvents,
-                completedObjectives = 1, requiredObjectives = 6, minimumHealth = 78, completedUtc = DateTimeOffset.UtcNow
+                completedObjectives = 1, requiredObjectives = 6, minimumHealth = 78, completedUtc = DateTimeOffset.UtcNow,
+                timingDiagnostics = incompleteTiming ? JsonSerializer.SerializeToElement(new { warmupSeconds = 1 }) : JsonSerializer.SerializeToElement(timing, new JsonSerializerOptions { IncludeFields = true })
             }), token);
         }
 
@@ -1220,16 +1227,23 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Contains("rendered frames", passed.Output, StringComparison.Ordinal);
         }
         var profileRoot = Path.Combine(_root, "Game", ".forgecore", "unity", "player-profile");
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(profileRoot, "requests")));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(profileRoot, "results")));
+        var retainedRequest = Assert.Single(Directory.EnumerateFiles(Path.Combine(profileRoot, "requests"), "*.json"));
+        var retainedResult = Assert.Single(Directory.EnumerateFiles(Path.Combine(profileRoot, "results"), "*.json"));
+        Assert.Single(Directory.EnumerateFiles(Path.Combine(profileRoot, "runs"), "*.json"));
         var firstEvidence = Directory.EnumerateFiles(Path.Combine(profileRoot, "evidence"), "*.json").Single();
         using (var evidence = JsonDocument.Parse(await File.ReadAllBytesAsync(firstEvidence)))
         {
             Assert.True(evidence.RootElement.GetProperty("workstationBaselineBudgetPassed").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuTimingAvailable").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuBudgetPassed").GetBoolean());
-            Assert.Equal(2, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.33", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal(4, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(await HashAsync(retainedRequest), evidence.RootElement.GetProperty("requestSha256").GetString());
+            Assert.Equal(await HashAsync(retainedResult), evidence.RootElement.GetProperty("resultSha256").GetString());
+            Assert.False(evidence.RootElement.GetProperty("wholeSessionSmoothnessAccepted").GetBoolean());
+            Assert.Equal(3, evidence.RootElement.GetProperty("timingDiagnostics").GetProperty("phases").GetArrayLength());
+            Assert.Equal(100d, evidence.RootElement.GetProperty("maximumFrameBudgetMilliseconds").GetDouble());
+            Assert.True(evidence.RootElement.GetProperty("maximumFrameBudgetPassed").GetBoolean());
+            Assert.Equal("0.16.35", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal("scripted_gameplay_v1", evidence.RootElement.GetProperty("profileScenario").GetString());
             Assert.Equal("first_person_action", evidence.RootElement.GetProperty("templateId").GetString());
             Assert.Equal(17.5, evidence.RootElement.GetProperty("playerTravelMetres").GetDouble());
@@ -1263,6 +1277,92 @@ public sealed partial class SecurityTests : IDisposable
             using var document = JsonDocument.Parse(File.ReadAllBytes(path));
             return !document.RootElement.GetProperty("workstationBaselineBudgetPassed").GetBoolean();
         });
+
+        // A good p95 must not hide a single visible freeze. Cover the exact boundary too.
+        foreach (var maximumFrame in new[] { 100d, 100.001d, 1727.84d })
+        {
+            UnityPlayerProfileRunner hitchRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+            {
+                await WriteProfileResultAsync(requestPath, resultPath, requestSha256, logPath, 20, null, token,
+                    maximumFrame: maximumFrame);
+                return new UnityPlayerProfileRunResult(false, 0);
+            };
+            using var hitchExecutor = new ToolExecutor(guard, [], [], 1024, unityEditorPath: unity,
+                unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: hitchRunner);
+            var hitch = await hitchExecutor.ExecuteAsync(profile, default);
+            Assert.Equal(maximumFrame <= 100d, hitch.Success);
+            if (!hitch.Success) Assert.Contains("maximum budget=", hitch.Error, StringComparison.Ordinal);
+            var matchingEvidence = Directory.EnumerateFiles(Path.Combine(profileRoot, "evidence"), "*.json")
+                .Select(path => JsonDocument.Parse(File.ReadAllBytes(path))).ToArray();
+            try
+            {
+                var record = Assert.Single(matchingEvidence, document =>
+                    document.RootElement.GetProperty("maximumFrameMilliseconds").GetDouble() == maximumFrame).RootElement;
+                Assert.True(record.GetProperty("frameBudgetPassed").GetBoolean());
+                Assert.Equal(maximumFrame <= 100d, record.GetProperty("maximumFrameBudgetPassed").GetBoolean());
+                Assert.Equal(maximumFrame <= 100d, record.GetProperty("workstationBaselineBudgetPassed").GetBoolean());
+            }
+            finally { foreach (var document in matchingEvidence) document.Dispose(); }
+        }
+
+        // Warmup remains visible, not silently promoted to whole-session acceptance by the gameplay-only gate.
+        UnityPlayerProfileRunner warmupRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+        {
+            await WriteProfileResultAsync(requestPath, resultPath, requestSha256, logPath, 20, null, token, warmupFrame: 1727.84);
+            return new UnityPlayerProfileRunResult(false, 0);
+        };
+        using(var warmupExecutor = new ToolExecutor(guard, [], [], 1024, unityEditorPath: unity,
+            unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: warmupRunner))
+        {
+            var warmup = await warmupExecutor.ExecuteAsync(profile, default); Assert.True(warmup.Success, warmup.Error);
+            Assert.Contains("warmup_max=1727", warmup.Output, StringComparison.Ordinal);
+        }
+        var warmupEvidence = Directory.EnumerateFiles(Path.Combine(profileRoot, "evidence"), "*.json").Select(path => JsonDocument.Parse(File.ReadAllBytes(path))).ToArray();
+        try
+        {
+            var warmup = Assert.Single(warmupEvidence, e => e.RootElement.GetProperty("timingDiagnostics").GetProperty("phases")[1].GetProperty("maximumFrameMilliseconds").GetDouble() > 1000).RootElement;
+            Assert.False(warmup.GetProperty("wholeSessionSmoothnessAccepted").GetBoolean());
+            Assert.Equal(1, warmup.GetProperty("timingDiagnostics").GetProperty("warmupSeconds").GetDouble());
+        }
+        finally { foreach(var e in warmupEvidence)e.Dispose(); }
+        foreach(var mutation in new Action<ForgeCore.Diagnostics.ProfileTimingReport>[] {
+            r=>r.warmupSeconds=2, r=>r.phases[2].sampledFrames++, r=>r.phases[2].maximumFrameMilliseconds=1,
+            r=>r.maximumLongFrameEvents=1000, r=>r.phases[1].phase="gameplay", r=>r.longFrames.Add(new()) })
+        {
+            UnityPlayerProfileRunner invalidTimingRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+            {
+                await WriteProfileResultAsync(requestPath, resultPath, requestSha256, logPath, 20, null, token, mutateTiming: mutation);
+                return new UnityPlayerProfileRunResult(false, 0);
+            };
+            using var invalidTimingExecutor = new ToolExecutor(guard, [], [], 1024, unityEditorPath: unity,
+                unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: invalidTimingRunner);
+            var invalid = await invalidTimingExecutor.ExecuteAsync(profile, default);
+            Assert.False(invalid.Success); Assert.Contains("timing diagnostics", invalid.Error, StringComparison.OrdinalIgnoreCase);
+        }
+        UnityPlayerProfileRunner sentinelRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+        {
+            await WriteProfileResultAsync(requestPath,resultPath,requestSha256,logPath,20,null,token,mutateTiming:r=>r.worstLongFrame=new());
+            return new UnityPlayerProfileRunResult(false,0);
+        };
+        using(var sentinelExecutor=new ToolExecutor(guard,[],[],1024,unityEditorPath:unity,unityEditorVersion:"6000.0.50f1",unityPlayerProfileRunner:sentinelRunner))
+            Assert.True((await sentinelExecutor.ExecuteAsync(profile,default)).Success);
+        UnityPlayerProfileRunner missingFieldsRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+        {
+            await WriteProfileResultAsync(requestPath,resultPath,requestSha256,logPath,20,null,token,incompleteTiming:true);
+            return new UnityPlayerProfileRunResult(false,0);
+        };
+        using(var missingFieldsExecutor=new ToolExecutor(guard,[],[],1024,unityEditorPath:unity,unityEditorVersion:"6000.0.50f1",unityPlayerProfileRunner:missingFieldsRunner))
+        {
+            var missing=await missingFieldsExecutor.ExecuteAsync(profile,default);Assert.False(missing.Success);Assert.Contains("defaults are not evidence",missing.Error);
+        }
+        UnityPlayerProfileRunner legacyRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+        {
+            await WriteProfileResultAsync(requestPath, resultPath, requestSha256, logPath, 20, null, token, schema: 2);
+            return new UnityPlayerProfileRunResult(false, 0);
+        };
+        using(var legacyExecutor = new ToolExecutor(guard, [], [], 1024, unityEditorPath: unity,
+            unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: legacyRunner))
+            Assert.False((await legacyExecutor.ExecuteAsync(profile, default)).Success); // Never invent missing phase evidence for old builds.
 
         UnityPlayerProfileRunner mismatchRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
         {
@@ -1298,6 +1398,10 @@ public sealed partial class SecurityTests : IDisposable
             unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: timeoutRunner);
         var timedOut = await timeoutExecutor.ExecuteAsync(profile, default);
         Assert.False(timedOut.Success); Assert.Contains("bounded runtime", timedOut.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(retainedRequest)); Assert.True(File.Exists(retainedResult));
+        var timeoutRecords=Directory.EnumerateFiles(Path.Combine(profileRoot,"runs"),"*.json").Select(p=>JsonDocument.Parse(File.ReadAllBytes(p))).ToArray();
+        try { Assert.Single(timeoutRecords,r=>r.RootElement.GetProperty("timedOut").ValueKind==JsonValueKind.True); }
+        finally { foreach(var r in timeoutRecords)r.Dispose(); }
     }
 
     [Fact] public async Task UnityScenePreview_IsApprovalGatedNonOverwritingAndPngVerified()
@@ -1407,7 +1511,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal("Assets/Scenes/Platformer.unity", evidence.RootElement.GetProperty("scenePath").GetString());
             Assert.Equal("platformer", evidence.RootElement.GetProperty("templateId").GetString());
             Assert.Equal("0.17.15", evidence.RootElement.GetProperty("bridgeVersion").GetString());
-            Assert.Equal("0.16.33", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.35", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(2.5, evidence.RootElement.GetProperty("movementMetres").GetDouble());
             Assert.Equal(5, evidence.RootElement.GetProperty("completedObjectives").GetInt32());
             Assert.Equal(64, evidence.RootElement.GetProperty("sceneSha256").GetString()!.Length);
@@ -1528,7 +1632,7 @@ public sealed partial class SecurityTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(directory, "valid.json"), JsonSerializer.Serialize(new
         {
             schemaVersion = 1, scenePath = "Assets/Scenes/Platformer.unity", editorVersion = "6000.0.50f1",
-            bridgeVersion = "0.17.15", templateKitVersion = "0.16.33", sceneSha256 = await HashAsync(scene),
+            bridgeVersion = "0.17.15", templateKitVersion = "0.16.35", sceneSha256 = await HashAsync(scene),
             templateKitManifestSha256 = await HashAsync(manifest), durationSeconds = 5, templateId = "platformer",
             movementMetres = 2.5, completedObjectives = 5, requiredObjectives = 5,
             summary = "Deterministic runtime gameplay check passed for platformer: movement=2.50m, respawn=passed, objectives=5/5.",

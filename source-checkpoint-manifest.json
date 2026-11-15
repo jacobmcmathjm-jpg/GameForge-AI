@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "label": "20261026-outcomes-v1-reviewed",
-  "createdUtc": "2026-10-26T08:01:57.4883807Z",
+  "label": "20261116-s01-phase-timing",
+  "createdUtc": "2026-11-15T21:17:53.6735537Z",
   "kind": "sanitized-source-checkpoint",
   "textEncoding": "UTF-8 without BOM; LF",
-  "fileCount": 95,
-  "totalBytes": 1839587.0,
+  "fileCount": 106,
+  "totalBytes": 1949264.0,
   "configuration": "Live Desktop configuration excluded; safe example substituted in this snapshot only.",
   "excluded": [
     "Full Git history",
@@ -61,6 +61,18 @@
       "gitBlobSha1": "d8ec7afc0462ca1a19df4115a67def3e2723a8fa"
     },
     {
+      "path": "docs/archive/2026-11-16-outcomes-before-phase-timing.md",
+      "bytes": 17627,
+      "sha256": "f50a70fa719c8d4410fa679ed84d9355d9f715070d374c2b0d0c7b7b26f9bda7",
+      "gitBlobSha1": "fdf539f1cab1c1b2b8e6abe334b6458b28c9c05e"
+    },
+    {
+      "path": "docs/archive/2026-11-16-outcomes-before-s01.md",
+      "bytes": 17268,
+      "sha256": "bcfa314b5b1ed1f16ee826604db159e125b2a33a85e031da4de553a2cdf93b96",
+      "gitBlobSha1": "9ece664643886448073c91ec78d2b38bf446bcd0"
+    },
+    {
       "path": "docs/Blender-asset-pipeline.md",
       "bytes": 9121,
       "sha256": "4ca8cf8b701ff0ca309ce33b7dea2a0ecc79629aa29c6d18feaf08e377da875f",
@@ -71,6 +83,12 @@
       "bytes": 4097,
       "sha256": "d705c1698b6a034f4fc6547fc33ec49dfa82736fdec59769159a536710157fd4",
       "gitBlobSha1": "58fb821a4b906060f4406a0e4632ea1719ff20f0"
+    },
+    {
+      "path": "docs/outcomes/S01-2026-11-16.md",
+      "bytes": 13085,
+      "sha256": "3fd4c133dd130f4d9342eb24389a4d7299077244a48ce21ca616c8bf68b3535b",
+      "gitBlobSha1": "0192a903cb11ea42ed7a6763420011988f957d55"
     },
     {
       "path": "docs/Source-checkpoints.md",
@@ -116,9 +134,9 @@
     },
     {
       "path": "OUTCOMES.md",
-      "bytes": 17268,
-      "sha256": "bcfa314b5b1ed1f16ee826604db159e125b2a33a85e031da4de553a2cdf93b96",
-      "gitBlobSha1": "9ece664643886448073c91ec78d2b38bf446bcd0"
+      "bytes": 18547,
+      "sha256": "85677320abafa04a92b6cd4bdbe333f349f8bb28bbea82dd31cd41d5784f141c",
+      "gitBlobSha1": "a40998bbf4ac6af24551d89e19a83797798aa96e"
     },
     {
       "path": "README.md",
@@ -134,15 +152,45 @@
     },
     {
       "path": "scripts/New-SourceCheckpoint.ps1",
-      "bytes": 9639,
-      "sha256": "4136a03b8a642c7912090bbddc92c31b4002c465504dfb5a6ab739a26f9b6fed",
-      "gitBlobSha1": "710fad5aa796d75f9daca303c60a657a355705d4"
+      "bytes": 9710,
+      "sha256": "0ea4eed161d10ff7350b7dc3ba33935192f8671653b90f5a9bf3ec37ca53562e",
+      "gitBlobSha1": "782af01da07d82439ae38052143ebc2af1e84583"
     },
     {
       "path": "scripts/New-WindowsDelivery.ps1",
       "bytes": 4315,
       "sha256": "c51fbefdf65be4f3930552b7c834296afc7a18807d86682514b5e17143aa9355",
       "gitBlobSha1": "607218db39bc7e0f3ce42747b30e1e1092b1b5e8"
+    },
+    {
+      "path": "scripts/Verify-S01Source/Program.cs",
+      "bytes": 3823,
+      "sha256": "9571f67785ac34d34fe89583274ee2695e45d385275085a01189c8b4d6ebcaf1",
+      "gitBlobSha1": "0d239462f5c57f230b4d77b8b8133df0713cc78e"
+    },
+    {
+      "path": "scripts/Verify-S01Source/Verify-S01Source.csproj",
+      "bytes": 482,
+      "sha256": "3243c2fc550c63134abbd25a0c0c406af72c32e45751670d00756ba680b12595",
+      "gitBlobSha1": "5750efdcb5388d87be74023a8b5f1e6670affdf9"
+    },
+    {
+      "path": "scripts/Verify-S01Timing/Program.cs",
+      "bytes": 9658,
+      "sha256": "af53edc4c2980c330b70f1092fce20d8b1cdfd5d441eb477bfc431a76626c814",
+      "gitBlobSha1": "8196e90ad2b9a5f509e747f91fd6b50571de27d8"
+    },
+    {
+      "path": "scripts/Verify-S01Timing/README.md",
+      "bytes": 2340,
+      "sha256": "9290879716cf98358aa8ef841447a2ab6971314c0d6259918552a0ac77a25478",
+      "gitBlobSha1": "ac24ddb74c67a7ae22767b9c73d2c5d528da0b94"
+    },
+    {
+      "path": "scripts/Verify-S01Timing/Verify-S01Timing.csproj",
+      "bytes": 212,
+      "sha256": "85ecd72e5567174b397d7f63220d8e8d5b641adea3241be19bef8666cd93f406",
+      "gitBlobSha1": "0d4d62d9a0741d27ff0d4d292d298987c3763e63"
     },
     {
       "path": "SECURITY.md",
@@ -227,6 +275,12 @@
       "bytes": 10294,
       "sha256": "1b907296b77fd4916e498450a65bb7382c12e35627b84035b44babe181e39f27",
       "gitBlobSha1": "4c6e8782fbcdb26e00d471c222a328e234b27c99"
+    },
+    {
+      "path": "src/ForgeCore.Core/ProfileTimingDiagnostics.cs",
+      "bytes": 13591,
+      "sha256": "4e8a8d17abde6b2f313ca4cf5e153dc883f0a383e00719d719116e5df7afb9e5",
+      "gitBlobSha1": "8264b9f609524dcc4d4643784760baaf7b2a2e20"
     },
     {
       "path": "src/ForgeCore.Core/SystemMetrics.cs",
@@ -386,9 +440,9 @@
     },
     {
       "path": "src/ForgeCore.Tools/ForgeCore.Tools.csproj",
-      "bytes": 294,
-      "sha256": "488cc62e909ded897f3e14a4b91dd58949c196ef0c3a22078324ac65497df384",
-      "gitBlobSha1": "b674186e2940da818d63ef8deb30b930fac24e51"
+      "bytes": 427,
+      "sha256": "b00c1103f296b0c5b845359124ee23959a1d130591d03ebbf486c6cc274a0cba",
+      "gitBlobSha1": "a05cde41d31a9449d3cd56a162db2ae98d4bcab6"
     },
     {
       "path": "src/ForgeCore.Tools/Generated3DAssetProvider.cs",
@@ -416,9 +470,9 @@
     },
     {
       "path": "src/ForgeCore.Tools/ToolExecutor.cs",
-      "bytes": 217073,
-      "sha256": "9775fc78e146c17e829556d1d8a761002b303d88e2514a7c1b35900eaabd1271",
-      "gitBlobSha1": "1a7ea031e76a530ac20f9ef9f0876559daf3c10d"
+      "bytes": 223660,
+      "sha256": "c1427254c5eb497efeb14b77207e66bf0e8b5dc8175c4dcd2e73ca4a8777438f",
+      "gitBlobSha1": "dee10955de30365573c470cbb560fa62f6fd015a"
     },
     {
       "path": "src/ForgeCore.Tools/UnityBridgeTemplate.cs",
@@ -458,9 +512,15 @@
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.cs",
-      "bytes": 182301,
-      "sha256": "fcec96b60eef988b5a08576b77bc08eaf619cdd86eafa90d1d1cf371545defac",
-      "gitBlobSha1": "6f556d1c06e39b062b21e0b34d3ed51723983b54"
+      "bytes": 189344,
+      "sha256": "408973508a04c5ddd1082dad03abd1d631425817ba7640c9b16937857f11976e",
+      "gitBlobSha1": "83709f5fe69300f8c7c0889ab139bc54559403ac"
+    },
+    {
+      "path": "src/ForgeCore.Tools/UnityGameTemplateKit.ProfileTiming.cs",
+      "bytes": 1881,
+      "sha256": "cb22f6bc8e61b46f2f67072c822c1544fd018ee645359f9b5a69115a875f1eb0",
+      "gitBlobSha1": "4034aae406a585fe55b9ee0dd3e9a2fdd70aca79"
     },
     {
       "path": "src/ForgeCore.Tools/UnityMapDemoTemplate.cs",
@@ -547,6 +607,12 @@
       "gitBlobSha1": "fb8ea861db337e2e836592710dc3a8e7f29e51a2"
     },
     {
+      "path": "tests/ForgeCore.Core.Tests/ProfileTimingDiagnosticsTests.cs",
+      "bytes": 6064,
+      "sha256": "7456755306cb6b603a9739b11067bdd4351e95fce2c0aaad8207f5a6200ea004",
+      "gitBlobSha1": "e6a8500c6f426d50a3c6abdeb7712237795c80bb"
+    },
+    {
       "path": "tests/ForgeCore.Core.Tests/TaskStateMachineTests.cs",
       "bytes": 2288,
       "sha256": "cbc44a8e02b995d11ae7b4066583197c2c5db46c5764dcc592cdf84f47138428",
@@ -578,9 +644,9 @@
     },
     {
       "path": "tests/ForgeCore.Security.Tests/SecurityTests.cs",
-      "bytes": 180510,
-      "sha256": "280328149258ab28905ccf647a7eb4ecfdf46ae94ffe02b8137418496ca4f3a8",
-      "gitBlobSha1": "b74eb1429dbbdc948322d2ef8bb857a8f6049743"
+      "bytes": 189043,
+      "sha256": "41f25a5eb3d661b164babd165269817067da565244260f68c6a8bf0c454472c8",
+      "gitBlobSha1": "167f382a5fc7d9cfca40709690359bb1d7fc9581"
     },
     {
       "path": "UNITY-SETUP.md",
