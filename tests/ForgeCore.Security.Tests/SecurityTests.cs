@@ -1180,7 +1180,7 @@ public sealed partial class SecurityTests : IDisposable
 
         static async Task WriteProfileResultAsync(string requestPath, string resultPath, string requestSha256,
             string logPath, double p95Frame, string? requestIdOverride, CancellationToken token,
-            double playerTravelMetres = 17.5, int actionEvents = 24)
+            double playerTravelMetres = 17.5, int actionEvents = 24, double? maximumFrame = null)
         {
             using var request = JsonDocument.Parse(await File.ReadAllBytesAsync(requestPath, token)); var root = request.RootElement;
             Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
@@ -1194,7 +1194,7 @@ public sealed partial class SecurityTests : IDisposable
                 buildProvenanceSha256 = root.GetProperty("buildProvenanceSha256").GetString(), scenePath = root.GetProperty("scenePath").GetString(),
                 sceneSha256 = root.GetProperty("sceneSha256").GetString(), durationSeconds = root.GetProperty("durationSeconds").GetInt32(),
                 width = 1280, height = 720, sceneBuildIndex = 0, sceneName = "Profile", sampledFrames = 600,
-                averageFrameMilliseconds = 12.5, p95FrameMilliseconds = p95Frame, maximumFrameMilliseconds = Math.Max(25, p95Frame + 5),
+                averageFrameMilliseconds = 12.5, p95FrameMilliseconds = p95Frame, maximumFrameMilliseconds = maximumFrame ?? Math.Max(25, p95Frame + 5),
                 gpuTimingAvailable = false, sampledGpuFrames = 0, averageGpuMilliseconds = 0, p95GpuMilliseconds = 0, maximumGpuMilliseconds = 0,
                 peakAllocatedMemoryBytes = 536870912L, rendererCount = 20, meshCount = 8, vertexCount = 25000L, triangleCount = 12000L,
                 cameraCount = 1, graphicsDeviceName = "Test GPU", graphicsDeviceType = "Direct3D12", graphicsDeviceVersion = "Direct3D 12",
@@ -1228,7 +1228,9 @@ public sealed partial class SecurityTests : IDisposable
             Assert.True(evidence.RootElement.GetProperty("workstationBaselineBudgetPassed").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuTimingAvailable").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuBudgetPassed").GetBoolean());
-            Assert.Equal(2, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(3, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(100d, evidence.RootElement.GetProperty("maximumFrameBudgetMilliseconds").GetDouble());
+            Assert.True(evidence.RootElement.GetProperty("maximumFrameBudgetPassed").GetBoolean());
             Assert.Equal("0.16.33", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal("scripted_gameplay_v1", evidence.RootElement.GetProperty("profileScenario").GetString());
             Assert.Equal("first_person_action", evidence.RootElement.GetProperty("templateId").GetString());
@@ -1263,6 +1265,33 @@ public sealed partial class SecurityTests : IDisposable
             using var document = JsonDocument.Parse(File.ReadAllBytes(path));
             return !document.RootElement.GetProperty("workstationBaselineBudgetPassed").GetBoolean();
         });
+
+        // A good p95 must not hide a single visible freeze. Cover the exact boundary too.
+        foreach (var maximumFrame in new[] { 100d, 100.001d, 1727.84d })
+        {
+            UnityPlayerProfileRunner hitchRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
+            {
+                await WriteProfileResultAsync(requestPath, resultPath, requestSha256, logPath, 20, null, token,
+                    maximumFrame: maximumFrame);
+                return new UnityPlayerProfileRunResult(false, 0);
+            };
+            using var hitchExecutor = new ToolExecutor(guard, [], [], 1024, unityEditorPath: unity,
+                unityEditorVersion: "6000.0.50f1", unityPlayerProfileRunner: hitchRunner);
+            var hitch = await hitchExecutor.ExecuteAsync(profile, default);
+            Assert.Equal(maximumFrame <= 100d, hitch.Success);
+            if (!hitch.Success) Assert.Contains("maximum budget=", hitch.Error, StringComparison.Ordinal);
+            var matchingEvidence = Directory.EnumerateFiles(Path.Combine(profileRoot, "evidence"), "*.json")
+                .Select(path => JsonDocument.Parse(File.ReadAllBytes(path))).ToArray();
+            try
+            {
+                var record = Assert.Single(matchingEvidence, document =>
+                    document.RootElement.GetProperty("maximumFrameMilliseconds").GetDouble() == maximumFrame).RootElement;
+                Assert.True(record.GetProperty("frameBudgetPassed").GetBoolean());
+                Assert.Equal(maximumFrame <= 100d, record.GetProperty("maximumFrameBudgetPassed").GetBoolean());
+                Assert.Equal(maximumFrame <= 100d, record.GetProperty("workstationBaselineBudgetPassed").GetBoolean());
+            }
+            finally { foreach (var document in matchingEvidence) document.Dispose(); }
+        }
 
         UnityPlayerProfileRunner mismatchRunner = async (_, _, logPath, requestPath, resultPath, requestSha256, _, token) =>
         {

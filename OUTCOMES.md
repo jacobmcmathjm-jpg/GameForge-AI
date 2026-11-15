@@ -1,6 +1,6 @@
 # ForgeCore staged outcomes
 
-Plan version: 1 — 26 October 2026. This is the active checklist; the initial agreed baseline is retained in [the dated archive](docs/archive/2026-10-26-outcomes-v1.md). Existing implementation history remains in [ROADMAP.md](ROADMAP.md).
+Plan version: 2 — 16 November 2026. This is the active checklist; the initial agreed baseline is retained in [the dated archive](docs/archive/2026-10-26-outcomes-v1.md). Existing implementation history remains in [ROADMAP.md](ROADMAP.md).
 
 ## Target and working rules
 
@@ -23,12 +23,12 @@ Detailed baseline: [docs/archive/2026-10-26-baseline-evidence.md](docs/archive/2
 
 ## Stage index
 
-Statuses: **Complete** = evidence-backed within the stated scope; **Next** = recommended next bounded task, not already running; **Planned** = not accepted; **R&D** = feasibility/quality uncertain.
+Statuses: **Complete** = evidence-backed within the stated scope; **In progress** = partial implementation, acceptance still pending; **Next** = recommended next bounded task, not already running; **Planned** = not accepted; **R&D** = feasibility/quality uncertain.
 
 | ID | Outcome | Status | Main dependency |
 | --- | --- | --- | --- |
 | S00 | Preserve the working prototype and first Blender-prop baseline | Complete | Existing evidence |
-| S01 | Measure and remove visible startup/runtime hitches | Next | S00 |
+| S01 | Measure and remove visible startup/runtime hitches | In progress | S00 |
 | S02 | Import one properly skinned, rigged enemy character | Planned | S00; approved asset source |
 | S03 | Give that enemy a complete blended animation set | Planned | S02 |
 | S04 | Bring one character to a defined detailed visual benchmark | Planned | S02–S03 |
@@ -52,6 +52,8 @@ Stages are ordered for clarity, not an assertion that all are strictly serial. T
 ## Acceptance checklist by stage
 
 ### S01 — smoothness and honest performance evidence
+
+16 November 2026: measured-window worst-frame gate implemented; live diagnosis and improvement are still pending. See [the partial outcome](docs/outcomes/S01-2026-11-16.md). The provisional 100 ms maximum is a regression guard, not visual smoothness acceptance or a startup budget.
 
 - Reproduce the long frame with explicit startup/loading versus interactive-play timings; determine its cause rather than assuming shader compilation.
 - Separate cold/warm runs and document machine, resolution, quality preset and concurrent workload.

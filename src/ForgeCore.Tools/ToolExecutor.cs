@@ -1539,14 +1539,17 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                 throw new InvalidDataException("Unity player profile metrics or identity were outside the reviewed evidence contract.");
 
             const double p95FrameBudgetMilliseconds = 33.334d;
+            // S01 provisional measured-window gate. Startup and warmup need separate live evidence.
+            const double maximumFrameBudgetMilliseconds = 100d;
             const double p95GpuBudgetMilliseconds = 33.334d;
             const long peakAllocatedMemoryBudgetBytes = 4_294_967_296;
             var frameBudgetPassed = result.P95FrameMilliseconds <= p95FrameBudgetMilliseconds;
+            var maximumFrameBudgetPassed = result.MaximumFrameMilliseconds <= maximumFrameBudgetMilliseconds;
             var gpuBudgetPassed = result.GpuTimingAvailable && result.P95GpuMilliseconds <= p95GpuBudgetMilliseconds;
             var memoryBudgetPassed = result.PeakAllocatedMemoryBytes <= peakAllocatedMemoryBudgetBytes;
-            var workstationBaselineBudgetPassed = frameBudgetPassed && memoryBudgetPassed && (!result.GpuTimingAvailable || gpuBudgetPassed);
+            var workstationBaselineBudgetPassed = frameBudgetPassed && maximumFrameBudgetPassed && memoryBudgetPassed && (!result.GpuTimingAvailable || gpuBudgetPassed);
             var resultSha256 = await HashFileAsync(resultPath, token);
-            var evidence = new UnityPlayerPerformanceEvidence(2, requestId, requestSha256, resultSha256,
+            var evidence = new UnityPlayerPerformanceEvidence(3, requestId, requestSha256, resultSha256,
                 spec.OutputPath.Replace('\\', '/'), provenance.EditorVersion, UnityGameTemplateKit.Version,
                 provenance.TemplateKitManifestSha256, executableSha256, level0Sha256, provenanceSha256,
                 scene.Path, scene.Sha256, result.DurationSeconds, result.Width, result.Height, result.SceneBuildIndex,
@@ -1560,13 +1563,14 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                  result.ActionEvents, result.CompletedObjectives, result.RequiredObjectives, result.MinimumHealth,
                  p95FrameBudgetMilliseconds, p95GpuBudgetMilliseconds, peakAllocatedMemoryBudgetBytes,
                 frameBudgetPassed, gpuBudgetPassed, memoryBudgetPassed, workstationBaselineBudgetPassed,
-                 "Standalone scripted-gameplay rendered-player baseline on this workstation at 1280x720; not certification for other hardware, resolutions, representative production content, or final shipping quality.",
+                maximumFrameBudgetMilliseconds, maximumFrameBudgetPassed,
+                 "Standalone scripted-gameplay measured-window baseline on this workstation at 1280x720; maximum frame gate includes the warmup-boundary frame, but startup/warmup are not separately characterized; not certification for other hardware, resolutions, representative production content, or final shipping quality.",
                 result.CompletedUtc, DateTimeOffset.UtcNow);
             await WriteJsonNewAsync(evidencePath, evidence, token);
             if (!workstationBaselineBudgetPassed)
-                throw new InvalidOperationException($"Unity player profile completed, but the standalone workstation baseline budget failed. Evidence: {evidencePath}");
+                throw new InvalidOperationException($"Unity player profile completed, but the standalone workstation baseline budget failed (p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms; maximum budget={maximumFrameBudgetMilliseconds:F2} ms). Evidence: {evidencePath}");
             return $"Unity scripted-gameplay profile passed for {spec.OutputPath}: {result.SampledFrames} rendered frames at {result.Width}x{result.Height}, " +
-                   $"p95={result.P95FrameMilliseconds:F2} ms, gpu_p95={(result.GpuTimingAvailable ? result.P95GpuMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " ms" : "unavailable")}, " +
+                   $"p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms, gpu_p95={(result.GpuTimingAvailable ? result.P95GpuMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " ms" : "unavailable")}, " +
                    $"peak_memory={result.PeakAllocatedMemoryBytes} bytes, travel={result.PlayerTravelMetres:F2} m, actions={result.ActionEvents}.\nEvidence: {evidencePath}\nLog: {logPath}";
         }
         finally
@@ -2087,6 +2091,8 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         [property: System.Text.Json.Serialization.JsonPropertyName("gpuBudgetPassed")] bool GpuBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("memoryBudgetPassed")] bool MemoryBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("workstationBaselineBudgetPassed")] bool WorkstationBaselineBudgetPassed,
+        [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetMilliseconds")] double MaximumFrameBudgetMilliseconds,
+        [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetPassed")] bool MaximumFrameBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("qualification")] string Qualification,
         [property: System.Text.Json.Serialization.JsonPropertyName("playerCompletedUtc")] DateTimeOffset PlayerCompletedUtc,
         [property: System.Text.Json.Serialization.JsonPropertyName("evidenceCreatedUtc")] DateTimeOffset EvidenceCreatedUtc);
