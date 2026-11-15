@@ -55,6 +55,8 @@ Stages are ordered for clarity, not an assertion that all are strictly serial. T
 
 16 November 2026: measured-window worst-frame gate implemented; live diagnosis and improvement are still pending. See [the partial outcome](docs/outcomes/S01-2026-11-16.md). The provisional 100 ms maximum is a regression guard, not visual smoothness acceptance or a startup budget.
 
+Continuation: bounded startup/warmup/gameplay diagnostics, a fixed one-second warmup, timestamped long-frame retention with GC/memory context, retained raw attempts and host-run timing are implemented in candidate kit 0.16.35. Windows host tests and an isolated Unity compile/build plus two real rendered launches verify the diagnostic path. The first launch records a 1,159.79 ms boundary-spanning frame and fails the unchanged maximum gate; the repeat's gameplay gate passes while a 2,512.79 ms startup-spanning warmup frame remains visible. Neither is a freeze fix or controlled cold-cache proof. This branch is an older October prototype, not the later approved muzzle/audio game; its live fixture now requires explicit opt-in and must not replace the workstation's newer builds. S01 remains **in progress**, with the original production freeze, causal attribution and accepted cold/warm performance still pending.
+
 - Reproduce the long frame with explicit startup/loading versus interactive-play timings; determine its cause rather than assuming shader compilation.
 - Separate cold/warm runs and document machine, resolution, quality preset and concurrent workload.
 - Add maximum/long-frame reporting alongside p95; define acceptable startup and interactive hitch budgets before declaring a fix.

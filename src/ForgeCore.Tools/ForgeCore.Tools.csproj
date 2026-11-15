@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <EmbeddedResource Include="Blender/WeatheredBarrel.py" />
+    <EmbeddedResource Include="../ForgeCore.Core/ProfileTimingDiagnostics.cs" LogicalName="ForgeCore.ProfileTimingDiagnostics.cs" />
     <ProjectReference Include="../ForgeCore.Core/ForgeCore.Core.csproj" />
     <ProjectReference Include="../ForgeCore.Security/ForgeCore.Security.csproj" />
   </ItemGroup>

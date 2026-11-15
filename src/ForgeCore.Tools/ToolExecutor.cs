@@ -1474,18 +1474,34 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         var resultPath = Path.Combine(resultDirectory, requestId + ".json");
         var logPath = Path.Combine(logDirectory, requestId + ".log");
         var evidencePath = Path.Combine(evidenceDirectory, requestId + ".json");
+        var runnerDirectory = Path.Combine(root, "runs"); Directory.CreateDirectory(runnerDirectory);
+        var runnerObservationPath = Path.Combine(runnerDirectory, requestId + ".json");
         var scene = provenance.Scenes[0];
         const string profileScenario = "scripted_gameplay_v1";
-        var request = new UnityPlayerProfileRequest(2, requestId, UnityGameTemplateKit.Version,
+        var request = new UnityPlayerProfileRequest(3, requestId, UnityGameTemplateKit.Version,
             spec.OutputPath.Replace('\\', '/'), executableSha256, level0Sha256, provenanceSha256,
             scene.Path, scene.Sha256, profileScenario, spec.DurationSeconds, UnityPlayerProfileTestSpec.Width,
             UnityPlayerProfileTestSpec.Height, DateTimeOffset.UtcNow);
-        try
+        // Keep each owned request/result and runner record, including failed profiles; never replay or replace prior evidence.
         {
             await WriteJsonNewAsync(requestPath, request, token);
             var requestSha256 = await HashFileAsync(requestPath, token);
-            var run = await _unityPlayerProfileRunner(executable, Path.GetDirectoryName(executable)!, logPath,
-                requestPath, resultPath, requestSha256, TimeSpan.FromSeconds(spec.DurationSeconds), token);
+            var runnerStartedUtc = DateTimeOffset.UtcNow;
+            var runnerTimer = Stopwatch.StartNew();
+            UnityPlayerProfileRunResult? run = null;
+            try
+            {
+                run = await _unityPlayerProfileRunner(executable, Path.GetDirectoryName(executable)!, logPath,
+                    requestPath, resultPath, requestSha256, TimeSpan.FromSeconds(spec.DurationSeconds), token);
+            }
+            finally
+            {
+                runnerTimer.Stop();
+                await WriteJsonNewAsync(runnerObservationPath, new { schemaVersion = 1, requestId, requestSha256,
+                    runnerStartedUtc, runnerElapsedMilliseconds = runnerTimer.Elapsed.TotalMilliseconds,
+                    runnerReturned = run is not null, timedOut = run?.TimedOut, exitCode = run?.ExitCode,
+                    qualification = "Host runner wall time includes process startup and shutdown; not per-frame or native startup attribution. Missing player result does not establish a stutter cause." }, CancellationToken.None);
+            }
             var log = await ReadOptionalBoundedFileAsync(logPath, token);
             if (!File.Exists(logPath)) throw new InvalidOperationException("Unity player did not create the required profile-test log.");
             if (run.TimedOut) throw new InvalidOperationException($"Unity player profile test exceeded its bounded runtime and was terminated.\n{log}");
@@ -1498,7 +1514,11 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
             UnityPlayerProfileResult result;
             try
             {
-                result = JsonSerializer.Deserialize<UnityPlayerProfileResult>(await File.ReadAllTextAsync(resultPath, Encoding.UTF8, token), StrictUnityJson)
+                var resultJson = await File.ReadAllTextAsync(resultPath, Encoding.UTF8, token);
+                using var shape = JsonDocument.Parse(resultJson);
+                if (!shape.RootElement.TryGetProperty("timingDiagnostics", out var timingJson)) throw new InvalidDataException("Phase timing diagnostics are missing.");
+                ValidateTimingJsonShape(timingJson);
+                result = JsonSerializer.Deserialize<UnityPlayerProfileResult>(resultJson, new JsonSerializerOptions(StrictUnityJson) { IncludeFields = true })
                     ?? throw new JsonException("Unity player profile result is empty.");
             }
             catch (JsonException ex) { throw new InvalidDataException("Unity player profile result is malformed or contains unexpected fields.", ex); }
@@ -1509,7 +1529,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                   !IsPositiveBounded(result.P95GpuMilliseconds) || !IsPositiveBounded(result.MaximumGpuMilliseconds) ||
                   result.MaximumGpuMilliseconds < result.P95GpuMilliseconds
                 : result.SampledGpuFrames != 0 || result.AverageGpuMilliseconds != 0 || result.P95GpuMilliseconds != 0 || result.MaximumGpuMilliseconds != 0;
-            if (result.SchemaVersion != 2 || !string.Equals(result.RequestId, requestId, StringComparison.Ordinal) ||
+            if (result.SchemaVersion != 3 || !string.Equals(result.RequestId, requestId, StringComparison.Ordinal) ||
                 !string.Equals(result.RequestSha256, requestSha256, StringComparison.Ordinal) ||
                 !string.Equals(result.TemplateKitVersion, UnityGameTemplateKit.Version, StringComparison.Ordinal) ||
                 !string.Equals(result.Environment, "standalone_player", StringComparison.Ordinal) ||
@@ -1538,6 +1558,13 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                  result.CompletedUtc == default)
                 throw new InvalidDataException("Unity player profile metrics or identity were outside the reviewed evidence contract.");
 
+            // Unity's field serializer can encode a null custom class as an explicit all-default object.
+            // Normalize ONLY that fully present, empty sentinel when no long frames were observed.
+            if (result.TimingDiagnostics.longFrameCount == 0 && IsEmptyTimingEvent(result.TimingDiagnostics.worstLongFrame))
+                result.TimingDiagnostics.worstLongFrame = null!;
+            ForgeCore.Diagnostics.ProfileTimingCollector.Validate(result.TimingDiagnostics, spec.DurationSeconds,
+                result.SampledFrames, result.AverageFrameMilliseconds, result.MaximumFrameMilliseconds);
+
             const double p95FrameBudgetMilliseconds = 33.334d;
             // S01 provisional measured-window gate. Startup and warmup need separate live evidence.
             const double maximumFrameBudgetMilliseconds = 100d;
@@ -1549,7 +1576,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
             var memoryBudgetPassed = result.PeakAllocatedMemoryBytes <= peakAllocatedMemoryBudgetBytes;
             var workstationBaselineBudgetPassed = frameBudgetPassed && maximumFrameBudgetPassed && memoryBudgetPassed && (!result.GpuTimingAvailable || gpuBudgetPassed);
             var resultSha256 = await HashFileAsync(resultPath, token);
-            var evidence = new UnityPlayerPerformanceEvidence(3, requestId, requestSha256, resultSha256,
+            var evidence = new UnityPlayerPerformanceEvidence(4, requestId, requestSha256, resultSha256,
                 spec.OutputPath.Replace('\\', '/'), provenance.EditorVersion, UnityGameTemplateKit.Version,
                 provenance.TemplateKitManifestSha256, executableSha256, level0Sha256, provenanceSha256,
                 scene.Path, scene.Sha256, result.DurationSeconds, result.Width, result.Height, result.SceneBuildIndex,
@@ -1564,23 +1591,47 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                  p95FrameBudgetMilliseconds, p95GpuBudgetMilliseconds, peakAllocatedMemoryBudgetBytes,
                 frameBudgetPassed, gpuBudgetPassed, memoryBudgetPassed, workstationBaselineBudgetPassed,
                 maximumFrameBudgetMilliseconds, maximumFrameBudgetPassed,
-                 "Standalone scripted-gameplay measured-window baseline on this workstation at 1280x720; maximum frame gate includes the warmup-boundary frame, but startup/warmup are not separately characterized; not certification for other hardware, resolutions, representative production content, or final shipping quality.",
+                JsonSerializer.SerializeToElement(result.TimingDiagnostics, new JsonSerializerOptions { IncludeFields = true }),
+                runnerStartedUtc, runnerTimer.Elapsed.TotalMilliseconds, await HashFileAsync(runnerObservationPath, token), false,
+                 "Measured gameplay-window gate only, including the warmup-boundary frame. Startup is Unity-clock initialization latency (no startup rendered-frame distribution); pre-runtime native startup is unobserved. Warmup remains fixed at one second; startup/warmup budgets and whole-session smoothness are not accepted. GC/memory correlations are not causal attribution; first 64 long frames and a separate worst event are retained. Not cold-cache, hardware-wide or shipping certification.",
                 result.CompletedUtc, DateTimeOffset.UtcNow);
             await WriteJsonNewAsync(evidencePath, evidence, token);
             if (!workstationBaselineBudgetPassed)
                 throw new InvalidOperationException($"Unity player profile completed, but the standalone workstation baseline budget failed (p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms; maximum budget={maximumFrameBudgetMilliseconds:F2} ms). Evidence: {evidencePath}");
             return $"Unity scripted-gameplay profile passed for {spec.OutputPath}: {result.SampledFrames} rendered frames at {result.Width}x{result.Height}, " +
                    $"p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms, gpu_p95={(result.GpuTimingAvailable ? result.P95GpuMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " ms" : "unavailable")}, " +
+                   $"startup_unity_clock={result.TimingDiagnostics.profileInitializedSeconds * 1000:F2} ms, warmup_max={result.TimingDiagnostics.phases[1].maximumFrameMilliseconds:F2} ms (not accepted), " +
                    $"peak_memory={result.PeakAllocatedMemoryBytes} bytes, travel={result.PlayerTravelMetres:F2} m, actions={result.ActionEvents}.\nEvidence: {evidencePath}\nLog: {logPath}";
-        }
-        finally
-        {
-            if (File.Exists(requestPath)) File.Delete(requestPath);
-            if (File.Exists(resultPath)) File.Delete(resultPath);
         }
     }
 
     private static bool IsPositiveBounded(double value) => double.IsFinite(value) && value is > 0 and <= 10_000;
+
+    private static void ValidateTimingJsonShape(JsonElement timing)
+    {
+        static void Fields(JsonElement value, Type type)
+        {
+            if (value.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Phase timing diagnostics object missing.");
+            var expected = type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var p in value.EnumerateObject())
+                if (!expected.Contains(p.Name) || !seen.Add(p.Name)) throw new InvalidDataException("Phase timing diagnostics have unknown/duplicate fields.");
+            if (!seen.SetEquals(expected)) throw new InvalidDataException("Phase timing diagnostics fields are missing; defaults are not evidence.");
+        }
+        Fields(timing, typeof(ForgeCore.Diagnostics.ProfileTimingReport));
+        var phases = timing.GetProperty("phases"); var events = timing.GetProperty("longFrames");
+        if (phases.ValueKind != JsonValueKind.Array || phases.GetArrayLength() != 3 || events.ValueKind != JsonValueKind.Array || events.GetArrayLength() > 64)
+            throw new InvalidDataException("Phase timing diagnostics exceed bounded array contracts.");
+        foreach (var p in phases.EnumerateArray()) Fields(p, typeof(ForgeCore.Diagnostics.ProfilePhaseTiming));
+        foreach (var e in events.EnumerateArray()) Fields(e, typeof(ForgeCore.Diagnostics.ProfileLongFrame));
+        var worst = timing.GetProperty("worstLongFrame");
+        if (worst.ValueKind != JsonValueKind.Null) Fields(worst, typeof(ForgeCore.Diagnostics.ProfileLongFrame));
+    }
+
+    private static bool IsEmptyTimingEvent(ForgeCore.Diagnostics.ProfileLongFrame? e) => e is not null &&
+        string.IsNullOrEmpty(e.phase) && e.frameIndex == 0 && e.startSeconds == 0 && e.endSeconds == 0 && e.frameMilliseconds == 0 &&
+        !e.crossesStartupBoundary && !e.crossesWarmupBoundary && e.gc0Collections == 0 && e.gc1Collections == 0 && e.gc2Collections == 0 &&
+        e.managedMemoryBeforeBytes == 0 && e.managedMemoryAfterBytes == 0 && e.allocatedMemoryAfterBytes == 0;
 
     private static bool IsSafeProfileLabel(string value, int maximumLength) =>
         !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && !value.Any(char.IsControl);
@@ -2034,7 +2085,8 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
          [property: System.Text.Json.Serialization.JsonPropertyName("completedObjectives")] int CompletedObjectives,
          [property: System.Text.Json.Serialization.JsonPropertyName("requiredObjectives")] int RequiredObjectives,
          [property: System.Text.Json.Serialization.JsonPropertyName("minimumHealth")] int MinimumHealth,
-         [property: System.Text.Json.Serialization.JsonPropertyName("completedUtc")] DateTimeOffset CompletedUtc);
+         [property: System.Text.Json.Serialization.JsonPropertyName("completedUtc")] DateTimeOffset CompletedUtc,
+         [property: System.Text.Json.Serialization.JsonPropertyName("timingDiagnostics")] ForgeCore.Diagnostics.ProfileTimingReport TimingDiagnostics);
 
     private sealed record UnityPlayerPerformanceEvidence(
         [property: System.Text.Json.Serialization.JsonPropertyName("schemaVersion")] int SchemaVersion,
@@ -2093,6 +2145,11 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         [property: System.Text.Json.Serialization.JsonPropertyName("workstationBaselineBudgetPassed")] bool WorkstationBaselineBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetMilliseconds")] double MaximumFrameBudgetMilliseconds,
         [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetPassed")] bool MaximumFrameBudgetPassed,
+        [property: System.Text.Json.Serialization.JsonPropertyName("timingDiagnostics")] JsonElement TimingDiagnostics,
+        [property: System.Text.Json.Serialization.JsonPropertyName("runnerStartedUtc")] DateTimeOffset RunnerStartedUtc,
+        [property: System.Text.Json.Serialization.JsonPropertyName("runnerElapsedMilliseconds")] double RunnerElapsedMilliseconds,
+        [property: System.Text.Json.Serialization.JsonPropertyName("runnerObservationSha256")] string RunnerObservationSha256,
+        [property: System.Text.Json.Serialization.JsonPropertyName("wholeSessionSmoothnessAccepted")] bool WholeSessionSmoothnessAccepted,
         [property: System.Text.Json.Serialization.JsonPropertyName("qualification")] string Qualification,
         [property: System.Text.Json.Serialization.JsonPropertyName("playerCompletedUtc")] DateTimeOffset PlayerCompletedUtc,
         [property: System.Text.Json.Serialization.JsonPropertyName("evidenceCreatedUtc")] DateTimeOffset EvidenceCreatedUtc);

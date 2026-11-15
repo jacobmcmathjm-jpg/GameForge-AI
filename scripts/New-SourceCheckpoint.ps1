@@ -37,7 +37,8 @@ $checkpointFiles = @($checkpointFiles | Sort-Object -Unique | Where-Object {
             $checkpointExtension -in $checkpointExtensions)) -and
         $checkpointRelative -notmatch '(^|/)(bin|obj|work|outputs|backups|\.git|\.forgecore|node_modules)/' -and
         $checkpointRelative -notmatch '(^|/)(\.env($|\.)|appsettings\.(Development|Production|Local)\.json$)' -and
-        $checkpointRelative -ne 'src/ForgeCore.Desktop/appsettings.json'
+        $checkpointRelative -ne 'src/ForgeCore.Desktop/appsettings.json' -and
+        $checkpointRelative -ne 'source-checkpoint-manifest.json'
 })
 if ($checkpointFiles.Count -lt 20) { throw 'Unexpectedly small source selection; inspect before archiving.' }
 
