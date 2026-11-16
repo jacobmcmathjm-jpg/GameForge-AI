@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt,[ValidateSet('current-timing-v1','current-timing-v2')][string]$Candidate='current-timing-v1',[switch]$LegacySupportMap)
+param([Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt,[ValidateSet('current-timing-v1','current-timing-v2','current-timing-v3')][string]$Candidate='current-timing-v1',[switch]$LegacySupportMap,[switch]$BlockingCheckpointControl)
 $ErrorActionPreference='Stop'
 $timingRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $timingEvidence=Join-Path $timingRepo 'work/s08-s10-verification'
@@ -9,13 +9,17 @@ if(Test-Path -LiteralPath $timingValidation){throw 'Immutable validation receipt
 $timingPayload=Get-Content -LiteralPath $timingReceipt -Raw | ConvertFrom-Json
 $timingReport=$timingPayload.report
 $timing=$timingReport.timingDiagnostics
-$timingSchema=if($Candidate -ceq 'current-timing-v2'){2}else{1}
+$timingSchema=if($Candidate -ceq 'current-timing-v3'){3}elseif($Candidate -ceq 'current-timing-v2'){2}else{1}
 if(-not $timing -or $timing.schemaVersion -ne $timingSchema -or $timing.clock -cne 'stopwatch_update_intervals' -or $timing.warmupMilliseconds -ne 2000 -or $timing.provisionalGameplayMaximumMilliseconds -ne 100 -or $timing.wholeSessionSmoothnessAccepted){throw 'Missing/incorrect timing contract.'}
-if($Candidate -ceq 'current-timing-v2'){
+if($Candidate -cin @('current-timing-v2','current-timing-v3')){
     $timingVariant=if($LegacySupportMap){'legacy_property_per_influence'}else{'cached_bone_roles'}
     $timingMaps=@($timing.scopedWork.statistics | Where-Object kind -ceq FootworkWeightMap)
     $timingCheckpoints=@($timing.scopedWork.statistics | Where-Object kind -ceq NewGameCheckpoint)
     if($timing.supportMapVariant -cne $timingVariant -or $timingMaps.Count -ne 1 -or $timingMaps[0].count -ne 3 -or $timingCheckpoints.Count -ne 1 -or $timingCheckpoints[0].count -ne 6 -or $timing.scopedWork.recent.Count -gt 256){throw 'Missing bounded startup/reset scopes or wrong comparison variant.'}
+}
+if($Candidate -ceq 'current-timing-v3'){
+    $timingDispatch=if($BlockingCheckpointControl){'blocking_control'}else{'queued_nonblocking'}
+    if($timing.checkpointDispatch -cne $timingDispatch){throw 'Wrong checkpoint dispatch mode.'}
 }
 if($timing.truncated -or $timing.droppedFrames -or $timing.droppedWindows -or $timing.events.Count -gt 64 -or $timing.worstByPhase.Count -gt 5 -or $timing.observedFrames -gt 1000000){throw 'Diagnostic capacity/overflow failure.'}
 if($timing.windows.Count -ne 6 -or $timingReport.passes.Count -ne 3){throw 'Expected three full gameplay and idle windows.'}
@@ -38,7 +42,7 @@ foreach($timingEvent in @($timing.events)+@($timing.worstByPhase)){
 }
 $timingResult=[ordered]@{schemaVersion=1;rawReceiptSha256=(Get-FileHash -LiteralPath $timingReceipt).Hash.ToLowerInvariant();windowsMatchOriginal=$true;
     measuredGameplayMaximumPassed=$timingPassed;wholeSessionSmoothnessAccepted=$false;freezeFixed=$false;comparisons=$timingComparisons;
-    phases=$timing.phases;scopedWork=$timing.scopedWork;supportMapVariant=$timing.supportMapVariant;unityAwakeMilliseconds=$timing.unityAwakeMilliseconds;unityReadyMilliseconds=$timing.unityReadyMilliseconds;
+    phases=$timing.phases;scopedWork=$timing.scopedWork;supportMapVariant=$timing.supportMapVariant;checkpointDispatch=$timing.checkpointDispatch;unityAwakeMilliseconds=$timing.unityAwakeMilliseconds;unityReadyMilliseconds=$timing.unityReadyMilliseconds;
     qualification='Ordered real rendered launches; OS/driver caches not controlled. Stopwatch Update intervals are primary; Unity unscaled delta supplementary. Correlation is not attribution.'}
 $timingStream=[IO.File]::Open($timingValidation,[IO.FileMode]::CreateNew)
 try{$timingBytes=[Text.Encoding]::UTF8.GetBytes(($timingResult|ConvertTo-Json -Depth 12));$timingStream.Write($timingBytes,0,$timingBytes.Length)}finally{$timingStream.Dispose()}

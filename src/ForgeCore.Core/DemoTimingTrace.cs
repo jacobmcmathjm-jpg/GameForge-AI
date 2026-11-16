@@ -13,7 +13,8 @@ namespace ForgeCore.Demo
         public DemoWorkSample[] overlappingWork=Array.Empty<DemoWorkSample>();
     }
     [Serializable]public sealed class DemoTimingReport {
-        public int schemaVersion=2,maximumEvents=64,maximumWindows=16,observedFrames,longFrames,droppedLongEvents,droppedFrames,droppedWindows;
+        public int schemaVersion=3,maximumEvents=64,maximumWindows=16,observedFrames,longFrames,droppedLongEvents,droppedFrames,droppedWindows;
+        public string checkpointDispatch="queued_nonblocking";
         public string supportMapVariant="cached_bone_roles";
         public DemoWorkSnapshot scopedWork;
         public string clock="stopwatch_update_intervals",unityClock="supplementary_unscaled_delta_not_same_interval";

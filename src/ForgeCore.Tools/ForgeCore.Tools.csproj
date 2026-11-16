@@ -5,6 +5,7 @@
     <EmbeddedResource Include="../ForgeCore.Core/DemoFrameWindow.cs" LogicalName="ForgeCore.Tools.DemoFrameWindow.cs" />
     <EmbeddedResource Include="../ForgeCore.Core/DemoTimingTrace.cs" LogicalName="ForgeCore.Tools.DemoTimingTrace.cs" />
     <EmbeddedResource Include="../ForgeCore.Core/DemoSkinSupportMap.cs" LogicalName="ForgeCore.Tools.DemoSkinSupportMap.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoCheckpointExit.cs" LogicalName="ForgeCore.Tools.DemoCheckpointExit.cs" />
     <EmbeddedResource Include="../ForgeCore.Core/DemoWorkJournal.cs" LogicalName="ForgeCore.Tools.DemoWorkJournal.cs" />
     <EmbeddedResource Include="../ForgeCore.Core/DemoCheckpointQueue.cs" LogicalName="ForgeCore.Tools.DemoCheckpointQueue.cs" />
     <EmbeddedResource Include="../ForgeCore.Core/DemoAudioSynthesis.cs" LogicalName="ForgeCore.Tools.DemoAudioSynthesis.cs" />

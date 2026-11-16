@@ -18,8 +18,9 @@ namespace ForgeCoreGameTemplates
         private int priorGc0,priorGc1,priorGc2;
         private DemoFrameWindow samples=new DemoFrameWindow();private readonly Stopwatch timer=new Stopwatch();
         private double previous,warmup;private bool shown,active;private SecurityCombatSession session;
-        private DemoTimingTrace timing;private DemoWorkJournal timingWork;private bool legacySupportMap;private string timingWindow="gameplay";private double timingPrevious;
+        private DemoTimingTrace timing;private DemoWorkJournal timingWork;private bool legacySupportMap,blockingCheckpointControl;private string timingWindow="gameplay";private double timingPrevious;
         public static bool LegacySupportMap=>Instance!=null&&Instance.legacySupportMap;
+        public static bool BlockingCheckpointControl=>Instance!=null&&Instance.blockingCheckpointControl;
         public double ReadyMilliseconds {get;private set;}
         public long AllocatedBytes=>Profiler.GetTotalAllocatedMemoryLong();
         public long ReservedBytes=>Profiler.GetTotalReservedMemoryLong();
@@ -30,6 +31,7 @@ namespace ForgeCoreGameTemplates
                 {timing=new DemoTimingTrace(Time.realtimeSinceStartupAsDouble*1000,TimingContext());timingWork=new DemoWorkJournal();
 #if DEVELOPMENT_BUILD && !UNITY_EDITOR
                 legacySupportMap=Array.IndexOf(Environment.GetCommandLineArgs(),"-forgecore-footwork-legacy-probe")>=0;
+                blockingCheckpointControl=Array.IndexOf(Environment.GetCommandLineArgs(),"-forgecore-blocking-checkpoint-probe")>=0;
 #endif
                 }}
         private void OnDestroy(){if(Instance==this)Instance=null;}
@@ -48,7 +50,7 @@ namespace ForgeCoreGameTemplates
             public void Dispose(){if(owner!=null){var ms=Math.Max(0,owner.timer.Elapsed.TotalMilliseconds-start);owner.work.Add(kind,frame,start,ms);if(owner.timingWork!=null)owner.timingWork.Add(kind,frame,start,ms);}}
         }
         private void Start(){ReadyMilliseconds=Time.realtimeSinceStartupAsDouble*1000;if(timing!=null)timing.Ready(ReadyMilliseconds);}
-        public DemoTimingReport TimingSnapshot(){if(timing==null)return null;var report=timing.Snapshot();report.scopedWork=timingWork.Snapshot();report.supportMapVariant=legacySupportMap?"legacy_property_per_influence":"cached_bone_roles";return report;}
+        public DemoTimingReport TimingSnapshot(){if(timing==null)return null;var report=timing.Snapshot();report.scopedWork=timingWork.Snapshot();report.supportMapVariant=legacySupportMap?"legacy_property_per_influence":"cached_bone_roles";report.checkpointDispatch=blockingCheckpointControl?"blocking_control":"queued_nonblocking";return report;}
         public void ResetMeasurement(string kind="gameplay"){
             if(kind!="gameplay"&&kind!="idle")throw new ArgumentException("Unknown timing window.");timingWindow=kind;
             if(timing!=null)timing.BeginWindow(timer.Elapsed.TotalMilliseconds,kind);

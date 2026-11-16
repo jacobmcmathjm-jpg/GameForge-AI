@@ -30,6 +30,9 @@ namespace ForgeCoreGameTemplates
         }
         private void Update()
         {
+            if(options!=null&&options.ExitState!=ForgeCore.Demo.DemoCheckpointExitState.Idle){
+                SetPaused(true);Cursor.lockState=CursorLockMode.None;Cursor.visible=true;return;
+            }
             var input=PrototypeInput.Read();
             if(input.PausePressed&&(options==null||!options.Intro))SetPaused(!Paused);
             if(input.RestartPressed&&(options==null||!options.Intro))Restart();

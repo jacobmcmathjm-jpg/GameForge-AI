@@ -216,7 +216,7 @@ namespace ForgeCoreGameTemplates.Tests
         }
         [Test]public void CorruptWrongProfileAndBlockedCheckpointCannotMutateCurrentGame()
         {
-            var options=session.options;options.StartNewGame();var file=Path.Combine(options.StoreRoot,"checkpoint.json");var good=File.ReadAllText(file);
+            var options=session.options;options.StartNewGame();Assert.True(options.CheckpointCompletion.GetAwaiter().GetResult());var file=Path.Combine(options.StoreRoot,"checkpoint.json");var good=File.ReadAllText(file);
             foreach(var json in new[]{"{broken",good.Replace(DemoStateRules.Profile,"unrelated-profile"),"{}"}) {
                 File.WriteAllText(file,json);Assert.False(options.TryLoadCheckpoint());Assert.AreEqual(100,session.player.Health);Assert.AreEqual(0,mission.Stage);
             }
@@ -226,7 +226,7 @@ namespace ForgeCoreGameTemplates.Tests
         }
         [Test]public void OccupiedAtomicTemporaryPreservesPreviousCheckpointAndSettingsStayValidated()
         {
-            var options=session.options;options.StartNewGame();var file=Path.Combine(options.StoreRoot,"checkpoint.json");var before=File.ReadAllText(file);
+            var options=session.options;options.StartNewGame();Assert.True(options.CheckpointCompletion.GetAwaiter().GetResult());var file=Path.Combine(options.StoreRoot,"checkpoint.json");var before=File.ReadAllText(file);
             File.WriteAllText(file+".new","retained interrupted write");Assert.False(options.SaveCheckpoint());Assert.AreEqual(before,File.ReadAllText(file));
             Assert.AreEqual("retained interrupted write",File.ReadAllText(file+".new"));
             Assert.False(options.SetSettings(new DemoSettings{sensitivity=float.NaN},true));Assert.AreEqual(1.7f,options.Settings.sensitivity);
@@ -306,6 +306,35 @@ namespace ForgeCoreGameTemplates.Tests
             Assert.True(request.IsCompleted);Assert.True(request.Result);Assert.Greater(frames,0);Assert.False(options.AutosavePending);
             var saved=JsonUtility.FromJson<DemoCheckpoint>(File.ReadAllText(Path.Combine(options.StoreRoot,"checkpoint.json")));
             Assert.AreEqual(93,saved.health);Assert.AreEqual(89,session.player.Health);Assert.True(options.TryLoadCheckpoint());Assert.AreEqual(93,session.player.Health);
+        }
+        [UnityTest]public IEnumerator NewGameReturnsAndFramesAdvanceWhileItsDurableWriteIsBlocked()
+        {
+            var options=session.options;options.Initialize();var store=options.StoreRoot;
+            using(var entered=new System.Threading.ManualResetEventSlim())
+            using(var release=new System.Threading.ManualResetEventSlim()){
+                options.SetCheckpointWriterForEditorTest((text,measured)=>{entered.Set();return release.Wait(5000)&&DemoAtomicStateFiles.TryWrite(store,"checkpoint.json",text,measured,out _);});
+                var began=System.Diagnostics.Stopwatch.StartNew();options.StartNewGame();var returned=began.Elapsed.TotalMilliseconds;
+                try{
+                    Assert.Less(returned,100,"New game must enqueue, not wait for the blocked writer.");
+                    Assert.True(entered.Wait(5000));Assert.True(options.AutosavePending);Assert.That(options.CheckpointStatus,Does.Contain("Saving"));
+                    session.player.Damage(7);var frame=Time.frameCount;
+                    Assert.False(options.PrepareQuit());Assert.AreEqual(DemoCheckpointExitState.Waiting,options.ExitState);Assert.True(session.Paused);
+                    for(var i=0;i<3;i++)yield return null;
+                    Assert.Greater(Time.frameCount,frame);Assert.True(options.AutosavePending);options.CancelPendingQuit();Assert.False(session.Paused);
+                }finally{release.Set();Assert.True(options.CheckpointCompletion.GetAwaiter().GetResult());}
+                var saved=JsonUtility.FromJson<DemoCheckpoint>(File.ReadAllText(Path.Combine(store,"checkpoint.json")));
+                Assert.AreEqual(100,saved.health);Assert.AreEqual(93,session.player.Health);Assert.False(options.CheckpointFailed);
+            }
+        }
+        [UnityTest]public IEnumerator FailedNewGameSaveKeepsTheDurableCheckpointAndBlocksUnacknowledgedQuit()
+        {
+            var options=session.options;options.StartNewGame();Assert.True(options.CheckpointCompletion.GetAwaiter().GetResult());
+            var file=Path.Combine(options.StoreRoot,"checkpoint.json");var before=File.ReadAllText(file);File.WriteAllText(file+".new","owned interrupted fixture");
+            options.StartNewGame();var deadline=Time.realtimeSinceStartup+10;
+            while(options.AutosavePending&&Time.realtimeSinceStartup<deadline)yield return null;
+            Assert.False(options.AutosavePending);Assert.False(options.CheckpointCompletion.Result);Assert.True(options.CheckpointFailed);
+            Assert.That(options.CheckpointStatus,Does.Contain("previous checkpoint kept"));Assert.AreEqual(before,File.ReadAllText(file));Assert.AreEqual("owned interrupted fixture",File.ReadAllText(file+".new"));
+            Assert.False(options.PrepareQuit());Assert.AreEqual(DemoCheckpointExitState.Blocked,options.ExitState);options.CancelPendingQuit();
         }
         [Test]public void RuntimeTelemetryRecordsNamedScopesWithoutChangingItsFrameBudget()
         {

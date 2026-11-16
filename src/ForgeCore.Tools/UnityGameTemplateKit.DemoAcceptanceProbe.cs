@@ -96,6 +96,7 @@ namespace ForgeCoreGameTemplates
                 result.idleSeconds=Time.realtimeSinceStartup-idleStart;result.idleFrames=telemetry.Snapshot();
             }
             report.storageScope=session.options.StoreRoot;
+            Require(!session.options.AutosavePending&&session.options.CheckpointCompletion.IsCompleted&&session.options.CheckpointCompletion.Result,"All scripted checkpoints must be durable by the end of the soak");
             Require(report.storageScope.Contains("ForgeCoreDemoProbe-"),"Probe touched normal user save scope");
         }
         private IEnumerator Fight() {

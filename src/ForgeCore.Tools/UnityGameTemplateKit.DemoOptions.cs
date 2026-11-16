@@ -9,6 +9,7 @@ internal static partial class UnityGameTemplateKit
     }
     private const string DemoOptionsSource = """
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -46,17 +47,25 @@ namespace ForgeCoreGameTemplates
         private DemoSettings draft;
         private Vector2 menuScroll;
         private DemoCheckpointQueue saves;private Task<bool> latestSave;private string saveReason;
+        private string checkpointStatus="";private bool checkpointFailed,pausedBeforeQuit,forceQuit;
+        private float savedNoticeUntil;private readonly DemoCheckpointExit exit=new DemoCheckpointExit();private Coroutine quitRoutine;
         public bool AutosavePending=>saves!=null&&saves.Pending;
+        public Task<bool> CheckpointCompletion=>saves==null?Task.FromResult(true):saves.Completion;
+        public string CheckpointStatus {get{PublishSaveStatus();return checkpointStatus;}}
+        public bool CheckpointFailed {get{PublishSaveStatus();return checkpointFailed;}}
+        public DemoCheckpointExitState ExitState=>exit.State;
         private void Start(){Initialize();if(!Application.isEditor&&!DemoRuntimeScope.Diagnostic)session.SetPaused(true);}
         public void Initialize() {
             if(initialized)return;initialized=true;StoreRoot=DemoRuntimeScope.StorageRoot();
             var root=StoreRoot;saves=new DemoCheckpointQueue((text,measured)=>DemoAtomicStateFiles.TryWrite(root,"checkpoint.json",text,measured,out _));
+            if(!Application.isEditor)Application.wantsToQuit+=PrepareQuit;
             try {var json=ReadOwned("settings.json");if(json!=null){var value=DemoStateRules.UpgradeSettings(JsonUtility.FromJson<DemoSettings>(json));if(DemoStateRules.SettingsValid(value))Settings=value;else Status="Invalid settings; safe defaults used.";}}
             catch{Status="Settings unreadable; safe defaults used.";}
             ApplySettings();
         }
         private void Update() {
             PublishSaveStatus();
+            if(exit.State!=DemoCheckpointExitState.Idle)return;
             if(Intro&&!settingsOpen&&Input.GetKeyDown(KeyCode.Return))StartNewGame();
             if(!Intro&&Input.GetKeyDown(KeyCode.F9))TryLoadCheckpoint();
         }
@@ -74,7 +83,10 @@ namespace ForgeCoreGameTemplates
         }
         public void StartNewGame() {
             Initialize();Intro=false;settingsOpen=false;session.Restart();
-            using(var measured=DemoRuntimeTelemetry.Measure(DemoWorkKind.NewGameCheckpoint))SaveCheckpoint("New mission checkpoint");
+            using(var measured=DemoRuntimeTelemetry.Measure(DemoWorkKind.NewGameCheckpoint)){
+                if(DemoRuntimeTelemetry.BlockingCheckpointControl)SaveCheckpoint("New mission checkpoint");
+                else _=RequestCheckpoint("New mission checkpoint");
+            }
             session.SetPaused(false);
         }
         public bool SaveCheckpoint(string reason="Checkpoint saved") {
@@ -87,15 +99,58 @@ namespace ForgeCoreGameTemplates
             var data=new DemoCheckpoint{schemaVersion=1,profile=DemoStateRules.Profile,stage=session.mission.Stage,defeatedMask=mask,
                 health=player.Health,reserve=player.Reserve,magazine=player.motion.Ammo,x=p.x,y=Mathf.Max(0,p.y),z=p.z,yaw=Mathf.Repeat(player.transform.eulerAngles.y,360),pitch=player.ViewPitch};
             if(!DemoStateRules.CheckpointValid(data)){Status="Not a valid checkpoint state.";return Task.FromResult(false);}
-            var request=saves.Request(JsonUtility.ToJson(data,true),DemoRuntimeTelemetry.BackgroundRecorder());latestSave=request;saveReason=reason;Status="Saving checkpoint...";
+            var request=saves.Request(JsonUtility.ToJson(data,true),DemoRuntimeTelemetry.BackgroundRecorder());latestSave=request;saveReason=reason;
+            checkpointFailed=false;checkpointStatus=Status="Saving checkpoint...";
             PublishSaveStatus();return request;
         }
         private void PublishSaveStatus() {
-            if(latestSave==null||!latestSave.IsCompleted)return;
-            Status=latestSave.Result?saveReason:"Save failed; previous checkpoint kept. Check retained .new/storage and restart autosave.";latestSave=null;
+            if(latestSave==null||!latestSave.IsCompleted){
+                if(checkpointFailed)checkpointStatus=AutosavePending?"Newest checkpoint rejected; earlier saves still pending.":"Save failed; previous checkpoint kept. Latest progress is not confirmed saved.";
+                return;
+            }
+            checkpointFailed=!latestSave.Result||saves.Failed;
+            checkpointStatus=checkpointFailed?(AutosavePending?"Newest checkpoint rejected; earlier saves still pending.":"Save failed; previous checkpoint kept. Check retained .new/storage and restart autosave."):
+                AutosavePending?"Saving checkpoint...":saveReason;
+            Status=checkpointStatus;savedNoticeUntil=Time.unscaledTime+5;latestSave=null;
         }
+        // A quit request remains a live, rendered UI state until durable completion or an explicit loss-of-latest choice.
+        public bool PrepareQuit(){
+            Initialize();PublishSaveStatus();if(exit.State==DemoCheckpointExitState.Ready)return true;
+            if(exit.State==DemoCheckpointExitState.Idle){pausedBeforeQuit=session.Paused;exit.Request(AutosavePending,checkpointFailed||saves.Failed,Time.realtimeSinceStartupAsDouble);}
+            if(exit.State==DemoCheckpointExitState.Ready)return true;
+            session.SetPaused(true);if(exit.State==DemoCheckpointExitState.Waiting&&quitRoutine==null)quitRoutine=StartCoroutine(PollQuit());return false;
+        }
+        private IEnumerator PollQuit(){
+            while(exit.State==DemoCheckpointExitState.Waiting){
+                PublishSaveStatus();exit.Poll(AutosavePending,checkpointFailed||saves.Failed,Time.realtimeSinceStartupAsDouble);
+                if(exit.State==DemoCheckpointExitState.Ready){quitRoutine=null;Application.Quit();yield break;}
+                yield return null;
+            }
+            quitRoutine=null;
+        }
+        public void CancelPendingQuit(){
+            if(quitRoutine!=null){StopCoroutine(quitRoutine);quitRoutine=null;}
+            exit.Cancel();forceQuit=false;session.SetPaused(pausedBeforeQuit);
+        }
+        private void WaitAgainForQuit(){exit.WaitAgain(Time.realtimeSinceStartupAsDouble);if(quitRoutine==null)quitRoutine=StartCoroutine(PollQuit());}
+        private void QuitWithoutLatest(){exit.ConfirmWithoutLatest();forceQuit=true;Application.Quit();}
+        private void OnDestroy(){if(!Application.isEditor)Application.wantsToQuit-=PrepareQuit;}
         private void OnApplicationQuit() {
-            if(saves!=null&&saves.Pending&&!saves.Completion.Wait(2000))Status="Exit save still pending; previous durable checkpoint retained.";
+            if(Application.isEditor)return;
+            if(saves!=null&&saves.Pending&&(forceQuit||!saves.Completion.Wait(2000)))
+                Debug.LogWarning("Exit with checkpoint still pending; previous durable checkpoint and any interrupted .new are retained. Latest progress is not confirmed saved.");
+        }
+#if UNITY_EDITOR
+        // Slow/failing writers are injectable only in the Editor test assembly, never in delivered players.
+        public void SetCheckpointWriterForEditorTest(Func<string,Action<DemoWorkKind,double>,bool> writer){
+            Initialize();if(AutosavePending)throw new InvalidOperationException("Drain the old queue before replacing a test writer.");
+            saves=new DemoCheckpointQueue(writer);latestSave=null;checkpointFailed=false;checkpointStatus="";
+        }
+#endif
+        private void OnGUI(){
+            if(session==null||session.Paused)return;var text=CheckpointStatus;
+            if(text.Length>0&&(AutosavePending||checkpointFailed||Time.unscaledTime<savedNoticeUntil))
+                GUI.Box(new Rect(Mathf.Max(8,Screen.width/2-250),Screen.height-148,Mathf.Min(500,Screen.width-16),38),text);
         }
         public bool TryLoadCheckpoint() {
             using(var measured=DemoRuntimeTelemetry.Measure(DemoWorkKind.CheckpointRestore))return LoadCheckpointCore();
@@ -152,6 +207,16 @@ namespace ForgeCoreGameTemplates
             Initialize();var width=Mathf.Min(560,Screen.width-24);var height=Mathf.Min(580,Screen.height-24);
             var r=new Rect((Screen.width-width)/2,(Screen.height-height)/2,width,height);GUI.Box(r,Intro?"INDUSTRIAL INFILTRATION — demo":"Paused");
             GUILayout.BeginArea(new Rect(r.x+18,r.y+32,r.width-36,r.height-48));
+            if(exit.State!=DemoCheckpointExitState.Idle){
+                GUILayout.Label(exit.State==DemoCheckpointExitState.Waiting?"Finishing checkpoint before quitting...":"Checkpoint is not confirmed saved.");
+                GUILayout.Label(CheckpointStatus);GUILayout.Label("The previous durable checkpoint is retained. Latest progress may be lost if you quit now.");
+                if(exit.State==DemoCheckpointExitState.Blocked){
+                    if(AutosavePending&&GUILayout.Button("Keep waiting"))WaitAgainForQuit();
+                    if(GUILayout.Button("Quit using previous durable checkpoint"))QuitWithoutLatest();
+                }
+                if(GUILayout.Button("Cancel quit"))CancelPendingQuit();
+                GUILayout.EndArea();return;
+            }
             menuScroll=GUILayout.BeginScrollView(menuScroll);
             if(settingsOpen) {
                 GUILayout.Label("Keyboard/mouse settings — gamepad support not implemented");

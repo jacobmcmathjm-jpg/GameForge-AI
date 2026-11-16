@@ -1,28 +1,27 @@
-# Current-game timing integration
+# Current-game checkpoint and timing verification
 
-This is the November source, not the older PR #3 fixture. Kit .94 adds cached support-map evaluation and bounded attribution scopes to .93. Existing scene/audio assets and the historical .93 outcome are preserved. Do not launch the legacy fixture to judge current graphics/audio.
+Kit .95 makes the automatic new-game checkpoint nonblocking and adds a rendered quit-wait/error/cancel state. It retains .94 support-map optimization and existing scene, sounds, muzzle shader, clips and saved-data schemas. Historical .93/.94 outcomes remain unchanged.
 
-Run from repository root. Each production-tool step writes an immutable receipt below work/support-map-s01. A failed/ambiguous receipt stops replay; inspect it and select a separately coded fresh attempt. Real Unity requires the licensed normal Windows context, no other Editor, and write authority for the named project.
+Use this repository root. Production receipts are immutable below work/async-start-s01; the fixed new build destination is Builds/S01-AsyncStart-20261116/ForgeCore-S01Async.exe. Never replay a failed or ambiguous mutating attempt; inspect its receipt and choose a deliberately fresh attempt. Real Unity needs the normal licensed Windows context, named-project write authority and no other Editor.
 
-1. dotnet run --project scripts/Verify-CurrentGameTiming -- audit-before
-2. dotnet run --project scripts/Verify-CurrentGameTiming -- install
-3. dotnet run --project scripts/Verify-CurrentGameTiming -- compile
-4. dotnet run --project scripts/Verify-CurrentGameTiming -- build
-5. Export the clean fresh folder before probes create diagnostic subdirectories.
-6. scripts/Invoke-CourtyardPlayerChecks.ps1 -Candidate CurrentTiming-v2
-7. scripts/Invoke-DemoAcceptance.ps1 -Candidate current-timing-v2 -Attempt first -Viewport 1080p -LongSoak
-8. scripts/Test-CurrentGameTiming.ps1 -Candidate current-timing-v2 -Attempt first
-9. Repeat with a fresh attempt, without changing executable/scene/level0.
-10. edit-tests, existing graphics PlayMode suite (107), then audit-after.
+1. Restore/build/test host source from the exclusive local package cache.
+2. Verify-CurrentGameTiming: audit-before, install, compile, edit-tests.
+3. Invoke-VisualPassTests: fresh attempt, ExpectedPassed 109.
+4. Verify-CurrentGameTiming: build. Export the clean app/game before probes create diagnostic directories.
+5. Invoke-DemoAcceptance: Candidate current-timing-v3, Viewport 1080p, Attempt blocking-control, LongSoak and BlockingCheckpointControl. Validate with Test-CurrentGameTiming using the same candidate/attempt/control flag.
+6. Repeat as async-first with LongSoak and no control flag; repeat as async-repeat with the matched default eight-second idle. Validate each exact report.
+7. Compare-CheckpointDispatch.ps1 binds modes, windows, provenance and actual runtime DLL to the sealed clean export. It saves evidence before rejecting a failed enqueue-time criterion.
+8. Invoke-CourtyardPlayerChecks: Candidate CurrentTiming-v3. Verify-CurrentGameTiming: audit-after.
+9. Independently verify delivery/source manifests and restore-build-test the exact new source ZIP before publishing sanitized source.
 
-Build is the existing Retro64-v2 scene into a new S01-SupportMap-20261116 folder. This harness has no scene/model/audio generation or review-decision mode. The install uses the exact protected production .93 upgrade; modified/unknown installed sources are not overwritten.
+The blocking-checkpoint flag is development-player/timing-only; normal launches always enqueue automatic new-game saves. The old support-map control remains scoped to the older v2 diagnostics. Do not use the obsolete PR #3 primitive fixture to assess current graphics/audio.
 
-The full mission probe adds -forgecore-timing-probe. Without that flag no new timing collector/context snapshots/JSON are created. Gameplay controls, warm shader, recorded footsteps, weapon sounds, clips and the existing two-second measurement warmup are unchanged.
+Snapshot capture and JSON serialization remain on the Unity thread. The existing bounded queue writes immutable strings serially on the pool, with durable flush, atomic replace, retained previous state and sticky failure/no ambiguous replay. The new-game caller no longer waits for it. Explicit manual save/load and settings persistence retain their previous synchronous durability boundaries.
 
-Primary intervals are consecutive telemetry Update Stopwatch observations. Unity unscaled delta is supplementary, may cover a different interval, and cannot hide a later worst wall-clock sample. Startup Awake/Ready values are Unity initialization latencies, not native process startup frames. Native pre-Awake startup is unobserved. Window maxima/counts must match the pre-existing gameplay sampler exactly; the boundary-crossing interval is not discarded.
+A visible saving/error notice does not assert completion while pending. Normal quit waits by polling while rendering continues; after two seconds or failure it requires waiting/cancellation or an explicit choice to exit without the latest checkpoint. The old bounded two-second OnApplicationQuit drain remains an OS/forced-event fallback. This is not power-loss certification.
 
-Caps: 64 first detailed events, separate worst wall event per phase, 16 windows, 1,000,000 observations, 8 overlapping work entries per retained interval. Dropped details are counted; frame/window overflow prevents provisional acceptance. GC/memory/work overlaps indicate context, not causality. Normal-frame collection does no file/JSON work. Instrumentation overhead is not independently benchmarked.
+The generated Editor-only writer seam exercises a deliberately held write, continuing frames, immutable snapshot contents, quit cancellation and failure preservation. It does not exist in delivered players. Verify-CheckpointInterruption starts and kills ONLY its own synthetic helper after durable temporary-file flush and before replacement, verifies the old durable checkpoint and retained candidate, and rejects replay. It does not kill Unity, normal apps or user saves.
 
-The 100 ms gameplay maximum is provisional and reported separately from mission completion. It does not replace existing p95/GPU/memory contracts or establish startup/warmup/whole-session acceptance. OS/driver caches are not controlled by this harness. No freeze fix, human art/rights decision or new stage completion is implied.
+Timing schema 3 identifies queued versus blocking control. Stopwatch observations are primary, Unity delta supplementary; the two-second warmup and crossing-frame ownership are unchanged. First-event detail caps, separate worst-per-phase events, 16 windows, 1,000,000 frames and eight work overlaps remain. Extra scoped timing is opt-in; its detail ring is 256 with fixed aggregates. Nested/main/worker scopes overlap and must not be summed as exclusive CPU time.
 
-For same-build control measurements, use -LegacySupportMap on Invoke-DemoAcceptance and Test-CurrentGameTiming with the v2 candidate. This flag selects the original per-influence skeleton property access ONLY with the timing flag in a development player, never in the Editor or normal game launch. Use unique attempts legacy-first, cached-first, legacy-repeat, cached-repeat; first pair uses LongSoak, repeat pair uses matched default eight-second idle. Then run scripts/Compare-SupportMapTiming.ps1. Do not sum nested scope totals as exclusive CPU time. The persistent opt-in journal survives measurement resets; its detail ring stays capped at 256 and aggregate slots are fixed by work kind.
+The 100 ms gameplay maximum remains provisional. No startup or whole-session fix is inferred from a gameplay pass, a faster enqueue, or faster physical storage. OS/driver caches and normal workstation activity are not controlled; instrumentation overhead and human art/listening acceptance are separate.

@@ -5,10 +5,10 @@ using ForgeCore.Security;
 using ForgeCore.Tools;
 // Production policy/executor only. No generation, external provider, review decision, SQLite or scene writes.
 const string project="Games/ForgeCore", scene="Assets/Scenes/Retro/Industrial-Retro64-v2.unity";
-const string player="Builds/S01-SupportMap-20261116/ForgeCore-S01SupportMap.exe";
+const string player="Builds/S01-AsyncStart-20261116/ForgeCore-S01Async.exe";
 const string editor=@"C:\Program Files\Unity\Hub\Editor\6000.5.5f1\Editor\Unity.exe";
 var guard=new WorkspacePathGuard(@"D:\ForgeCore\Workspace");
-var evidence=Path.Combine(Environment.CurrentDirectory,"work","support-map-s01");
+var evidence=Path.Combine(Environment.CurrentDirectory,"work","async-start-s01");
 Directory.CreateDirectory(evidence);
 var policy=new SecurityPolicy(guard,[],unityEditorPath:editor,unityEditorVersion:"6000.5.5f1");
 using var executor=new ToolExecutor(guard,[],[],100*1024*1024,unityEditorPath:editor,unityEditorVersion:"6000.5.5f1",unityTimeoutSeconds:1200,enableUnityProjectPackages:true);
@@ -18,13 +18,13 @@ try {
         case "audit-before":await Audit(false);break;
         case "install":
             if(!File.Exists(Path.Combine(evidence,"preservation-before.json")))throw new IOException("Audit first.");
-            await Run("install-kit-v94",ToolCall.Create(ToolKind.ScaffoldUnityGameTemplate,PermissionKind.Write,"Exact protected .93 to .94 support-map upgrade; preserve generated scene, art and audio",("project_path",project),("template_id","first_person_action")));break;
-        case "compile":await Run("compile-v94",Action("compile"));break;
+            await Run("install-kit-v95",ToolCall.Create(ToolKind.ScaffoldUnityGameTemplate,PermissionKind.Write,"Exact protected .94 to .95 nonblocking new-game save and guarded quit; preserve scene, art and audio",("project_path",project),("template_id","first_person_action")));break;
+        case "compile":await Run("compile-v95",Action("compile"));break;
         case "build":
             if(await Hash(scene)!="1c5d16f360cd0e0f5979cf20ef1817a702cf389dd76ac15b9522eac11512cb9a")throw new IOException("Original latest scene changed.");
-            if(Directory.Exists(guard.Resolve(project+"/Builds/S01-SupportMap-20261116",false)))throw new IOException("Fresh build destination required.");
-            await Run("build-v94",Action("build_windows",("scene_path",scene),("output_path",player),("development_build","true")));break;
-        case "edit-tests":await Run("edit-tests-v94",Action("run_tests",("test_mode","edit")));break;
+            if(Directory.Exists(guard.Resolve(project+"/Builds/S01-AsyncStart-20261116",false)))throw new IOException("Fresh build destination required.");
+            await Run("build-v95",Action("build_windows",("scene_path",scene),("output_path",player),("development_build","true")));break;
+        case "edit-tests":await Run("edit-tests-v95",Action("run_tests",("test_mode","edit")));break;
         case "audit-after":await Audit(true);break;
         default:throw new ArgumentException("Unknown mode.");
     }
