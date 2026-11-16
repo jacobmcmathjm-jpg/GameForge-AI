@@ -18,7 +18,7 @@ namespace ForgeCoreGameTemplates.Tests
         private GameObject root;private string folder;
         [UnitySetUp]public IEnumerator Setup() {
             var path=AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath)
-                .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/visual-polish-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+                .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/visual-polish-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
             Assert.NotNull(path,"Fresh final visual fixture required.");folder=Path.GetDirectoryName(path);PrototypeInput.SetScriptedFrame(new PrototypeInputFrame());
             root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));var session=root.GetComponentInChildren<SecurityCombatSession>();session.enabled=false;session.SetPaused(true);
             yield return null;session.player.enabled=false;foreach(var enemy in session.enemies)enemy.enabled=false;

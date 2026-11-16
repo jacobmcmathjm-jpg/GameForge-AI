@@ -50,7 +50,7 @@ public sealed partial class SecurityTests
                 [new("arms", 300, .4, 1.5, true), new("legs", 400, .5, 2, true), new("combined", 800, .6, 2.2, true)]);
             await File.WriteAllTextAsync(ValueAfter(arguments, "-forgecoreResult"), JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1", requestId = r.GetProperty("requestId").GetString(),
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1", requestId = r.GetProperty("requestId").GetString(),
                 operation, success = true, summary = "synthetic measurement plumbing only", characterRig = operation == "inspect_character_rig" ? rig : null
             }), token);
             return new(0, "", "");

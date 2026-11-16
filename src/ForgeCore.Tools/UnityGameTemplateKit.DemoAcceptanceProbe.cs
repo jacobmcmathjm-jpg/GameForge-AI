@@ -17,7 +17,7 @@ namespace ForgeCoreGameTemplates
     {
         [Serializable]private sealed class Pass {
             public int preset,health,shots,hostileShots,kills,audioEvents,droppedVoices,footsteps,recordedFootsteps;
-            public bool completed,checkpointRoundtrip;public float travelled,seconds;
+            public bool completed,checkpointRoundtrip,gateChecks;public int visitedZones;public float travelled,seconds;
             public long allocatedStart,allocatedEnd,reservedEnd;public DemoFrameSummary frames;
             public DemoWorkSnapshot work;public DemoRuntimeTelemetry.Spike[] spikes;
             public float idleSeconds;public DemoFrameSummary idleFrames;
@@ -25,7 +25,7 @@ namespace ForgeCoreGameTemplates
         [Serializable]private sealed class Report {
             public string profile="three_preset_actual_controller_projectile_mission_v1",device,error="",storageScope;
             public string gpu,cpu;public int width,height;public double unityReadyMilliseconds;
-            public string audioRecipe,recordedFootstepBankId;public int audioClips;
+            public string audioRecipe,recordedFootstepBankId,layoutProfile,checkpointProfile;public int audioClips;
             public string activity="startup";public Vector3 playerPosition,targetPosition,waypoint;public int stage,kills,ammo,reserve,blockedShots;
             public bool viewClear,muzzleBlocked;
             public bool muted=true,directDamageUsed=false,playerTeleportUsed=false,humanArtAccepted=false,humanListeningAccepted=false;
@@ -33,7 +33,7 @@ namespace ForgeCoreGameTemplates
             public List<Pass> passes=new List<Pass>();
         }
         private Report report=new Report();private string folder;private SecurityCombatSession session;private DemoRuntimeTelemetry telemetry;
-        private int shots,hostileShots;private float travelled,deadline;
+        private int shots,hostileShots,visitedZones;private float travelled,deadline;private ConnectedIndustrialLevel connected;
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]private static void Bootstrap() {
             if(!Environment.GetCommandLineArgs().Contains("-forgecore-demo-probe"))return;
             Application.runInBackground=true;new GameObject("Owned bounded complete-demo acceptance").AddComponent<DemoAcceptanceProbe>();
@@ -53,6 +53,7 @@ namespace ForgeCoreGameTemplates
             yield return null;yield return null;
             if(SystemInfo.graphicsDeviceType==UnityEngine.Rendering.GraphicsDeviceType.Null)throw new InvalidOperationException("Real graphics required.");
             session=SecurityCombatSession.Instance;if(session==null||session.options==null||session.audio==null)throw new InvalidOperationException("Fresh complete-demo fixture required.");
+            connected=session.GetComponentInParent<ConnectedIndustrialLevel>();report.layoutProfile=session.layoutProfile;report.checkpointProfile=session.CheckpointProfile;
             session.enabled=false;session.player.enabled=false;session.mission.enabled=false;session.options.enabled=false;
             telemetry=session.options.GetComponent<DemoRuntimeTelemetry>();Require(telemetry!=null&&telemetry.Session==session,"Telemetry root/session wiring missing");
             report.audioRecipe=session.audio.audioRecipe;report.audioClips=session.audio.variationClips!=null?session.audio.variationClips.Length:0;
@@ -62,21 +63,29 @@ namespace ForgeCoreGameTemplates
             report.unityReadyMilliseconds=telemetry.ReadyMilliseconds;session.player.motion.ShotEmitted+=(p,d)=>shots++;
             foreach(var guard in session.enemies)guard.motion.ShotEmitted+=(p,d)=>hostileShots++;
             for(var preset=0;preset<3;preset++) {
-                var result=new Pass{preset=preset};report.passes.Add(result);var began=Time.realtimeSinceStartup;shots=hostileShots=0;travelled=0;
+                var result=new Pass{preset=preset};report.passes.Add(result);var began=Time.realtimeSinceStartup;shots=hostileShots=visitedZones=0;travelled=0;
                 var stepsAtStart=session.audio.FootstepEvents;
                 var recordedStepsAtStart=session.audio.RecordedFootstepEvents;
                 if(!session.options.SetSettings(new DemoSettings{quality=preset,frameLimit=60,masterVolume=0},true))throw new IOException("Probe settings save failed.");
                 session.options.StartNewGame();telemetry.ResetMeasurement();result.allocatedStart=telemetry.AllocatedBytes;
+                if(connected!=null){result.gateChecks=connected.doors.All(d=>d.enabled)&&session.Navigation.Find(session.player.transform.position,session.mission.objectives[1].position).Count==0;
+                    Require(result.gateChecks,"Loading gate does not block premature access");}
                 yield return Walk(session.mission.objectives[0].position);Require(session.mission.TryInteract(),"Power interaction failed");
+                if(connected!=null)Require(!connected.doors[0].enabled&&connected.doors[1].enabled,"Power opened the wrong gate");
                 yield return Fight();
                 Require(session.Kills==2,"First encounter not cleared");
+                if(connected!=null)yield return Walk(session.mission.objectives[1].position);
+                var savedPosition=session.player.transform.position;
                 var save=session.options.RequestCheckpoint("Owned probe checkpoint");
                 while(!save.IsCompleted){Check();yield return null;}Require(save.Result,"Checkpoint save failed");
                 var health=session.player.Health;var ammo=session.player.motion.Ammo;var reserve=session.player.Reserve;
                 Require(session.options.TryLoadCheckpoint(),"Checkpoint restore failed");
-                result.checkpointRoundtrip=session.Kills==2&&session.mission.Stage==1&&session.player.Health==health&&session.player.motion.Ammo==ammo&&session.player.Reserve==reserve;
+                result.checkpointRoundtrip=session.Kills==2&&session.mission.Stage==1&&session.player.Health==health&&session.player.motion.Ammo==ammo&&session.player.Reserve==reserve&&Vector3.Distance(savedPosition,session.player.transform.position)<.1f;
                 Require(result.checkpointRoundtrip,"Checkpoint altered mission/vitals/ammo");
-                yield return Walk(session.mission.objectives[1].position);Require(session.mission.TryInteract(),"Manifest interaction failed");
+                if(connected==null)yield return Walk(session.mission.objectives[1].position);
+                else Require(savedPosition.z>32&&report.checkpointProfile==DemoStateRules.ConnectedProfile&&!connected.doors[0].enabled&&connected.doors[1].enabled,"Far warehouse checkpoint/profile or gate restore failed");
+                Require(session.mission.TryInteract(),"Manifest interaction failed");
+                if(connected!=null)Require(connected.doors.All(d=>!d.enabled),"Manifest did not open the control room");
                 yield return Fight();yield return Walk(session.mission.objectives[2].position);Require(session.mission.TryInteract(),"Extraction failed");
                 result.completed=session.mission.Completed;result.health=session.player.Health;result.kills=session.Kills;result.shots=shots;
                 result.hostileShots=hostileShots;result.travelled=travelled;result.seconds=Time.realtimeSinceStartup-began;
@@ -88,6 +97,7 @@ namespace ForgeCoreGameTemplates
                 result.recordedFootsteps=session.audio.RecordedFootstepEvents-recordedStepsAtStart;
                 Require(result.recordedFootsteps>15,"Actual grounded movement did not select recorded footsteps");
                 Require(result.completed&&result.kills==3&&result.shots>=9&&result.travelled>45,"Actual mission evidence incomplete");
+                result.visitedZones=visitedZones;if(connected!=null)Require(visitedZones==7&&travelled>110&&result.gateChecks,"Actual connected three-zone route evidence incomplete");
                 Capture("preset-"+preset+"-completed.png");
                 // Additional bounded warm idle soak, explicitly excluded from the combat percentile above.
                 session.options.StartNewGame();telemetry.ResetMeasurement("idle");var idleStart=Time.realtimeSinceStartup;
@@ -154,6 +164,7 @@ namespace ForgeCoreGameTemplates
             player.Simulate(new PrototypeInputFrame(moveX:local.x,moveY:local.z,lookX:lookX,lookY:lookY,fireHeld:fire&&aligned,
                 reloadPressed:player.motion.Ammo==0&&player.motion.Action!="Reload"),fire,Dt());
             travelled+=Vector3.Distance(before,player.transform.position);
+            if(connected!=null){var zone=connected.Zone(player.transform.position);visitedZones|=zone=="SERVICE YARD"?1:zone=="WAREHOUSE"?2:4;}
         }
         private void Check(){report.playerPosition=session.player.transform.position;report.stage=session.mission.Stage;report.kills=session.Kills;
             report.ammo=session.player.motion.Ammo;report.reserve=session.player.Reserve;report.blockedShots=session.ShotsBlockedByCover;

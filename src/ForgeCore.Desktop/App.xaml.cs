@@ -36,9 +36,9 @@ public partial class App : Application
             catch(Exception error){Console.Error.WriteLine("Offscreen target-review validation failed: "+error.GetType().Name+": "+error.Message);Shutdown(1);}
             return;
         }
-        if(e.Args.Length==2&&e.Args[0] is "--verify-courtyard-pipeline" or "--verify-retro-courtyard-pipeline")
+        if(e.Args.Length==2&&e.Args[0] is "--verify-courtyard-pipeline" or "--verify-retro-courtyard-pipeline" or "--verify-connected-industrial-pipeline")
         {
-            try{await CourtyardPipelineProbe.RunAsync(e.Args[1],e.Args[0]=="--verify-retro-courtyard-pipeline");Shutdown(0);}
+            try{await CourtyardPipelineProbe.RunAsync(e.Args[1],e.Args[0]=="--verify-retro-courtyard-pipeline",e.Args[0]=="--verify-connected-industrial-pipeline");Shutdown(0);}
             catch(Exception error){Console.Error.WriteLine("Offline courtyard planner probe failed: "+error.GetType().Name+": "+error.Message);Shutdown(1);}
             return;
         }

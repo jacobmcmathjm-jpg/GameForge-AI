@@ -37,7 +37,7 @@ public sealed partial class SecurityTests
             var png=Path.Combine(_root,"Game","Previews","Motion.png");Directory.CreateDirectory(Path.GetDirectoryName(png)!);await File.WriteAllBytesAsync(png,MinimalPng(1920,1040),token);
             if(failure=="meta")await File.WriteAllTextAsync(asset+".meta","mutated",token);
             if(failure=="kit")await File.WriteAllTextAsync(Path.Combine(_root,"Game","Assets","ForgeCoreGameTemplates","Runtime","PrototypeSkinnedAnimator.cs"),"modified after execution began",token);
-            await File.WriteAllTextAsync(ValueAfter(args,"-forgecoreResult"),JsonSerializer.Serialize(new{protocolVersion="1.0",bridgeVersion="0.17.22",editorVersion="6000.0.50f1",
+            await File.WriteAllTextAsync(ValueAfter(args,"-forgecoreResult"),JsonSerializer.Serialize(new{protocolVersion="1.0",bridgeVersion="0.17.23",editorVersion="6000.0.50f1",
                 requestId=r.GetProperty("requestId").GetString(),operation="prepare_character_animation",success=true,summary="Synthetic animation receipt"}),token);return new(0,"","");
         };
         using var tools=new ToolExecutor(guard,[],[],1024*1024,unityEditorPath:exe,unityEditorVersion:"6000.0.50f1",unityProcessRunner:runner);

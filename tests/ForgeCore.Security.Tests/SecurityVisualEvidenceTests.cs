@@ -38,7 +38,7 @@ public sealed partial class SecurityTests
                 ownedTextureMemoryBytes=defect=="memory"?33_000_000:2_000_000}),token);
             var scene=Path.Combine(_root,"Game","Assets","Scenes","Visual.unity");Directory.CreateDirectory(Path.GetDirectoryName(scene)!);await File.WriteAllTextAsync(scene,"synthetic scene",token);
             var png=Path.Combine(_root,"Game","Previews","Visual.png");Directory.CreateDirectory(Path.GetDirectoryName(png)!);await File.WriteAllBytesAsync(png,MinimalPng(1920,1040),token);
-            await File.WriteAllTextAsync(ValueAfter(args,"-forgecoreResult"),JsonSerializer.Serialize(new{protocolVersion="1.0",bridgeVersion="0.17.22",editorVersion="6000.0.50f1",requestId=r.GetProperty("requestId").GetString(),operation="create_security_combat_lab",success=true,summary="Synthetic visual evidence"}),token);
+            await File.WriteAllTextAsync(ValueAfter(args,"-forgecoreResult"),JsonSerializer.Serialize(new{protocolVersion="1.0",bridgeVersion="0.17.23",editorVersion="6000.0.50f1",requestId=r.GetProperty("requestId").GetString(),operation="create_security_combat_lab",success=true,summary="Synthetic visual evidence"}),token);
             return new(0,"","");
         };
         var call=ToolCall.Create(ToolKind.UnityEditorAction,PermissionKind.Execute,"Fresh visual fixture",("project_path","Game"),("operation","create_security_combat_lab"),

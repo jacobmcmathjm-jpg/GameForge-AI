@@ -17,6 +17,11 @@ public sealed partial class BuiltInBlenderAssetModel(ILocalModel inner, string p
     public Task<AgentPlan> CreatePlanAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var connected=Regex.Match(request.UserMessage,@"^\s*(?:please\s+)?(?:create|make|generate)\s+(?:me\s+)?(?:an?\s+)?connected\s+industrial\s+level(?:\s+(?:named|called)\s+(?<name>[a-z][a-z0-9_-]{1,35}))?[.!]?\s*$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
+        var connectedLevel=connected.Success;
+        if(connectedLevel)request=request with{UserMessage="Create an industrial infiltration mission in Blender. Name it "+(connected.Groups["name"].Success?connected.Groups["name"].Value.ToLowerInvariant():"connected-industrial")+"."};
+        else if(Regex.IsMatch(request.UserMessage,@"\b(?:create|make|generate)\b.*\bconnected\s+industrial\s+level\b",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant))
+            return Task.FromResult(new AgentPlan("Use: Create a connected industrial level named connected-yard. Only the bounded single-floor three-zone profile is implemented; unsupported variations do not reach inference.",[]));
         var courtyard=Regex.Match(request.UserMessage,@"^\s*(?:please\s+)?(?:create|make|generate)\s+(?:me\s+)?(?:an?\s+)?(?:(?:detailed|indie(?:-style)?|(?<retro>retro|n64-style|goldeneye(?:\s+007)?-style))\s+)?industrial\s+courtyard(?:\s+(?:named|called)\s+(?<name>[a-z][a-z0-9_-]{1,35}))?[.!]?\s*$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
         var retroStyle=courtyard.Success&&courtyard.Groups["retro"].Success;
         if(courtyard.Success)
@@ -89,7 +94,7 @@ public sealed partial class BuiltInBlenderAssetModel(ILocalModel inner, string p
         if (imported is not null)
         {
             if (!imported.Success) return Task.FromResult(new AgentPlan("The local Blender import stopped: " + imported.Detail, []));
-            try { return Task.FromResult(InspectImported(request, imported, name, character, animated, combat,prop!=null,mission,courtyard.Success,retroStyle)); }
+            try { return Task.FromResult(InspectImported(request, imported, name, character, animated, combat,prop!=null,mission,courtyard.Success||connectedLevel,retroStyle,connectedLevel)); }
             catch (ArgumentException) { return Task.FromResult(new AgentPlan("The local import identity is invalid; Unity preparation stopped.", [])); }
         }
         var created = request.Observations.LastOrDefault(x => x.Kind == ToolKind.CreateBlenderAsset);
@@ -123,7 +128,7 @@ public sealed partial class BuiltInBlenderAssetModel(ILocalModel inner, string p
             return Task.FromResult(new AgentPlan("Blender returned no valid exact-hash receipt; no import will be proposed.", []));
         }
     }
-    private AgentPlan InspectImported(ModelRequest request, ToolObservation imported, string name, bool character, bool animated, bool combat,bool industrial=false,bool mission=false,bool courtyardBenchmark=false,bool retroStyle=false)
+    private AgentPlan InspectImported(ModelRequest request, ToolObservation imported, string name, bool character, bool animated, bool combat,bool industrial=false,bool mission=false,bool courtyardBenchmark=false,bool retroStyle=false,bool connectedLevel=false)
     {
         var spec = BlenderAssetImportSpec.From(new(imported.ToolCallId, imported.Kind, imported.Arguments, PermissionKind.Write, imported.Description));
         if (spec.ProjectPath != projectPath || spec.AssetName != name) throw new ArgumentException("Import scope mismatch.");
@@ -162,9 +167,14 @@ public sealed partial class BuiltInBlenderAssetModel(ILocalModel inner, string p
             {
                 var operation=mission?"create_industrial_mission":combat?"create_security_combat_lab":"prepare_character_animation";
                 var motion=Find(operation);
+                if(motion!=null&&(motion.Arguments.GetValueOrDefault("layout_profile")!=null?motion.Arguments["layout_profile"]!=ConnectedIndustrialProfile.Id||!connectedLevel:connectedLevel))
+                    return new("Mission layout evidence does not match the requested bounded connected/courtyard profile. No substitution, retry or export is allowed.",[]);
                 if(motion!=null&&((motion.Arguments.GetValueOrDefault("style_family")==RetroCourtyardProfile.Id)!=retroStyle))return new("Mission style evidence does not match the requested profile. No default/retro substitution or follow-up export is allowed.",[]);
-                if(courtyardBenchmark&&motion?.Success==true)return CourtyardDeliveryPlan(request,name,spec.ExpectedAssetSha256,retroStyle);
+                if(courtyardBenchmark&&motion?.Success==true)return CourtyardDeliveryPlan(request,name,spec.ExpectedAssetSha256,retroStyle,connectedLevel);
                 if(mission&&motion?.Success==true)return new("Created a fresh bounded industrial mission and reusable courtyard graphics benchmark: nine 1K surface maps, industrial dressing and three fixed before/after views (left baseline, right candidate). Collision/resource/render sanity checks passed. The comparison is static editor evidence, not runtime animation, performance or human art acceptance. Greybox prop slots still await reviewed-source integration; this is not a finished realistic game.",[]);
+                if(motion is null&&connectedLevel)return Step(ToolKind.UnityEditorAction,PermissionKind.Execute,"Generate the explicit three-zone connected single-floor industrial candidate with power/manifest-gated doors, 64m bounded navigation and isolated checkpoint profile. Art, balance and freeze acceptance stay open.",
+                    ("operation",operation),("asset_path",spec.DestinationPath),("expected_sha256",spec.ExpectedAssetSha256),("asset_set_id",name+"-motion"),("layout_profile",ConnectedIndustrialProfile.Id),
+                    ("scene_path",$"Assets/Scenes/CharacterAnimations/{name}-{spec.ExpectedAssetSha256[..12]}.unity"),("output_path",$"Previews/CharacterAnimations/{name}-{spec.ExpectedAssetSha256[..12]}.png"));
                 if(motion is null&&retroStyle)return Step(ToolKind.UnityEditorAction,PermissionKind.Execute,"Generate the opt-in original N64-era-inspired industrial candidate: low-poly rig derivative, small original textures, simplified lighting and corrected cover placement. Not a licensed game remake or reviewed library placement.",
                     ("operation",operation),("asset_path",spec.DestinationPath),("expected_sha256",spec.ExpectedAssetSha256),("asset_set_id",name+"-motion"),("style_family",RetroCourtyardProfile.Id),
                     ("scene_path",$"Assets/Scenes/CharacterAnimations/{name}-{spec.ExpectedAssetSha256[..12]}.unity"),("output_path",$"Previews/CharacterAnimations/{name}-{spec.ExpectedAssetSha256[..12]}.png"));

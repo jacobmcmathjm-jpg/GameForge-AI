@@ -32,7 +32,7 @@ public sealed partial class SecurityTests
             var rig=new CharacterRigEvidence(1,failure=="hash"?new string('0',64):hash,"generic_named_bones_v1",22,1000,0,0,0,0,1.8,0,
                 [new("arms",300,.4,failure=="pose"?5.72:1.5,true),new("legs",400,.5,2,true),new("combined",800,.6,2.2,true)]);
             await File.WriteAllTextAsync(ValueAfter(args,"-forgecoreResult"),JsonSerializer.Serialize(new{
-                protocolVersion="1.0",bridgeVersion="0.17.22",editorVersion="6000.0.50f1",
+                protocolVersion="1.0",bridgeVersion="0.17.23",editorVersion="6000.0.50f1",
                 requestId=root.GetProperty("requestId").GetString(),operation="inspect_character_rig",success=true,summary="Synthetic rig result",
                 characterRig=failure=="missing"?null:rig}),token);
             return new(0,"","");

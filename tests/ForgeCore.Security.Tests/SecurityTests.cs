@@ -806,7 +806,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal("racing", root.GetProperty("templateId").GetString()); Assert.Equal(90210, root.GetProperty("seed").GetInt32());
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "create_game_template", success = true, summary = "Racing prototype created."
             }), token);
             return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -864,7 +864,7 @@ public sealed partial class SecurityTests : IDisposable
             }
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation, success = true,
                 summary = operation == "create_game_campaign" ? "Created three linked first-person levels." : "Built three linked first-person levels."
             }), token);
@@ -963,7 +963,7 @@ public sealed partial class SecurityTests : IDisposable
                 using var request = JsonDocument.Parse(await File.ReadAllBytesAsync(requestPath, token)); var root = request.RootElement;
                 await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
                 {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                     requestId = root.GetProperty("requestId").GetString(), operation = "compile", success = true, summary = "Compiled."
                 }), token);
                 return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -998,7 +998,7 @@ public sealed partial class SecurityTests : IDisposable
             var operation = request.RootElement.GetProperty("operation").GetString()!;
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = id, operation, success = true, summary = "Fake capability handshake passed."
             }), token);
             await File.WriteAllTextAsync(ValueAfter(arguments, "-logFile"), "bounded fake Unity log", token);
@@ -1040,7 +1040,7 @@ public sealed partial class SecurityTests : IDisposable
             using var request = JsonDocument.Parse(await File.ReadAllBytesAsync(requestPath, token));
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = "wrong", operation = request.RootElement.GetProperty("operation").GetString(), success = true, summary = "untrusted"
             }), token);
             return new UnityProcessResult(0, "", "");
@@ -1073,7 +1073,7 @@ public sealed partial class SecurityTests : IDisposable
             await File.WriteAllBytesAsync(Path.Combine(data, "level0"), [5, 6, 7, 8], token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "build_windows", success = true, summary = "Fake build succeeded."
             }), token);
             return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -1151,7 +1151,7 @@ public sealed partial class SecurityTests : IDisposable
             await File.WriteAllBytesAsync(Path.Combine(data, "level0"), [5, 6, 7, 8], token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "build_windows", success = true, summary = "Fake profile build succeeded."
             }), token);
             return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -1170,7 +1170,7 @@ public sealed partial class SecurityTests : IDisposable
         using (var provenance = JsonDocument.Parse(await File.ReadAllBytesAsync(provenancePath)))
         {
             Assert.Equal(3, provenance.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.99", provenance.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.104", provenance.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(64, provenance.RootElement.GetProperty("templateKitManifestSha256").GetString()!.Length);
         }
         var policyResult = await policy.ValidateAsync(profile, default);
@@ -1191,7 +1191,7 @@ public sealed partial class SecurityTests : IDisposable
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
                 schemaVersion = 3, requestId = requestIdOverride ?? root.GetProperty("requestId").GetString(), requestSha256,
-                templateKitVersion = "0.16.99", environment = "standalone_player",
+                templateKitVersion = "0.16.104", environment = "standalone_player",
                 executableSha256 = root.GetProperty("executableSha256").GetString(), level0Sha256 = root.GetProperty("level0Sha256").GetString(),
                 buildProvenanceSha256 = root.GetProperty("buildProvenanceSha256").GetString(), scenePath = root.GetProperty("scenePath").GetString(),
                 sceneSha256 = root.GetProperty("sceneSha256").GetString(), durationSeconds = root.GetProperty("durationSeconds").GetInt32(),
@@ -1235,7 +1235,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.False(evidence.RootElement.GetProperty("gpuTimingAvailable").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuBudgetPassed").GetBoolean());
             Assert.Equal(3, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.99", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.104", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal("scripted_gameplay_v1", evidence.RootElement.GetProperty("profileScenario").GetString());
             Assert.Equal("first_person_action", evidence.RootElement.GetProperty("templateId").GetString());
             Assert.Equal(17.5, evidence.RootElement.GetProperty("playerTravelMetres").GetDouble());
@@ -1390,7 +1390,7 @@ public sealed partial class SecurityTests : IDisposable
                 [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 5, 0, 0, 0, 2, 208], token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "capture_scene_preview", success = true, summary = "Preview captured."
             }), token);
             return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -1408,7 +1408,7 @@ public sealed partial class SecurityTests : IDisposable
         {
             Assert.Equal(1, provenance.RootElement.GetProperty("schemaVersion").GetInt32());
             Assert.Equal("Assets/Scenes/Main.unity", provenance.RootElement.GetProperty("scenePath").GetString());
-            Assert.Equal("0.17.22", provenance.RootElement.GetProperty("bridgeVersion").GetString());
+            Assert.Equal("0.17.23", provenance.RootElement.GetProperty("bridgeVersion").GetString());
             Assert.Equal(1280, provenance.RootElement.GetProperty("width").GetInt32());
             Assert.Equal(720, provenance.RootElement.GetProperty("height").GetInt32());
             Assert.Equal(64, provenance.RootElement.GetProperty("sceneSha256").GetString()!.Length);
@@ -1448,7 +1448,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal(5, root.GetProperty("durationSeconds").GetInt32());
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "verify_gameplay", success = true,
                 summary = "Deterministic runtime gameplay check passed for platformer: movement=2.50m, respawn=passed, objectives=5/5."
             }), token);
@@ -1469,8 +1469,8 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal(1, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
             Assert.Equal("Assets/Scenes/Platformer.unity", evidence.RootElement.GetProperty("scenePath").GetString());
             Assert.Equal("platformer", evidence.RootElement.GetProperty("templateId").GetString());
-            Assert.Equal("0.17.22", evidence.RootElement.GetProperty("bridgeVersion").GetString());
-            Assert.Equal("0.16.99", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.17.23", evidence.RootElement.GetProperty("bridgeVersion").GetString());
+            Assert.Equal("0.16.104", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(2.5, evidence.RootElement.GetProperty("movementMetres").GetDouble());
             Assert.Equal(5, evidence.RootElement.GetProperty("completedObjectives").GetInt32());
             Assert.Equal(64, evidence.RootElement.GetProperty("sceneSha256").GetString()!.Length);
@@ -1509,7 +1509,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal(10, root.GetProperty("durationSeconds").GetInt32());
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "profile_scene", success = true,
                 summary = "Repeatable editor baseline.",
                 performance = new
@@ -1552,7 +1552,7 @@ public sealed partial class SecurityTests : IDisposable
             using var request = JsonDocument.Parse(await File.ReadAllBytesAsync(requestPath, token)); var root = request.RootElement;
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "profile_scene", success = true,
                 summary = "Repeatable editor baseline.",
                 performance = new
@@ -1591,7 +1591,7 @@ public sealed partial class SecurityTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(directory, "valid.json"), JsonSerializer.Serialize(new
         {
             schemaVersion = 1, scenePath = "Assets/Scenes/Platformer.unity", editorVersion = "6000.0.50f1",
-            bridgeVersion = "0.17.22", templateKitVersion = "0.16.99", sceneSha256 = await HashAsync(scene),
+            bridgeVersion = "0.17.23", templateKitVersion = "0.16.104", sceneSha256 = await HashAsync(scene),
             templateKitManifestSha256 = await HashAsync(manifest), durationSeconds = 5, templateId = "platformer",
             movementMetres = 2.5, completedObjectives = 5, requiredObjectives = 5,
             summary = "Deterministic runtime gameplay check passed for platformer: movement=2.50m, respawn=passed, objectives=5/5.",
@@ -1600,7 +1600,7 @@ public sealed partial class SecurityTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(directory, "superseded.json"), JsonSerializer.Serialize(new
         {
             schemaVersion = 1, scenePath = "Assets/Scenes/Platformer.unity", editorVersion = "6000.0.50f1",
-            bridgeVersion = "0.17.22", templateKitVersion = "0.16.12", sceneSha256 = new string('0', 64),
+            bridgeVersion = "0.17.23", templateKitVersion = "0.16.12", sceneSha256 = new string('0', 64),
             templateKitManifestSha256 = new string('0', 64), durationSeconds = 5, templateId = "platformer",
             movementMetres = 2.5, completedObjectives = 5, requiredObjectives = 5,
             summary = "Deterministic runtime gameplay check passed for platformer: movement=2.50m, respawn=passed, objectives=5/5.",
@@ -1651,7 +1651,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal(hash, root.GetProperty("assetSha256").GetString()); Assert.Equal("mesh", root.GetProperty("colliderMode").GetString());
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "prepare_generated_asset", success = true, summary = "Prepared generated asset."
             }), token);
             return new UnityProcessResult(0, string.Empty, string.Empty);
@@ -1697,7 +1697,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal("realistic_pbr", root.GetProperty("styleFamily").GetString());
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "inspect_game_art_asset", success = true,
                 summary = "Inspected one imported game-art asset without saving project content.",
                 artInspection = new
@@ -1786,7 +1786,7 @@ public sealed partial class SecurityTests : IDisposable
             await File.WriteAllTextAsync(asset + ".meta", "mutated by fake Unity", token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "inspect_game_art_asset", success = true,
                 summary = "This result must be rejected."
             }), token);
@@ -1827,7 +1827,7 @@ public sealed partial class SecurityTests : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(output)!); await File.WriteAllBytesAsync(output, MinimalPng(1280, 720), token);
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
-                protocolVersion = "1.0", bridgeVersion = "0.17.22", editorVersion = "6000.0.50f1",
+                protocolVersion = "1.0", bridgeVersion = "0.17.23", editorVersion = "6000.0.50f1",
                 requestId = root.GetProperty("requestId").GetString(), operation = "capture_game_art_preview", success = true,
                 summary = "Captured non-overwriting four-view game-art preview; the preview remains unreviewed."
             }), token);
@@ -1866,7 +1866,7 @@ public sealed partial class SecurityTests : IDisposable
         {
             schemaVersion = 2, assetSetId = "frontier-watchtower", assetPath = "Assets/ForgeCore/Generated/frontier-watchtower.glb",
             assetSha256 = assetHash, provenanceSha256 = sourceProvenanceHash, metaSha256 = metaHash,
-            assetRole = "environment_props", styleFamily = "realistic_pbr", editorVersion = "6000.0.50f1", bridgeVersion = "0.17.22",
+            assetRole = "environment_props", styleFamily = "realistic_pbr", editorVersion = "6000.0.50f1", bridgeVersion = "0.17.23",
             assetCount = 1, rendererCount = 2, meshCount = 2, skinnedMeshRendererCount = 0, animatorCount = 0, avatarCount = 0,
             materialCount = 2, pbrMaterialCount = 2, textureCount = 4, texturePixelCount = 4_194_304,
             estimatedTextureMemoryBytes = 16_777_216, maximumTextureWidth = 1024, maximumTextureHeight = 1024,
@@ -1888,7 +1888,7 @@ public sealed partial class SecurityTests : IDisposable
             schemaVersion = 1, assetSetId = "frontier-watchtower", assetPath = "Assets/ForgeCore/Generated/frontier-watchtower.glb",
             assetSha256 = assetHash, provenanceSha256 = sourceProvenanceHash, metaSha256 = metaHash,
             previewPath = "Previews/GameArt/frontier-watchtower.png", previewSha256 = previewHash,
-            editorVersion = "6000.0.50f1", bridgeVersion = "0.17.22",
+            editorVersion = "6000.0.50f1", bridgeVersion = "0.17.23",
             width = 1280, height = 720, viewCount = 4, rightsReviewed = false, visualReviewed = false,
             createdUtc = DateTimeOffset.UtcNow.AddMinutes(-1)
         }));

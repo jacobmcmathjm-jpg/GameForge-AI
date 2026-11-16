@@ -19,10 +19,12 @@ namespace ForgeCore.Editor
             foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {builder=assembly.GetType(typeName,false,false);if(builder!=null)break;}
             if(builder==null)throw new InvalidOperationException("The verified animation builder is not compiled.");
+            var connected=!string.IsNullOrEmpty(request.layoutProfile);
+            if(connected&&(request.operation!="create_industrial_mission"||request.layoutProfile!="industrial_connected_v1"||!string.IsNullOrEmpty(request.styleFamily)))throw new InvalidOperationException("Unsupported mission layout or style combination.");
             var retro=request.operation=="create_industrial_mission"&&!string.IsNullOrEmpty(request.styleFamily);
             if(retro&&request.styleFamily!="retro_64")throw new InvalidOperationException("Unsupported mission style.");
             var types=retro?new[]{typeof(string),typeof(string),typeof(string),typeof(string),typeof(string),typeof(string)}:new[]{typeof(string),typeof(string),typeof(string),typeof(string),typeof(string)};
-            var method=builder.GetMethod(retro?"BuildWithStyle":"Build",BindingFlags.Public|BindingFlags.Static,null,types,null);
+            var method=builder.GetMethod(connected?"BuildConnected":retro?"BuildWithStyle":"Build",BindingFlags.Public|BindingFlags.Static,null,types,null);
             if(method==null||method.ReturnType!=typeof(string))throw new InvalidOperationException("Animation builder contract mismatch.");
             try{return (string)method.Invoke(null,retro?new object[]{request.assetPath,request.assetSha256,request.assetSetId,request.scenePath,request.outputPath,request.styleFamily}:new object[]{request.assetPath,request.assetSha256,request.assetSetId,request.scenePath,request.outputPath});}
             catch(TargetInvocationException ex){throw new InvalidOperationException("Animation builder failed: "+(ex.InnerException==null?ex.Message:ex.InnerException.Message),ex.InnerException??ex);}

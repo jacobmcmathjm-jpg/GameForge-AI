@@ -15,7 +15,7 @@ public sealed partial class SecurityTests
         }
         var options=await File.ReadAllTextAsync(Path.Combine(kit,"Runtime","SecurityDemoOptions.cs"));
         Assert.Contains("FileMode.CreateNew",options);Assert.Contains("File.Replace(temporary,path,backup)",options);Assert.Contains("FileAttributes.ReparsePoint",options);
-        Assert.Contains("CheckpointValid(data)",options);Assert.Contains("Physics.CheckCapsule",options);Assert.Contains("ForgeCoreDemoProbe-",options);
+        Assert.Contains("CheckpointValid(data,session.CheckpointProfile)",options);Assert.Contains("Physics.CheckCapsule",options);Assert.Contains("ForgeCoreDemoProbe-",options);
         var probe=await File.ReadAllTextAsync(Path.Combine(kit,"Runtime","DemoAcceptanceProbe.cs"));
         Assert.Contains("#if DEVELOPMENT_BUILD && !UNITY_EDITOR",probe);Assert.Contains("-forgecore-demo-probe",probe);Assert.Contains("240s bounded probe deadline",probe);
         Assert.DoesNotContain(".Damage(",probe);Assert.DoesNotContain("transform.position=",probe);Assert.Contains("checkpointRoundtrip",probe);

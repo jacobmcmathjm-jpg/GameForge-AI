@@ -14,7 +14,7 @@ namespace ForgeCoreGameTemplates.Tests
     {
         private static bool Finite(Mesh m)=>m.vertices.All(v=>!(float.IsNaN(v.x)||float.IsNaN(v.y)||float.IsNaN(v.z)||float.IsInfinity(v.x)||float.IsInfinity(v.y)||float.IsInfinity(v.z)));
         private static bool Normalized(Mesh m)=>m.boneWeights.All(w=>w.weight0>=0&&w.weight1>=0&&w.weight2>=0&&w.weight3>=0&&Mathf.Abs(w.weight0+w.weight1+w.weight2+w.weight3-1)<.0001f);
-        private string Folder()=>AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath).Where(p=>p.EndsWith("/IndustrialMission.prefab")&&File.Exists(Path.GetDirectoryName(p)+"/indie-character-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).Select(Path.GetDirectoryName).First();
+        private string Folder()=>AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath).Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/indie-character-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).Select(Path.GetDirectoryName).First();
         private GameObject Prefab()=>AssetDatabase.LoadAssetAtPath<GameObject>(Folder()+"/IndustrialMission.prefab");
         [Test]public void SharedGuardAndViewmodelMeshesAreFiniteWeightedDerivatives(){
             var s=Prefab().GetComponentInChildren<SecurityCombatSession>();var guards=s.enemies.Select(e=>e.motion.GetComponentInChildren<SkinnedMeshRenderer>()).ToArray();

@@ -13,7 +13,7 @@ namespace ForgeCoreGameTemplates.Tests
     public sealed class CourtyardGraphicsTests
     {
         private string Folder()=>AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath)
-            .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/graphics-report.json"))
+            .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/graphics-report.json"))
             .OrderByDescending(File.GetLastWriteTimeUtc).Select(Path.GetDirectoryName).FirstOrDefault()??throw new InvalidOperationException("Fresh graphics benchmark fixture required.");
         [Test] public void DetailMapsHaveCorrectSizeColourSpaceNormalsAndMipmaps()
         {

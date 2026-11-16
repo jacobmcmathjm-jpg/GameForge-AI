@@ -17,7 +17,7 @@ namespace ForgeCoreGameTemplates.Tests
         private GameObject root;private string folder;
         [UnitySetUp]public IEnumerator Setup() {
             var path=AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath)
-                .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/courtyard-report.json"))
+                .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")&&!File.Exists(Path.GetDirectoryName(p)+"/retro64-report.json")&&File.Exists(Path.GetDirectoryName(p)+"/courtyard-report.json"))
                 .OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
             Assert.NotNull(path,"Generate a fresh courtyard fixture; old greyboxes do not satisfy this suite.");folder=Path.GetDirectoryName(path);
             PrototypeInput.SetScriptedFrame(new PrototypeInputFrame());root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));

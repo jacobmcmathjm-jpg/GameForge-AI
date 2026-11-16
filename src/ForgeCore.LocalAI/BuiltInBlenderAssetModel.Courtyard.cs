@@ -2,7 +2,7 @@ using ForgeCore.Core;
 namespace ForgeCore.LocalAI;
 public sealed partial class BuiltInBlenderAssetModel
 {
-    private AgentPlan CourtyardDeliveryPlan(ModelRequest request,string name,string hash,bool retroStyle=false)
+    private AgentPlan CourtyardDeliveryPlan(ModelRequest request,string name,string hash,bool retroStyle=false,bool connectedLevel=false)
     {
         var scene=$"Assets/Scenes/CharacterAnimations/{name}-{hash[..12]}.unity";
         var preview=$"Previews/Courtyard/{name}-{hash[..12]}-runtime.png";
@@ -28,6 +28,6 @@ public sealed partial class BuiltInBlenderAssetModel
             _=UnityPlayerSmokeTestSpec.From(call);return new(call.Description+" Normal scoped approval applies.",[call]);
         }
         if(!smoke.Success)return new("Courtyard delivery stopped at standalone startup: "+smoke.Detail+" The exported folder is retained for diagnosis; no automatic replay or quality approval.",[]);
-        return new("Courtyard pipeline finished its technical candidate: "+(retroStyle?"original low-poly N64-era-inspired rig/weapon derivative, small original textures, corrected cover placement and simplified lighting":"original Blender guard and reusable detailed courtyard recipe")+", before/after sheets, runtime screenshot, short Editor profile, standalone Windows EXE folder and five-second hash-bound startup check at "+exe+". Startup is headless and not a gameplay/rendering benchmark. Human visual/playthrough review, approved-source prop placement, larger maps and representative performance remain open. This does not certify indie/AA graphics, hardware emulation, a licensed remake or arbitrary-genre game generation.",[]);
+        return new("Industrial pipeline finished its technical candidate: "+(connectedLevel?"three accessible single-floor zones, two stage-gated doors, bounded 64m navigation and separate checkpoint profile":retroStyle?"original low-poly N64-era-inspired rig/weapon derivative, small original textures, corrected cover placement and simplified lighting":"original Blender guard and reusable detailed courtyard recipe")+", before/after sheets (original courtyard prepass only for connected layout), actual final runtime screenshot, short Editor profile, standalone Windows EXE folder and five-second hash-bound startup check at "+exe+". Startup is headless and not a gameplay/rendering benchmark. Human visual/playthrough review, approved-source prop placement, further map scale and representative performance remain open. This does not certify indie/AA graphics, hardware emulation, a licensed remake or arbitrary-genre game generation.",[]);
     }
 }

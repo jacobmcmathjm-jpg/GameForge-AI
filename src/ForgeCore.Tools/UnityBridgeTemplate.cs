@@ -7,9 +7,10 @@ namespace ForgeCore.Tools;
 internal static partial class UnityBridgeTemplate
 {
     public const string ProtocolVersion = "1.0";
-    public const string BridgeVersion = "0.17.22";
+    public const string BridgeVersion = "0.17.23";
     public static readonly IReadOnlyDictionary<string, string> UpgradeableBridges = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["0.17.22"] = "914017c565512880f29214010991176675a9e6e54aa008bde7a0b1411034a670",
         ["0.17.21"] = "14c3b64892e11f47ded81e6ca1ce0eaeb443e922eb9551ab292c38616f05db79",
         ["0.17.20"] = "148958f6b132440144d0fc63c3a65d1a8b5be6f412737dcf70ef18c40f1f41aa",
         ["0.17.19"] = "707173a958b975091f9bbc4ccb98e335d0a98d4409a3a92ae91eeb29c3407dc2",
@@ -115,6 +116,7 @@ namespace ForgeCore.Editor
             public string assetSetId;
             public string assetRole;
             public string styleFamily;
+            public string layoutProfile;
             public string parentObjectName;
             public float targetHeight;
             public string colliderMode;

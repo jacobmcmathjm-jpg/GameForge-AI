@@ -16,6 +16,9 @@ namespace ForgeCoreGameTemplates
         public IndustrialMission mission;
         public SecurityDemoOptions options;
         public DemoAudioController audio;
+        public string layoutProfile="";
+        public bool ConnectedLayout=>layoutProfile==ForgeCore.Demo.DemoStateRules.ConnectedProfile;
+        public string CheckpointProfile=>ConnectedLayout?ForgeCore.Demo.DemoStateRules.ConnectedProfile:ForgeCore.Demo.DemoStateRules.Profile;
         public bool Paused { get; private set; }
         public bool Finished => player != null && (player.Health <= 0 || (mission!=null?mission.Completed:Kills==enemies.Length));
         public int Kills { get { var n=0;foreach(var e in enemies)if(e!=null&&e.Health<=0)n++;return n;} }
@@ -25,8 +28,9 @@ namespace ForgeCoreGameTemplates
         private void Awake()
         {
             Instance=this;
-            Navigation=new SecurityGridPathfinder(32,32,new Vector3(-15.5f,0,-15.5f),1,
-                p=>Physics.CheckBox(p+Vector3.up*.9f,new Vector3(.39f,.8f,.39f),Quaternion.identity,1<<8,QueryTriggerInteraction.Ignore));
+            if(layoutProfile!=""&&!ConnectedLayout)throw new ArgumentException("Unknown mission navigation profile.");
+            Navigation=new SecurityGridPathfinder(ConnectedLayout?64:32,ConnectedLayout?64:32,new Vector3(-15.5f,0,-15.5f),1,
+                p=>(ConnectedLayout&&!Physics.Raycast(p+Vector3.up*.2f,Vector3.down,.5f,1<<8,QueryTriggerInteraction.Ignore))||Physics.CheckBox(p+Vector3.up*.9f,new Vector3(.39f,.8f,.39f),Quaternion.identity,1<<8,QueryTriggerInteraction.Ignore));
         }
         private void Update()
         {
@@ -88,7 +92,7 @@ namespace ForgeCoreGameTemplates
         private void OnDestroy(){if(Instance==this)Instance=null;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
     }
     // Four-neighbour bounded breadth-first search; conservative 0.78m clearance, static obstacles.
-    // Supports this flat 32m lab only: not stairs, moving platforms, crowds or arbitrary Unity navigation.
+    // Flat, explicitly bounded 32m/64m layouts only: not stairs, moving platforms or arbitrary Unity navigation.
     public sealed class SecurityGridPathfinder
     {
         private readonly int width,height;private readonly Vector3 origin;private readonly float cell;

@@ -17,6 +17,7 @@ namespace ForgeCore.Demo
     public static class DemoStateRules
     {
         public const string Profile="industrial_mission_terminals_v1";
+        public const string ConnectedProfile="industrial_connected_v1";
         private static bool Finite(float v)=>!float.IsNaN(v)&&!float.IsInfinity(v);
         public static bool SettingsValid(DemoSettings s)=>s!=null&&s.schemaVersion==2&&s.quality>=0&&s.quality<=2&&
             (s.frameLimit==30||s.frameLimit==60||s.frameLimit==120)&&Finite(s.sensitivity)&&s.sensitivity>=.2f&&s.sensitivity<=5&&
@@ -32,11 +33,11 @@ namespace ForgeCore.Demo
             if(s==null)return 1;var v=kind=="footstep"?s.footstepsVolume:kind=="ambient"?s.ambienceVolume:kind=="ui"?s.interfaceVolume:s.effectsVolume;
             return Finite(v)?Math.Max(0,Math.Min(1,v)):0;
         }
-        public static bool CheckpointValid(DemoCheckpoint c)=>c!=null&&c.schemaVersion==1&&c.profile==Profile&&
+        public static bool CheckpointValid(DemoCheckpoint c,string expectedProfile=Profile)=>c!=null&&c.schemaVersion==1&&c.profile==expectedProfile&&(expectedProfile==Profile||expectedProfile==ConnectedProfile)&&
             c.stage>=0&&c.stage<=2&&c.defeatedMask>=0&&c.defeatedMask<=7&&
             (c.stage!=0||c.defeatedMask==0)&&(c.stage!=1||(c.defeatedMask&4)==0)&&(c.stage!=2||(c.defeatedMask&3)==3)&&
             c.health>=1&&c.health<=100&&c.reserve>=0&&c.reserve<=60&&c.magazine>=0&&c.magazine<=6&&
-            Finite(c.x)&&Finite(c.y)&&Finite(c.z)&&Math.Abs(c.x)<=15&&Math.Abs(c.z)<=15&&c.y>=0&&c.y<=3&&
+            Finite(c.x)&&Finite(c.y)&&Finite(c.z)&&(expectedProfile==ConnectedProfile?c.x>=-15&&c.x<=47&&c.z>=-15&&c.z<=47:Math.Abs(c.x)<=15&&Math.Abs(c.z)<=15)&&c.y>=0&&c.y<=3&&
             Finite(c.yaw)&&c.yaw>=0&&c.yaw<360&&Finite(c.pitch)&&c.pitch>=-75&&c.pitch<=75;
     }
 }

@@ -11,13 +11,19 @@ function Write-FixtureBytes([string]$Path,[byte[]]$Data) {
     $stream=[IO.File]::Open($Path,[IO.FileMode]::CreateNew)
     try{$stream.Write($Data,0,$Data.Length)}finally{$stream.Dispose()}
 }
-foreach($case in @('valid-review','valid-delivery','valid-source','valid-source-v2','wrong-hash','extra-file','traversal','backslash','duplicate','approval-claim','string-approval','private-state','wrong-total','receipt-replay','valid-character','character-finger-claim','character-art-claim','character-string-finger')) {
+foreach($case in @('valid-review','valid-delivery','valid-source','valid-source-v2','wrong-hash','extra-file','traversal','backslash','duplicate','approval-claim','string-approval','private-state','wrong-total','receipt-replay','valid-character','character-finger-claim','character-art-claim','character-string-finger','valid-connected','connected-stage-claim','connected-art-claim','connected-string-stage')) {
     $folder=Join-Path $fixtureRoot $case;[IO.Directory]::CreateDirectory($folder)|Out-Null
     $data=[Text.Encoding]::UTF8.GetBytes('Bounded non-secret test payload.')
     Write-FixtureBytes (Join-Path $folder 'payload.txt') $data
     $entry=[ordered]@{path='payload.txt';bytes=$data.Length;sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($data)).ToLowerInvariant()}
     $manifest=[ordered]@{schemaVersion=1;kind='ForgeCore-refined-industrial-source-and-Unity-review';humanApproved=$false;automaticPlacementApproved=$false;fileCount=1;totalBytes=$data.Length;files=@($entry)}
     $kind='Review'
+    if($case -eq 'valid-connected' -or $case.StartsWith('connected-')){
+        $kind='ConnectedReview';$manifest.kind='ForgeCore-connected-level-review';$manifest.humanArtAccepted=$false;$manifest.stageComplete=$false
+        $entries=@($entry)
+        foreach($index in 1..3){$name='payload-'+$index+'.txt';Write-FixtureBytes (Join-Path $folder $name) $data;$entries+=[ordered]@{path=$name;bytes=$data.Length;sha256=$entry.sha256}}
+        $manifest.files=$entries;$manifest.fileCount=4;$manifest.totalBytes=$data.Length*4
+    }
     if($case -eq 'valid-character' -or $case.StartsWith('character-')){
         $kind='CharacterReview';$manifest.kind='ForgeCore-indie-character-review';$manifest.humanArtAccepted=$false;$manifest.individualFingerAnimation=$false
         $entries=@($entry)
@@ -40,6 +46,9 @@ foreach($case in @('valid-review','valid-delivery','valid-source','valid-source-
         'character-finger-claim' {$manifest.individualFingerAnimation=$true}
         'character-art-claim' {$manifest.humanArtAccepted=$true}
         'character-string-finger' {$manifest.individualFingerAnimation='false'}
+        'connected-stage-claim' {$manifest.stageComplete=$true}
+        'connected-art-claim' {$manifest.humanArtAccepted=$true}
+        'connected-string-stage' {$manifest.stageComplete='false'}
     }
     $manifestPath=Join-Path $folder 'manifest.json';Write-FixtureBytes $manifestPath ([Text.Encoding]::UTF8.GetBytes(($manifest|ConvertTo-Json -Depth 7)))
     $receipt=Join-Path $fixtureRoot ($case+'-receipt.json');$passed=$false

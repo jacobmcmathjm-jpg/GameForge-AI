@@ -598,7 +598,7 @@ public sealed record UnityEditorActionSpec(
     string? TestMode, int? DurationSeconds, string? OutputPath, bool? DevelopmentBuild,
     string? MapTemplate, string? TemplateId, int? Seed, string? AssetPath, string? ExpectedSha256, string? ParentObjectName,
     double? TargetHeight, string? ColliderMode, bool? ReplacePlaceholder, int? LevelCount,
-    string? AssetSetId, string? AssetRole, string? StyleFamily)
+    string? AssetSetId, string? AssetRole, string? StyleFamily, string? LayoutProfile = null)
 {
     public static readonly IReadOnlySet<string> Operations = new HashSet<string>(
         ["capabilities", "compile", "create_scene", "create_map_demo", "create_game_template", "create_game_campaign", "create_primitive", "add_component", "prepare_generated_asset", "inspect_game_art_asset", "inspect_character_rig", "prepare_character_animation", "create_security_combat_lab", "prepare_industrial_prop", "create_industrial_mission", "capture_game_art_preview", "run_tests", "play_mode", "verify_gameplay", "profile_scene", "capture_scene_preview", "build_windows"],
@@ -624,7 +624,7 @@ public sealed record UnityEditorActionSpec(
             "prepare_generated_asset" => new[] { "project_path", "operation", "scene_path", "asset_path", "expected_sha256", "parent_object_name", "object_name", "target_height", "collider_mode", "replace_placeholder" },
             "inspect_game_art_asset" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "asset_role", "style_family" },
             "inspect_character_rig" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "scene_path", "output_path" },
-            "create_industrial_mission" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "scene_path", "output_path", "style_family" },
+            "create_industrial_mission" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "scene_path", "output_path", "style_family", "layout_profile" },
             "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "scene_path", "output_path" },
             "capture_game_art_preview" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "output_path" },
             "run_tests" => new[] { "project_path", "operation", "test_mode" },
@@ -646,6 +646,9 @@ public sealed record UnityEditorActionSpec(
         var parentObjectName = GetOptional(call, "parent_object_name"); var colliderMode = GetOptional(call, "collider_mode");
         var assetSetId = GetOptional(call, "asset_set_id"); var assetRole = GetOptional(call, "asset_role");
         var styleFamily = GetOptional(call, "style_family");
+        var layoutProfile = GetOptional(call, "layout_profile");
+        if(layoutProfile is not null && (layoutProfile != ConnectedIndustrialProfile.Id || styleFamily is not null))
+            throw new ArgumentException("Only the exact connected industrial layout without a retro override is supported.");
         if (scenePath is not null) ValidateScenePath(scenePath);
         if (sceneTemplate is not null && !SceneTemplates.Contains(sceneTemplate)) throw new ArgumentException("scene_template must be empty, basic_2d, or basic_3d.");
         if (objectName is not null) ValidateObjectName(objectName);
@@ -696,7 +699,7 @@ public sealed record UnityEditorActionSpec(
             ParseCoordinate(call, "position_x"), ParseCoordinate(call, "position_y"), ParseCoordinate(call, "position_z"),
             componentType, testMode, ParseDuration(call), outputPath, ParseDevelopment(call), mapTemplate, templateId, seed,
             assetPath, expectedSha256?.ToLowerInvariant(), parentObjectName, ParseTargetHeight(call), colliderMode, ParseBoolean(call, "replace_placeholder"), levelCount,
-            assetSetId, assetRole, styleFamily);
+            assetSetId, assetRole, styleFamily, layoutProfile);
         if (operation == "verify_gameplay" && spec.DurationSeconds is < 2)
             throw new ArgumentException("verify_gameplay duration_seconds must be between 2 and 30.");
         if (operation == "profile_scene" && spec.DurationSeconds is < 5)

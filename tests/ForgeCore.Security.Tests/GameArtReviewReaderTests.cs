@@ -14,7 +14,7 @@ public sealed partial class SecurityTests
             ["schemaVersion"]=1,["assetSetId"]="frontier-watchtower",["assetPath"]="Assets/ForgeCore/Generated/frontier-watchtower.glb",
             ["assetSha256"]=assetHash,["provenanceSha256"]=await HashAsync(asset+".asset.json"),["metaSha256"]=await HashAsync(asset+".meta"),
             ["previewPath"]="Previews/GameArt/frontier-watchtower.png",["previewSha256"]=await HashAsync(preview),
-            ["editorVersion"]="6000.0.50f1",["bridgeVersion"]="0.17.22",["width"]=1280,["height"]=720,["viewCount"]=4,
+            ["editorVersion"]="6000.0.50f1",["bridgeVersion"]="0.17.23",["width"]=1280,["height"]=720,["viewCount"]=4,
             ["rightsReviewed"]=false,["visualReviewed"]=false,["createdUtc"]=DateTimeOffset.UtcNow};
         switch(defect){
             case "wrong_editor":record["editorVersion"]="6000.5.5f1";break;

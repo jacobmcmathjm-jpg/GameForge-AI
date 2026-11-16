@@ -23,7 +23,7 @@ public sealed partial class ToolExecutor
         if(r.GetProperty("maximumEdgeStretch").GetDouble() is < 1 or > 3.5 || r.GetProperty("maximumStanceSlip").GetDouble()>.01)
             throw new InvalidDataException("Sampled animation deformation or authored stance-target error exceeds its technical limit; this is separate from blended foot-contact acceptance.");
         var content=names.Select(x=>x+".anim").Concat(new[]{"Mannequin.controller","animation-report.json"}).ToArray();
-        JsonElement? visualReport=null,graphicsReport=null,propPresentationReport=null,heroFinishReport=null,retroReport=null,indieEnvironmentReport=null,indieWeaponReport=null,indieCharacterReport=null;
+        JsonElement? visualReport=null,graphicsReport=null,propPresentationReport=null,heroFinishReport=null,retroReport=null,indieEnvironmentReport=null,indieWeaponReport=null,indieCharacterReport=null,connectedLevelReport=null;
         if(spec.Operation is "create_security_combat_lab" or "create_industrial_mission")
         {
             using var combat=JsonDocument.Parse(await File.ReadAllBytesAsync(Path.Combine(folder,"combat-report.json"),token));
@@ -195,13 +195,19 @@ public sealed partial class ToolExecutor
                 }
             }
         }
+        if(spec.LayoutProfile==ConnectedIndustrialProfile.Id) {
+            var path=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,"connected-level-report.json"),false);
+            if(new FileInfo(path).Length>32768)throw new InvalidDataException("Connected level report oversized.");
+            using var connected=JsonDocument.Parse(await File.ReadAllBytesAsync(path,token));ConnectedIndustrialProfile.Validate(connected.RootElement);connectedLevelReport=connected.RootElement.Clone();
+            foreach(var name in UnityGameTemplateKit.ConnectedLevelArtifacts)foreach(var item in new[]{name,name+".meta"}){var file=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,item),false);if(new FileInfo(file).Length is <=0 or >30*1024*1024)throw new InvalidDataException("Connected layout artifact missing or oversized.");payload.Add(new{path=relative+"/"+item,sha256=await HashFileAsync(file,token),bytes=new FileInfo(file).Length});}
+        }
         var png=ResolveUserPath(Path.Combine(spec.ProjectPath,spec.OutputPath!),false);
         if(!File.Exists(scene)||new FileInfo(scene).Length==0)throw new InvalidDataException("Animation lab scene missing.");
         _=await StagedAssetInspector.InspectPngAsync(png,token);
         var evidence=new{schemaVersion=1,requestId,operation=spec.Operation,assetPath=spec.AssetPath,assetSha256=spec.ExpectedSha256,
             bridgeVersion=UnityBridgeTemplate.BridgeVersion,bridgeSha256=UnityBridgeTemplate.Sha256,templateKitVersion=UnityGameTemplateKit.Version,templateKitManifestSha256=await HashFileAsync(kitManifest,token),
             scenePath=spec.ScenePath,sceneSha256=await HashFileAsync(scene,token),previewPath=spec.OutputPath,previewSha256=await HashFileAsync(png,token),
-            artifacts=payload,report=r.Clone(),visualReport,graphicsReport,propPresentationReport,heroFinishReport,retroReport,indieEnvironmentReport,indieWeaponReport,indieCharacterReport,selectedStyle=spec.StyleFamily??"default",visualReviewed=false,rightsReviewed=false,stageComplete=false,
+            artifacts=payload,report=r.Clone(),visualReport,graphicsReport,propPresentationReport,heroFinishReport,retroReport,indieEnvironmentReport,indieWeaponReport,indieCharacterReport,connectedLevelReport,selectedLayout=spec.LayoutProfile??"original_courtyard",selectedStyle=spec.StyleFamily??"default",visualReviewed=false,rightsReviewed=false,stageComplete=false,
             qualification="Animation lab foundation only. Pose samples do not prove transition quality, foot contact, complete gameplay integration or human acceptance.",createdUtc=DateTimeOffset.UtcNow};
         var dir=paths.Resolve(Path.Combine(spec.ProjectPath,".forgecore","unity","character-animation-evidence"),true);Directory.CreateDirectory(dir);
         var output=Path.Combine(dir,requestId+".json");await WriteJsonNewAsync(output,evidence,token);await WriteJsonNewAsync(png+".forgecore-rig-preview.json",evidence,token);

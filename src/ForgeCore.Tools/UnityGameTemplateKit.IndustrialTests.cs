@@ -86,7 +86,7 @@ namespace ForgeCoreGameTemplates.Tests
         [UnitySetUp]public IEnumerator Setup()
         {
             var path=AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath)
-                .Where(p=>p.EndsWith("/IndustrialMission.prefab")).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
+                .Where(p=>p.EndsWith("/IndustrialMission.prefab")&&!File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault();
             Assert.NotNull(path,"Generate a fresh industrial mission fixture.");
             PrototypeInput.SetScriptedFrame(new PrototypeInputFrame());root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));
             mission=root.GetComponent<IndustrialMission>();session=mission.session;session.enabled=false;mission.enabled=false;session.SetPaused(true);

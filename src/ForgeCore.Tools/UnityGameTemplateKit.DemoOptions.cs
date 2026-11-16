@@ -30,10 +30,10 @@ namespace ForgeCoreGameTemplates
 #endif
             }
         }
-        public static string StorageRoot()=>Application.isEditor?
+        public static string StorageRoot(string profile=DemoStateRules.Profile)=>Application.isEditor?
             Path.Combine(Application.temporaryCachePath,"ForgeCoreDemoTests-"+Guid.NewGuid().ToString("N")):
             Diagnostic?(diagnosticRoot??(diagnosticRoot=Path.Combine(Path.GetDirectoryName(Application.dataPath),"ForgeCoreDemoProbe-"+Guid.NewGuid().ToString("N")))):
-            Path.Combine(Application.persistentDataPath,"ForgeCoreIndustrialDemo-v1");
+            Path.Combine(Application.persistentDataPath,profile==DemoStateRules.ConnectedProfile?"ForgeCoreIndustrialConnected-v1":"ForgeCoreIndustrialDemo-v1");
     }
     public sealed class SecurityDemoOptions:MonoBehaviour
     {
@@ -56,7 +56,7 @@ namespace ForgeCoreGameTemplates
         public DemoCheckpointExitState ExitState=>exit.State;
         private void Start(){Initialize();if(!Application.isEditor&&!DemoRuntimeScope.Diagnostic)session.SetPaused(true);}
         public void Initialize() {
-            if(initialized)return;initialized=true;StoreRoot=DemoRuntimeScope.StorageRoot();
+            if(initialized)return;initialized=true;StoreRoot=DemoRuntimeScope.StorageRoot(session!=null?session.CheckpointProfile:DemoStateRules.Profile);
             var root=StoreRoot;saves=new DemoCheckpointQueue((text,measured)=>DemoAtomicStateFiles.TryWrite(root,"checkpoint.json",text,measured,out _));
             if(!Application.isEditor)Application.wantsToQuit+=PrepareQuit;
             try {var json=ReadOwned("settings.json");if(json!=null){var value=DemoStateRules.UpgradeSettings(JsonUtility.FromJson<DemoSettings>(json));if(DemoStateRules.SettingsValid(value))Settings=value;else Status="Invalid settings; safe defaults used.";}}
@@ -96,9 +96,9 @@ namespace ForgeCoreGameTemplates
             Initialize();if(Intro||session==null||session.mission==null||session.Finished||session.player.Health<=0)return Task.FromResult(false);
             var player=session.player;player.CommitCompletedReload();var p=player.transform.position;var mask=0;
             for(var i=0;i<session.enemies.Length;i++)if(session.enemies[i].Health<=0)mask|=1<<i;
-            var data=new DemoCheckpoint{schemaVersion=1,profile=DemoStateRules.Profile,stage=session.mission.Stage,defeatedMask=mask,
+            var data=new DemoCheckpoint{schemaVersion=1,profile=session.CheckpointProfile,stage=session.mission.Stage,defeatedMask=mask,
                 health=player.Health,reserve=player.Reserve,magazine=player.motion.Ammo,x=p.x,y=Mathf.Max(0,p.y),z=p.z,yaw=Mathf.Repeat(player.transform.eulerAngles.y,360),pitch=player.ViewPitch};
-            if(!DemoStateRules.CheckpointValid(data)){Status="Not a valid checkpoint state.";return Task.FromResult(false);}
+            if(!DemoStateRules.CheckpointValid(data,session.CheckpointProfile)){Status="Not a valid checkpoint state.";return Task.FromResult(false);}
             var request=saves.Request(JsonUtility.ToJson(data,true),DemoRuntimeTelemetry.BackgroundRecorder());latestSave=request;saveReason=reason;
             checkpointFailed=false;checkpointStatus=Status="Saving checkpoint...";
             PublishSaveStatus();return request;
@@ -161,9 +161,10 @@ namespace ForgeCoreGameTemplates
             if(saves.Pending)saves.Completion.GetAwaiter().GetResult();PublishSaveStatus();
             try{var json=ReadOwned("checkpoint.json");if(json==null){Status="No checkpoint saved yet.";return false;}data=JsonUtility.FromJson<DemoCheckpoint>(json);}
             catch{Status="Checkpoint unreadable; current mission unchanged.";return false;}
-            if(!DemoStateRules.CheckpointValid(data)){Status="Checkpoint rejected; current mission unchanged.";return false;}
+            if(!DemoStateRules.CheckpointValid(data,session.CheckpointProfile)){Status="Checkpoint rejected; current mission unchanged.";return false;}
             var p=new Vector3(data.x,data.y,data.z);Physics.SyncTransforms();
-            if(Physics.CheckCapsule(p+Vector3.up*.35f,p+Vector3.up*1.45f,.25f,1<<8,QueryTriggerInteraction.Ignore)){
+            var connected=session.GetComponentInParent<ConnectedIndustrialLevel>();
+            if(connected!=null?!connected.CheckCheckpointClear(p,data.stage):Physics.CheckCapsule(p+Vector3.up*.35f,p+Vector3.up*1.45f,.25f,1<<8,QueryTriggerInteraction.Ignore)){
                 Status="Checkpoint location blocked; current mission unchanged.";return false;}
             session.Restart();session.mission.RestoreCheckpoint(data.stage,data.defeatedMask);
             session.player.RestoreCheckpoint(data.health,data.reserve,data.magazine,p,data.yaw,data.pitch);

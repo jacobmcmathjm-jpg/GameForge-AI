@@ -15,7 +15,7 @@ namespace ForgeCoreGameTemplates
         public bool courtyardPresentation;
         public int Stage {get;private set;}
         public bool Completed=>Stage==3;
-        public string CurrentObjective=>Stage==0?(powerBox!=null?"Restore power at the power box":"Restore power at the service kiosk"):Stage==1?
+        public string CurrentObjective=>session!=null&&session.ConnectedLayout?(Stage==0?"Restore loading-gate power":Stage==1?(session.Kills<2?"Clear the warehouse guards":"Retrieve the warehouse manifest"):Stage==2?(session.Kills<3?"Secure the control room":"Transmit manifest and extract"):"Transmission and extraction complete"):Stage==0?(powerBox!=null?"Restore power at the power box":"Restore power at the service kiosk"):Stage==1?
             (session.Kills<2?"Clear the two service-yard guards":"Retrieve the shipping manifest"):
             Stage==2?(session.Kills<3?"Clear the extraction guard":"Reach extraction and use the beacon"):"Extraction complete";
         private void Start(){ResetMission();}
@@ -47,6 +47,7 @@ namespace ForgeCoreGameTemplates
         }
         private void RefreshMarkers()
         {
+            var connected=GetComponent<ConnectedIndustrialLevel>();if(connected!=null)connected.Synchronize(Stage);
             shownStage=shownKills=-1;RefreshTerminalStates();
             if(objectives!=null)for(var i=0;i<objectives.Length;i++)if(objectives[i]!=null)
                 objectives[i].gameObject.SetActive(i==Stage||(i==0&&powerBox!=null)||(i==1&&manifestTerminal!=null)||(i==2&&extractionTerminal!=null));
@@ -73,7 +74,8 @@ namespace ForgeCoreGameTemplates
             var previousFont=GUI.skin.label.fontSize;
             if(session.options!=null&&session.options.Settings.largeText)GUI.skin.label.fontSize=17;
             if(courtyardPresentation) {
-                GUI.Box(new Rect(14,14,Mathf.Min(640,Screen.width-28),65),"INDUSTRIAL INFILTRATION  /  COURTYARD VISUAL CANDIDATE");
+                var connected=GetComponent<ConnectedIndustrialLevel>();
+                GUI.Box(new Rect(14,14,Mathf.Min(640,Screen.width-28),65),connected!=null?"INDUSTRIAL INFILTRATION / "+connected.Zone(session.player.transform.position):"INDUSTRIAL INFILTRATION  /  COURTYARD VISUAL CANDIDATE");
                 GUI.Label(new Rect(26,37,Screen.width-52,25),Mathf.Min(Stage+1,3)+"/3  "+CurrentObjective+"  •  E interacts within 2m");
                 GUI.Label(new Rect(18,82,Screen.width-36,25),"Original template presentation • library props / final art review pending");
                 if(Stage==0&&powerBox!=null&&!session.Paused&&session.player.Health>0&&powerBox.WithinReach(session.player.transform.position))
@@ -121,6 +123,8 @@ namespace ForgeCoreGameTemplates.Editor
         }
         public static string Build(string assetPath,string hash,string id,string scenePath,string outputPath)
             =>BuildWithStyle(assetPath,hash,id,scenePath,outputPath,"");
+        public static string BuildConnected(string assetPath,string hash,string id,string scenePath,string outputPath)
+            =>ForgeCoreConnectedLevelBuilder.Build(assetPath,hash,id,scenePath,outputPath);
         public static string BuildWithStyle(string assetPath,string hash,string id,string scenePath,string outputPath,string style)
         {
             if(style!=""&&style!="retro_64")throw new InvalidOperationException("Unsupported original industrial presentation profile.");

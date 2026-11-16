@@ -941,6 +941,7 @@ public sealed partial class ToolExecutor : IToolExecutor, IDisposable
             assetSetId = spec.AssetSetId ?? string.Empty,
             assetRole = spec.AssetRole ?? string.Empty,
             styleFamily = spec.StyleFamily ?? string.Empty,
+            layoutProfile = spec.LayoutProfile ?? string.Empty,
             parentObjectName = spec.ParentObjectName ?? string.Empty,
             targetHeight = spec.TargetHeight ?? 0,
             colliderMode = spec.ColliderMode ?? string.Empty,

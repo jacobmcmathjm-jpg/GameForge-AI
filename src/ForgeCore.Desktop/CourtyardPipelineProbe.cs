@@ -7,14 +7,14 @@ namespace ForgeCore.Desktop;
 /// <summary>Packaged-app planner smoke test; deliberately never starts the host, database, model or editor.</summary>
 internal static class CourtyardPipelineProbe
 {
-    public static async Task RunAsync(string output,bool retro=false)
+    public static async Task RunAsync(string output,bool retro=false,bool connected=false)
     {
         if(!Path.IsPathFullyQualified(output)||File.Exists(output)||Directory.Exists(output))throw new IOException("A fresh absolute output path is required.");
         await using var model=new BuiltInBlenderAssetModel(new NoInference(),"Games/ForgeCore");
         var observations=new List<ToolObservation>();var calls=new List<ToolCall>();string response="";
         for(var turn=0;turn<12;turn++)
         {
-            var plan=await model.CreatePlanAsync(new(retro?"Create a retro industrial courtyard named retro-yard.":"Create a detailed industrial courtyard named graphics-yard.",[],observations,turn,12-turn),default);
+            var plan=await model.CreatePlanAsync(new(connected?"Create a connected industrial level named connected-yard.":retro?"Create a retro industrial courtyard named retro-yard.":"Create a detailed industrial courtyard named graphics-yard.",[],observations,turn,12-turn),default);
             if(plan.Actions.Count==0){response=plan.Response;break;}
             if(plan.Actions.Count!=1)throw new InvalidDataException("Bounded route must propose exactly one action.");
             var call=plan.Actions[0];calls.Add(call);
@@ -31,9 +31,10 @@ internal static class CourtyardPipelineProbe
             throw new InvalidDataException("Packaged courtyard route did not finish its exact eleven-step sequence.");
         var mission=calls.Single(c=>c.Kind==ToolKind.UnityEditorAction&&c.Arguments["operation"]=="create_industrial_mission");
         if(UnityEditorActionSpec.From(mission).StyleFamily!=(retro?RetroCourtyardProfile.Id:null)||calls.Where(c=>c.Kind==ToolKind.UnityEditorAction&&c.Id!=mission.Id).Any(c=>UnityEditorActionSpec.From(c).StyleFamily!=null))throw new InvalidDataException("Packaged profile must be explicit and mission-only.");
+        if(UnityEditorActionSpec.From(mission).LayoutProfile!=(connected?ConnectedIndustrialProfile.Id:null)||calls.Where(c=>c.Kind==ToolKind.UnityEditorAction&&c.Id!=mission.Id).Any(c=>UnityEditorActionSpec.From(c).LayoutProfile!=null))throw new InvalidDataException("Packaged layout must be exact and mission-only.");
         Directory.CreateDirectory(Path.GetDirectoryName(output)!);
         await using var stream=new FileStream(output,FileMode.CreateNew);
-        await JsonSerializer.SerializeAsync(stream,new{schemaVersion=1,kind="packaged_app_courtyard_planner_probe",selectedStyle=retro?RetroCourtyardProfile.Id:"default",actionCount=calls.Count,calls,response,
+        await JsonSerializer.SerializeAsync(stream,new{schemaVersion=1,kind="packaged_app_courtyard_planner_probe",selectedStyle=retro?RetroCourtyardProfile.Id:"default",selectedLayout=connected?ConnectedIndustrialProfile.Id:"original_courtyard",actionCount=calls.Count,calls,response,
             realToolExecution=false,providerFallback=false,databaseOpened=false,humanArtAccepted=false,
             qualification="Actual packaged desktop assembly executing its deterministic planner with synthetic observations. Not a normal UI conversation, Unity run or gameplay proof."},new JsonSerializerOptions{WriteIndented=true});
     }
