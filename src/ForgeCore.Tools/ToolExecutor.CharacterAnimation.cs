@@ -23,7 +23,7 @@ public sealed partial class ToolExecutor
         if(r.GetProperty("maximumEdgeStretch").GetDouble() is < 1 or > 3.5 || r.GetProperty("maximumStanceSlip").GetDouble()>.01)
             throw new InvalidDataException("Sampled animation deformation or authored stance-target error exceeds its technical limit; this is separate from blended foot-contact acceptance.");
         var content=names.Select(x=>x+".anim").Concat(new[]{"Mannequin.controller","animation-report.json"}).ToArray();
-        JsonElement? visualReport=null,graphicsReport=null,propPresentationReport=null,heroFinishReport=null,retroReport=null,indieEnvironmentReport=null,indieWeaponReport=null;
+        JsonElement? visualReport=null,graphicsReport=null,propPresentationReport=null,heroFinishReport=null,retroReport=null,indieEnvironmentReport=null,indieWeaponReport=null,indieCharacterReport=null;
         if(spec.Operation is "create_security_combat_lab" or "create_industrial_mission")
         {
             using var combat=JsonDocument.Parse(await File.ReadAllBytesAsync(Path.Combine(folder,"combat-report.json"),token));
@@ -158,6 +158,10 @@ public sealed partial class ToolExecutor
             var skyPath=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,"IndieSky.png"),false);_=await StagedAssetInspector.InspectPngAsync(skyPath,token);
             var weaponPath=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,"indie-weapon-report.json"),false);if(new FileInfo(weaponPath).Length>32768)throw new InvalidDataException("Rifle report oversized.");using var weapon=JsonDocument.Parse(await File.ReadAllBytesAsync(weaponPath,token));IndieWeaponEvidence.Validate(weapon.RootElement);indieWeaponReport=weapon.RootElement.Clone();
             foreach(var name in UnityGameTemplateKit.IndieWeaponArtifacts)foreach(var item in new[]{name,name+".meta"}){var file=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,item),false);if(new FileInfo(file).Length is <=0 or >10*1024*1024)throw new InvalidDataException("Rifle artifact missing/oversized.");payload.Add(new{path=relative+"/"+item,sha256=await HashFileAsync(file,token),bytes=new FileInfo(file).Length});}
+            var characterPath=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,"indie-character-report.json"),false);
+            if(new FileInfo(characterPath).Length>32768)throw new InvalidDataException("Character report oversized.");
+            using var character=JsonDocument.Parse(await File.ReadAllBytesAsync(characterPath,token));IndieCharacterEvidence.Validate(character.RootElement);indieCharacterReport=character.RootElement.Clone();
+            foreach(var name in UnityGameTemplateKit.IndieCharacterArtifacts)foreach(var item in new[]{name,name+".meta"}){var file=ResolveUserPath(Path.Combine(spec.ProjectPath,relative,item),false);if(new FileInfo(file).Length is <=0 or >30*1024*1024)throw new InvalidDataException("Character artifact missing/oversized.");payload.Add(new{path=relative+"/"+item,sha256=await HashFileAsync(file,token),bytes=new FileInfo(file).Length});}
             var sky=await File.ReadAllBytesAsync(skyPath,token);if(System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(sky.AsSpan(16,4))!=1024||System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(sky.AsSpan(20,4))!=512)throw new InvalidDataException("Indie sky dimensions differ.");
         }
         if(spec.Operation=="create_industrial_mission"&&spec.StyleFamily==RetroCourtyardProfile.Id)
@@ -197,7 +201,7 @@ public sealed partial class ToolExecutor
         var evidence=new{schemaVersion=1,requestId,operation=spec.Operation,assetPath=spec.AssetPath,assetSha256=spec.ExpectedSha256,
             bridgeVersion=UnityBridgeTemplate.BridgeVersion,bridgeSha256=UnityBridgeTemplate.Sha256,templateKitVersion=UnityGameTemplateKit.Version,templateKitManifestSha256=await HashFileAsync(kitManifest,token),
             scenePath=spec.ScenePath,sceneSha256=await HashFileAsync(scene,token),previewPath=spec.OutputPath,previewSha256=await HashFileAsync(png,token),
-            artifacts=payload,report=r.Clone(),visualReport,graphicsReport,propPresentationReport,heroFinishReport,retroReport,indieEnvironmentReport,indieWeaponReport,selectedStyle=spec.StyleFamily??"default",visualReviewed=false,rightsReviewed=false,stageComplete=false,
+            artifacts=payload,report=r.Clone(),visualReport,graphicsReport,propPresentationReport,heroFinishReport,retroReport,indieEnvironmentReport,indieWeaponReport,indieCharacterReport,selectedStyle=spec.StyleFamily??"default",visualReviewed=false,rightsReviewed=false,stageComplete=false,
             qualification="Animation lab foundation only. Pose samples do not prove transition quality, foot contact, complete gameplay integration or human acceptance.",createdUtc=DateTimeOffset.UtcNow};
         var dir=paths.Resolve(Path.Combine(spec.ProjectPath,".forgecore","unity","character-animation-evidence"),true);Directory.CreateDirectory(dir);
         var output=Path.Combine(dir,requestId+".json");await WriteJsonNewAsync(output,evidence,token);await WriteJsonNewAsync(png+".forgecore-rig-preview.json",evidence,token);

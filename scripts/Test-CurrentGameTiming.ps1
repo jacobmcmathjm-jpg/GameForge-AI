@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt,[ValidateSet('current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')][string]$Candidate='current-timing-v1',[switch]$LegacySupportMap,[switch]$BlockingCheckpointControl)
+param([Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt,[ValidateSet('current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')][string]$Candidate='current-timing-v1',[switch]$LegacySupportMap,[switch]$BlockingCheckpointControl)
 $ErrorActionPreference='Stop'
 $timingRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $timingEvidence=Join-Path $timingRepo 'work/s08-s10-verification'
@@ -9,15 +9,15 @@ if(Test-Path -LiteralPath $timingValidation){throw 'Immutable validation receipt
 $timingPayload=Get-Content -LiteralPath $timingReceipt -Raw | ConvertFrom-Json
 $timingReport=$timingPayload.report
 $timing=$timingReport.timingDiagnostics
-$timingSchema=if($Candidate -cin @('current-timing-v3','indie-v1','indie-hero-v1')){3}elseif($Candidate -ceq 'current-timing-v2'){2}else{1}
+$timingSchema=if($Candidate -cin @('current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){3}elseif($Candidate -ceq 'current-timing-v2'){2}else{1}
 if(-not $timing -or $timing.schemaVersion -ne $timingSchema -or $timing.clock -cne 'stopwatch_update_intervals' -or $timing.warmupMilliseconds -ne 2000 -or $timing.provisionalGameplayMaximumMilliseconds -ne 100 -or $timing.wholeSessionSmoothnessAccepted){throw 'Missing/incorrect timing contract.'}
-if($Candidate -cin @('current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')){
+if($Candidate -cin @('current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){
     $timingVariant=if($LegacySupportMap){'legacy_property_per_influence'}else{'cached_bone_roles'}
     $timingMaps=@($timing.scopedWork.statistics | Where-Object kind -ceq FootworkWeightMap)
     $timingCheckpoints=@($timing.scopedWork.statistics | Where-Object kind -ceq NewGameCheckpoint)
     if($timing.supportMapVariant -cne $timingVariant -or $timingMaps.Count -ne 1 -or $timingMaps[0].count -ne 3 -or $timingCheckpoints.Count -ne 1 -or $timingCheckpoints[0].count -ne 6 -or $timing.scopedWork.recent.Count -gt 256){throw 'Missing bounded startup/reset scopes or wrong comparison variant.'}
 }
-if($Candidate -cin @('current-timing-v3','indie-v1','indie-hero-v1')){
+if($Candidate -cin @('current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){
     $timingDispatch=if($BlockingCheckpointControl){'blocking_control'}else{'queued_nonblocking'}
     if($timing.checkpointDispatch -cne $timingDispatch){throw 'Wrong checkpoint dispatch mode.'}
 }

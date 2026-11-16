@@ -1,0 +1,44 @@
+# Indie character — bounded glove and uniform derivative
+
+16 November 2026. Continues the validated rifle candidate through the reusable normal detailed/indie industrial generation route. **This is a modest wrist-skinned glove/uniform increment, not a finished detailed human character, new articulated fingers, new animation clips, a larger map, AA art or another completed genre.** Human visual acceptance and the original intermittent freeze remain open.
+
+## Actual implementation
+
+Kit **0.16.99**, bridge **0.17.22** unchanged. ForgeCore builds two new shared skinned mesh derivatives in a fresh asset set and scene: one body shared by all three guards and one compact first-person arm mesh. Original hash-bound Blender body/skeleton, texture/material set and eight authored clips remain the source. These are original code-authored Unity mesh derivatives, **not a newly generated Blender character, downloaded art, AI-trained anatomy or neural asset synthesis**.
+
+Original mitten triangles are replaced with shaped palms, four pre-curled finger forms and a thumb, plus tapered cuffs and low-profile knuckle pads. Rounded knee inserts and stitched boot-shaft details share the original lower-leg/foot bindings. The earlier head/body is largely retained. Each digit is rigid to the existing wrist bone: **individual finger animation is not implemented**. No rig extension or claim of independent trigger-finger/reload articulation is made.
+
+Two mesh assets share one asset file. Actual counts: **29,864 guard triangles / 3,384 first-person triangles**, versus the retained source's 29,064 / 3,064. Net +800 per guard and +320 on the viewmodel. No added renderer, material, texture, collider, realtime light or per-frame behaviour. Unused source mitten/full-body vertices are removed from the viewmodel derivative; the original source mesh itself remains available and unchanged.
+
+Bone names/bind matrices, grip/sight/muzzle transforms, weapon/magazine parenting, controller input, warm muzzle shader, gunshot and recorded footsteps are retained. All **43** inherited wave/clip/original-arm files match the preceding rifle candidate exactly. Explicit retro generation bypasses this stage. Artifact evidence binds both mesh/report files and their metas; host validation rejects resource, preservation, animation and human-acceptance overclaims.
+
+## Tests and current qualification
+
+- Release build passes without warnings/errors. **983 host tests pass**: 629 Core / 40 Agent / 314 Security, zero failures/skips. This includes 21 new character-evidence cases; both .98 and final .99 runs remain separately retained.
+- .98 Runtime/Editor C#9 semantic compilation passed, but actual Unity compilation caught a new PlayMode fixture's invalid Editor-assembly reference. The failed `compile-v98.json` is retained. The test now independently checks its geometry/weights without referencing the Editor helper. Exact hash-bound .98-to-.99 upgrade and fresh actual `compile-v99.json` pass. No compiler assertion, assembly restriction or runtime deadline is loosened.
+- Fresh production mission generation succeeds through the real policy/executor/bridge route, not a synthetic mocked success. **290** generated artifact identities are recorded.
+- Successful production runtime camera capture: **1280x720**, zero sampled magenta, SHA-256 **8ef845fb504fe37bf32a679f35993415cc7e0219db624b6fd5a95025929bf44c**. This is an actual runtime image, not a concept; its distant/occluded hands are not evidence that every pose or detail is artistically acceptable.
+- **120/120 full graphics-enabled PlayMode tests and 19/19 Editor tests pass**, zero failures/skips. Four new mesh tests are included in 120, not additional unique coverage. Full PlayMode XML SHA-256 **14f6b45760e08de1a36d793e2511a1c5f30586b5d9fc2f3dba00f3e4a4513819**. The 600-second process allowance, 180-second per-Editor-test limit and 122-second production capture deadline are unchanged.
+- All four actual exported-player modes pass: courtyard / power-box state / hip-ADS-guard firing / corpse grounding, with zero sampled magenta. Six real **1080p** controller/projectile missions pass across three presets twice, including actual kills, reloads, objectives, recorded footsteps and checkpoint roundtrips, without direct damage or player teleport. First run has three 30-second idle soaks; repeat has three 8-second idle soaks. The 45-second player-mode and 260-second mission-process deadlines are unchanged.
+- Measured gameplay maxima: **17.0809 / 17.0805 ms**; warmup maxima: **567.6555 / 566.6746 ms**. Original gameplay/idle windows exactly agree with the diagnostic sampler, two-second warmup and provisional 100 ms gameplay maximum gate are unchanged. Startup has no Update samples, not zero startup cost. **The warmup stalls and original freeze remain unresolved; neither whole-session smoothness nor causal performance improvement is accepted.** Raw first/repeat mission receipts: **8884c21beb34040beb086aeb28530809702fb45c529a37cc26778213045be1a7** / **b2e2be00b5770d48d018ea6d13cbb5e4b3648812d918b664d75f8b6016405c1c**.
+- All **290** fresh artifacts reverify after gameplay tests. Before/after-build and final post-gameplay audits retain all **1,166** protected hashes. No human review is changed.
+- Manifest verifier fixture follow-up passes **18/18**, including rejection of fake finger-animation/human-art flags and string-as-boolean claims. Mechanical file validation is not visual review.
+
+The four new Unity checks inspect shared finite/normalized skinned meshes, preserved source/bind matrices, all eight clips at five sample times across player and three guards, and unchanged collision/weapon anchors. The inherited edge-stretch bound remains **3.5**, a technical envelope, not a guarantee against visual clipping. Existing runtime grip, ADS, reload, death and corpse tests remain separate checks.
+
+## Preservation and identities
+
+Fresh scene: `Assets/Scenes/Indie/Industrial-Indie-Character-v1.unity`, SHA-256 **20c4406449c5e75cef03555a82677b4c7e2a58fb5c7823a6b136fef4b6134109**. Fresh asset set `indie-character-v1`. Production evidence **4df0dd6362d7483da7f403fd222025bb.json**. Kit manifest **491c355475fd942b4370b6c66ce5d23ce36f98ed9ae56c44c95dd469bd3d9b81**.
+
+The preservation baseline includes **1,166** earlier scene/asset/shader/review-record hashes, now including the tested rifle candidate. Protected kit backups: .97 before .98 under `8c08d433ed944e2482eaaba900e87ffd`; .98 before .99 under `8e7c6d492bdf48fd9656ddf8bfc4fbd1`. No earlier failed attempt, scene, exported game/app or human approval is overwritten. Existing databases, API keys and cloud providers are not used.
+
+Distinct delivery label: **20261116-IndieCharacterV1**, sealed before the independent player probes and copied to the primary workspace. App **481 files / 267,219,038 bytes**, manifest **2ba14b0bd316da77e33c5826073bcb1c395d5b762f853697f0f93feabe1ad0ae**. Game **336 files / 240,317,773 bytes**, manifest **00535773bed3c3ef63432ad79b5bedc121646e56ad587de7a0f0691825b6fecd**. The copied app's dependency self-check and synthetic eleven-action planner probe pass; they do not start the normal host, database, model or actual Unity tasks, and are not another end-to-end generation run. Safe offline example configuration remains substituted.
+
+Actual player identity: level0 **44cdfccffc4e14abed04aca6aec1a6af592f31740ffffda595e3447fbc654f8f**, runtime DLL **3bdf576ab05d01f774de57ccea954612144443a7c745b2d87b5b14028d420517**. Generic launcher identity alone is insufficient.
+
+Separate unaccepted review package: `outputs/ForgeCore-IndieCharacterReview-20261116-V1`, four payloads / **728,015 bytes**, manifest **9bc988064db39a3630ab17cc79f25833911b6ba7e4129ffe114dc2812a7524af**. Production image/provenance and report hashes are bound; README describes three first-run missions, with the additional three-repeat evidence retained above. Human art and independent finger animation flags remain false. No old sealed payload is modified to add new code.
+
+Keep the whole earlier app/game folders as fallbacks; do not force an older app over a newer unknown kit installation. Source checkpoint **20261116-indie-character-v1** substitutes safe configuration and excludes live state, game binaries and raw diagnostics. Independently extract/offline-restore/Release-build that exact ZIP and record recovery externally. Publish only on separate **codex/indie-character-candidate-20261116** from the verified rifle-validation commit, leaving the tested rifle/environment branches, S01 work, draft PR #3 and main unchanged.
+
+Next after reviewing this bounded candidate: inspect close-up grip/ADS/reload/death presentation and address specific visible defects before a larger rig/anatomy or connected-level increment. The small courtyard and prototype genre scope are unchanged.
+

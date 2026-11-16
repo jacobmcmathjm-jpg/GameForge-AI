@@ -41,6 +41,7 @@ namespace ForgeCoreGameTemplates.Editor
             foreach(var weapon in weaponRoots){DressWeapon(weapon,metal,polymer,report);report.weaponCount++;}
             foreach(var enemy in session.enemies){DressGuard(enemy.motion.transform,fabric,polymer,report);report.guardCount++;}
             if(root.transform.Find("Indie environment v1")!=null)ForgeCoreIndieWeapon.Apply(root,folder);
+            if(root.transform.Find("Indie environment v1")!=null)ForgeCoreIndieCharacter.Apply(root,folder);
             // Old opaque ellipse overlays do not represent water depth or reflection; use the asphalt's spatial smoothness mask instead.
             var wet=root.GetComponentsInChildren<MeshRenderer>(true).Where(r=>r.sharedMaterials.Any(m=>m!=null&&m.name=="YardWet")).ToArray();
             if(wet.Length!=1)throw new InvalidOperationException("Expected the single original wet overlay batch.");foreach(var r in wet)r.enabled=false;report.opaqueWetOverlayDisabled=true;

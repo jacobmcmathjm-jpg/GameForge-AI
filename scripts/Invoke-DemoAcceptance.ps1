@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('v22','v23','v24','v25','v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')][string]$Candidate='v22',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt='initial',[switch]$LongSoak,[ValidateSet('540p','720p','1080p')][string]$Viewport='540p',[switch]$Portable,[switch]$LegacySupportMap,[switch]$BlockingCheckpointControl)
+param([ValidateSet('v22','v23','v24','v25','v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')][string]$Candidate='v22',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt='initial',[switch]$LongSoak,[ValidateSet('540p','720p','1080p')][string]$Viewport='540p',[switch]$Portable,[switch]$LegacySupportMap,[switch]$BlockingCheckpointControl)
 $ErrorActionPreference='Stop'
 $demoRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $demoName=if($Candidate -in @('v27','v28')){'S10-NextSteps-'+$Candidate}elseif($Candidate -eq 'v26'){'S10-RecordedFootsteps-v26'}elseif($Candidate -eq 'v25'){'S10-Audio-v25'}else{'S10-Demo-'+$Candidate}
@@ -13,6 +13,7 @@ if($Candidate -ceq 'current-timing-v1'){$demoFolder='D:\ForgeCore\Workspace\Game
 if($Candidate -ceq 'current-timing-v2'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\S01-SupportMap-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-S01SupportMap.exe'}
 if($Candidate -ceq 'current-timing-v3'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\S01-AsyncStart-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-S01Async.exe'}
 if($Candidate -ceq 'indie-v1'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Indie-Environment-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-Indie.exe'}
+if($Candidate -ceq 'indie-character-v1'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Indie-Character-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-IndieCharacter.exe'}
 if($Candidate -ceq 'indie-hero-v1'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Indie-Hero-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-IndieHero.exe'}
 if($BlockingCheckpointControl -and $Candidate -cne 'current-timing-v3'){throw 'Blocking checkpoint control is scoped to v3 development timing.'}
 if($LegacySupportMap -and $Candidate -cne 'current-timing-v2'){throw 'Legacy mapping comparison is scoped to the development v2 diagnostic.'}
@@ -28,10 +29,10 @@ if(Get-Process Unity -ErrorAction SilentlyContinue){throw 'Unity Editor must be 
 $demoBefore=@(Get-ChildItem -LiteralPath $demoFolder -Directory -Filter 'ForgeCoreDemoAcceptance-*' | ForEach-Object FullName)
 $demoWidth=if($Viewport -ceq '1080p'){1920}elseif($Viewport -ceq '720p'){1280}else{960};$demoHeight=if($Viewport -ceq '1080p'){1080}elseif($Viewport -ceq '720p'){720}else{540}
 $demoArguments=@('-screen-width',([string]$demoWidth),'-screen-height',([string]$demoHeight),'-screen-fullscreen','0','-logFile',('"'+$demoLog+'"'),'-forgecore-demo-probe')
-if($Candidate -cin @('current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')){$demoArguments+='-forgecore-timing-probe'}
+if($Candidate -cin @('current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){$demoArguments+='-forgecore-timing-probe'}
 if($LegacySupportMap){$demoArguments+='-forgecore-footwork-legacy-probe'}
 if($BlockingCheckpointControl){$demoArguments+='-forgecore-blocking-checkpoint-probe'}
-if($LongSoak){if($Candidate -notin @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')){throw 'Long soak requires the new profiled candidate.'};$demoArguments+='-forgecore-soak-30'}
+if($LongSoak){if($Candidate -notin @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){throw 'Long soak requires the new profiled candidate.'};$demoArguments+='-forgecore-soak-30'}
 $demoProcess=Start-Process -FilePath $demoExe -WorkingDirectory $demoFolder -WindowStyle Hidden -PassThru -ArgumentList $demoArguments
 if(-not $demoProcess.WaitForExit(260000)){
     Stop-Process -Id $demoProcess.Id -ErrorAction SilentlyContinue
@@ -51,9 +52,9 @@ if($demoReport.device -eq 'Null' -or $demoReport.passes.Count -ne 3 -or -not $de
 foreach($demoPass in $demoReport.passes){
     if(-not $demoPass.completed -or -not $demoPass.checkpointRoundtrip -or $demoPass.kills -ne 3 -or $demoPass.shots -lt 9 -or $demoPass.travelled -lt 45 -or $demoPass.frames.totalFrames -lt 100){throw 'Incomplete actual mission pass.'}
     if($Candidate -eq 'v25' -and ($demoReport.audioRecipe -ne 'forgecore_layered_surface_audio_v2' -or $demoReport.audioClips -ne 28 -or $demoPass.footsteps -le 15)){throw 'Missing actual new-bank/grounded-footstep evidence.'}
-    if($Candidate -in @('v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1') -and ($demoReport.recordedFootstepBankId -cne 'gbox_subway_hardfloor_v1' -or $demoReport.audioClips -ne 34 -or $demoPass.recordedFootsteps -le 15)){throw 'Missing actual recorded-bank gameplay evidence.'}
-    if($Candidate -in @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1') -and (-not $demoPass.work -or $demoPass.work.totalSamples -le 0)){throw 'Missing named work profiling.'}
-    if($Candidate -in @('v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1')){
+    if($Candidate -in @('v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1') -and ($demoReport.recordedFootstepBankId -cne 'gbox_subway_hardfloor_v1' -or $demoReport.audioClips -ne 34 -or $demoPass.recordedFootsteps -le 15)){throw 'Missing actual recorded-bank gameplay evidence.'}
+    if($Candidate -in @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1') -and (-not $demoPass.work -or $demoPass.work.totalSamples -le 0)){throw 'Missing named work profiling.'}
+    if($Candidate -in @('v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2','current-timing-v3','indie-v1','indie-hero-v1','indie-character-v1')){
         $flush=@($demoPass.work.statistics | Where-Object kind -eq 'BackgroundFlush')
         $mainFlush=@($demoPass.work.statistics | Where-Object kind -eq 'StateFlush')
         if($flush.Count -ne 1 -or $flush[0].count -lt 5 -or ($mainFlush.Count -gt 0 -and $mainFlush[0].count -gt 0)){throw 'Automatic checkpoint flushes must run on the worker, not the gameplay thread.'}

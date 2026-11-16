@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ManifestPath,
-    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','IndieReview','HeroReview','Source')][string]$Kind,
+    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','IndieReview','HeroReview','CharacterReview','Source')][string]$Kind,
     [Parameter(Mandatory)][string]$ReceiptPath
 )
 $ErrorActionPreference='Stop'
@@ -38,6 +38,8 @@ if($Kind -eq 'Delivery') {
     if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-visual-polish-technical-review' -or
         $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or
         $manifest.fileCount -ne 7){throw 'Visual review must have exactly seven unaccepted payloads.'}
+}elseif($Kind -eq 'CharacterReview') {
+    if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-indie-character-review' -or $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or $manifest.individualFingerAnimation -isnot [bool] -or $manifest.individualFingerAnimation -cne $false -or $manifest.fileCount -ne 4){throw 'Character review requires four unaccepted payloads without articulated-finger overclaims.'}
 }elseif($Kind -eq 'HeroReview') {
     if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-indie-weapon-review' -or $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or $manifest.sourceHandsChanged -isnot [bool] -or $manifest.sourceHandsChanged -cne $false -or $manifest.fileCount -ne 4){throw 'Hero technical review requires four unaccepted payloads and no hand anatomy overclaim.'}
 }elseif($Kind -eq 'IndieReview') {
