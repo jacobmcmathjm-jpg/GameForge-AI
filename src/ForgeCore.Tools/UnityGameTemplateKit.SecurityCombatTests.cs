@@ -41,6 +41,25 @@ namespace ForgeCoreGameTemplates.Tests
             foreach(var b in UnityEngine.Object.FindObjectsByType<SecurityCombatBullet>(FindObjectsSortMode.None))UnityEngine.Object.DestroyImmediate(b.gameObject);
             if(root!=null)UnityEngine.Object.DestroyImmediate(root);
         }
+        [Test]public void CachedSupportMasksEqualOriginalWeightsOnEveryGuardVertex()
+        {
+            var vertices=0;
+            foreach(var enemy in session.enemies){
+                enemy.EnsureInitialized();var skin=enemy.motion.GetComponentInChildren<SkinnedMeshRenderer>();
+                var field=typeof(SecurityCombatEnemy).GetField("footwork",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+                var support=field.GetValue(enemy);Assert.NotNull(support);var flags=System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance;
+                var torso=(bool[])support.GetType().GetField("torsoVertices",flags).GetValue(support);
+                var hands=(byte[])support.GetType().GetField("handVertices",flags).GetValue(support);
+                var skeleton=skin.bones;var weights=skin.sharedMesh.boneWeights;Assert.AreEqual(weights.Length,torso.Length);Assert.AreEqual(weights.Length,hands.Length);
+                for(var i=0;i<weights.Length;i++){
+                    var w=weights[i];var ids=new[]{w.boneIndex0,w.boneIndex1,w.boneIndex2,w.boneIndex3};var amounts=new[]{w.weight0,w.weight1,w.weight2,w.weight3};
+                    float sum=0;byte hand=0;
+                    for(var j=0;j<4;j++){var name=skeleton[ids[j]].name;if(name=="Hips"||name=="Spine"||name=="Chest")sum+=amounts[j];if(amounts[j]>.5f){if(name=="Hand.L")hand=1;if(name=="Hand.R")hand=2;}}
+                    Assert.AreEqual(sum>.5f,torso[i]);Assert.AreEqual(hand,hands[i]);vertices++;
+                }
+            }
+            Assert.Greater(vertices,1000);
+        }
         [Test]public void GridRoutesAroundWallAndNeverWrapsRowsOrReturnsBlockedGoal()
         {
             var nav=new SecurityGridPathfinder(5,5,Vector3.zero,1,p=>Mathf.RoundToInt(p.x)==2&&p.z<4);

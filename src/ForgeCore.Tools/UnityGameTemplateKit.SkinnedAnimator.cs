@@ -79,7 +79,7 @@ namespace ForgeCoreGameTemplates
             Dead=false;Paused=false;Ammo=6;Shots=0;Speed=0;turn=0;aiming=false;shotPending=false;
             demoTime=0;nextDemoShot=0;ActionTime=0;duration=0;Action="Locomotion";
             transform.SetPositionAndRotation(origin,originRotation);
-            if(animator!=null) { animator.speed=1;animator.Rebind();animator.Update(0);ApplyAnimator(); }
+            if(animator!=null) { using(var measured=DemoRuntimeTelemetry.Measure(ForgeCore.Demo.DemoWorkKind.AnimatorRebind)){animator.speed=1;animator.Rebind();animator.Update(0);ApplyAnimator();} }
         }
         public void RestoreMagazine(int rounds){if(rounds<0||rounds>6)throw new ArgumentOutOfRangeException(nameof(rounds));Ammo=rounds;}
         private void Begin(string action,float seconds) { shotPending=false;Action=action;ActionTime=0;duration=seconds;ApplyAnimator(); }

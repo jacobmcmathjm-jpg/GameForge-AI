@@ -46,12 +46,14 @@ namespace ForgeCoreGameTemplates
         }
         public void Restart()
         {
+            using(var measured=DemoRuntimeTelemetry.Measure(ForgeCore.Demo.DemoWorkKind.ActorReset)){
             foreach(var bullet in FindObjectsByType<SecurityCombatBullet>(FindObjectsSortMode.None))Destroy(bullet.gameObject);
             foreach(var effect in FindObjectsByType<PrototypeMuzzleFlash>(FindObjectsSortMode.None))Destroy(effect.gameObject);
             ShotsBlockedByCover=0;PathSearches=0;SetPaused(false);
             player.ResetActor();foreach(var e in enemies)e.ResetActor();
             if(mission!=null)mission.ResetMission();
             Navigation.Refresh();
+            }
         }
         private void OnGUI()
         {

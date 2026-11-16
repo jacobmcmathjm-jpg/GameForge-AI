@@ -18,7 +18,8 @@ namespace ForgeCoreGameTemplates
         private int priorGc0,priorGc1,priorGc2;
         private DemoFrameWindow samples=new DemoFrameWindow();private readonly Stopwatch timer=new Stopwatch();
         private double previous,warmup;private bool shown,active;private SecurityCombatSession session;
-        private DemoTimingTrace timing;private string timingWindow="gameplay";private double timingPrevious;
+        private DemoTimingTrace timing;private DemoWorkJournal timingWork;private bool legacySupportMap;private string timingWindow="gameplay";private double timingPrevious;
+        public static bool LegacySupportMap=>Instance!=null&&Instance.legacySupportMap;
         public double ReadyMilliseconds {get;private set;}
         public long AllocatedBytes=>Profiler.GetTotalAllocatedMemoryLong();
         public long ReservedBytes=>Profiler.GetTotalReservedMemoryLong();
@@ -26,24 +27,28 @@ namespace ForgeCoreGameTemplates
         public SecurityCombatSession Session=>session;
         private void Awake(){timer.Start();Instance=this;session=GetComponentInChildren<SecurityCombatSession>();
             if(!Application.isEditor&&Array.IndexOf(Environment.GetCommandLineArgs(),"-forgecore-timing-probe")>=0)
-                timing=new DemoTimingTrace(Time.realtimeSinceStartupAsDouble*1000,TimingContext());}
+                {timing=new DemoTimingTrace(Time.realtimeSinceStartupAsDouble*1000,TimingContext());timingWork=new DemoWorkJournal();
+#if DEVELOPMENT_BUILD && !UNITY_EDITOR
+                legacySupportMap=Array.IndexOf(Environment.GetCommandLineArgs(),"-forgecore-footwork-legacy-probe")>=0;
+#endif
+                }}
         private void OnDestroy(){if(Instance==this)Instance=null;}
         public DemoWorkSnapshot WorkSnapshot()=>work.Snapshot();
         public Spike[] Spikes()=>spikes.ToArray();
         public static WorkScope Measure(DemoWorkKind kind)=>new WorkScope(Instance,kind);
         public static Action<DemoWorkKind,double> BackgroundRecorder() {
             var owner=Instance;if(owner==null)return null;
-            var journal=owner.work;var clock=owner.timer;var frame=Time.frameCount;
+            var journal=owner.work;var extra=owner.timingWork;var clock=owner.timer;var frame=Time.frameCount;
             // This closure captures only managed objects and the main-thread frame number; no Unity API on the worker.
-            return (kind,ms)=>{var end=clock.Elapsed.TotalMilliseconds;journal.Add(kind,frame,Math.Max(0,end-ms),ms);};
+            return (kind,ms)=>{var end=clock.Elapsed.TotalMilliseconds;var start=Math.Max(0,end-ms);journal.Add(kind,frame,start,ms);if(extra!=null)extra.Add(kind,frame,start,ms);};
         }
         public struct WorkScope:IDisposable {
             private readonly DemoRuntimeTelemetry owner;private readonly DemoWorkKind kind;private readonly int frame;private readonly double start;
             public WorkScope(DemoRuntimeTelemetry owner,DemoWorkKind kind){this.owner=owner;this.kind=kind;frame=owner!=null?Time.frameCount:0;start=owner!=null?owner.timer.Elapsed.TotalMilliseconds:0;}
-            public void Dispose(){if(owner!=null)owner.work.Add(kind,frame,start,Math.Max(0,owner.timer.Elapsed.TotalMilliseconds-start));}
+            public void Dispose(){if(owner!=null){var ms=Math.Max(0,owner.timer.Elapsed.TotalMilliseconds-start);owner.work.Add(kind,frame,start,ms);if(owner.timingWork!=null)owner.timingWork.Add(kind,frame,start,ms);}}
         }
         private void Start(){ReadyMilliseconds=Time.realtimeSinceStartupAsDouble*1000;if(timing!=null)timing.Ready(ReadyMilliseconds);}
-        public DemoTimingReport TimingSnapshot()=>timing==null?null:timing.Snapshot();
+        public DemoTimingReport TimingSnapshot(){if(timing==null)return null;var report=timing.Snapshot();report.scopedWork=timingWork.Snapshot();report.supportMapVariant=legacySupportMap?"legacy_property_per_influence":"cached_bone_roles";return report;}
         public void ResetMeasurement(string kind="gameplay"){
             if(kind!="gameplay"&&kind!="idle")throw new ArgumentException("Unknown timing window.");timingWindow=kind;
             if(timing!=null)timing.BeginWindow(timer.Elapsed.TotalMilliseconds,kind);
@@ -53,7 +58,7 @@ namespace ForgeCoreGameTemplates
             managedBytes=GC.GetTotalMemory(false),allocatedBytes=Profiler.GetTotalAllocatedMemoryLong(),focused=Application.isFocused};
         private void RecordTiming(double now,string phase,bool boundary){
             if(timing==null)return;var unity=Time.unscaledDeltaTime*1000d;
-            var overlap=timing.WillRetain(now,unity,phase)?work.Overlapping(timingPrevious,now):null;
+            var overlap=timing.WillRetain(now,unity,phase)?timingWork.Overlapping(timingPrevious,now):null;
             timing.Observe(now,unity,phase,boundary,TimingContext(),overlap);timingPrevious=now;}
         private void ReadGc(){priorGc0=GC.CollectionCount(0);priorGc1=GC.CollectionCount(1);priorGc2=GC.CollectionCount(2);}
         private void Update() {

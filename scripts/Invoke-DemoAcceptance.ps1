@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([ValidateSet('v22','v23','v24','v25','v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1')][string]$Candidate='v22',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt='initial',[switch]$LongSoak,[ValidateSet('540p','720p','1080p')][string]$Viewport='540p',[switch]$Portable)
+param([ValidateSet('v22','v23','v24','v25','v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2')][string]$Candidate='v22',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt='initial',[switch]$LongSoak,[ValidateSet('540p','720p','1080p')][string]$Viewport='540p',[switch]$Portable,[switch]$LegacySupportMap)
 $ErrorActionPreference='Stop'
 $demoRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $demoName=if($Candidate -in @('v27','v28')){'S10-NextSteps-'+$Candidate}elseif($Candidate -eq 'v26'){'S10-RecordedFootsteps-v26'}elseif($Candidate -eq 'v25'){'S10-Audio-v25'}else{'S10-Demo-'+$Candidate}
@@ -10,6 +10,8 @@ if($Candidate -ceq 'polished-v2'){$demoFolder='D:\ForgeCore\Workspace\Games\Forg
 if($Candidate -cin @('retro64-v1','retro64-v2')){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Retro\retro-yard-'+$Candidate.Substring(8);$demoExe=Join-Path $demoFolder 'retro-yard.exe'}
 if($Portable){if($Candidate -cnotin @('retro64-v1','retro64-v2')){throw 'Portable option is scoped to the verified retro candidate.'};$demoFolder=Join-Path $demoRepo ('work/delivered-'+$Candidate+'-runtime');$demoExe=Join-Path $demoFolder 'retro-yard.exe'}
 if($Candidate -ceq 'current-timing-v1'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\S01-CurrentGame-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-S01Current.exe'}
+if($Candidate -ceq 'current-timing-v2'){$demoFolder='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\S01-SupportMap-20261116';$demoExe=Join-Path $demoFolder 'ForgeCore-S01SupportMap.exe'}
+if($LegacySupportMap -and $Candidate -cne 'current-timing-v2'){throw 'Legacy mapping comparison is scoped to the development v2 diagnostic.'}
 $demoEvidence=Join-Path $demoRepo 'work/s08-s10-verification'
 [IO.Directory]::CreateDirectory($demoEvidence)|Out-Null
 $demoStem='standalone-demo-'+$Candidate+'-'+$Attempt
@@ -22,8 +24,9 @@ if(Get-Process Unity -ErrorAction SilentlyContinue){throw 'Unity Editor must be 
 $demoBefore=@(Get-ChildItem -LiteralPath $demoFolder -Directory -Filter 'ForgeCoreDemoAcceptance-*' | ForEach-Object FullName)
 $demoWidth=if($Viewport -ceq '1080p'){1920}elseif($Viewport -ceq '720p'){1280}else{960};$demoHeight=if($Viewport -ceq '1080p'){1080}elseif($Viewport -ceq '720p'){720}else{540}
 $demoArguments=@('-screen-width',([string]$demoWidth),'-screen-height',([string]$demoHeight),'-screen-fullscreen','0','-logFile',('"'+$demoLog+'"'),'-forgecore-demo-probe')
-if($Candidate -ceq 'current-timing-v1'){$demoArguments+='-forgecore-timing-probe'}
-if($LongSoak){if($Candidate -notin @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1')){throw 'Long soak requires the new profiled candidate.'};$demoArguments+='-forgecore-soak-30'}
+if($Candidate -cin @('current-timing-v1','current-timing-v2')){$demoArguments+='-forgecore-timing-probe'}
+if($LegacySupportMap){$demoArguments+='-forgecore-footwork-legacy-probe'}
+if($LongSoak){if($Candidate -notin @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2')){throw 'Long soak requires the new profiled candidate.'};$demoArguments+='-forgecore-soak-30'}
 $demoProcess=Start-Process -FilePath $demoExe -WorkingDirectory $demoFolder -WindowStyle Hidden -PassThru -ArgumentList $demoArguments
 if(-not $demoProcess.WaitForExit(260000)){
     Stop-Process -Id $demoProcess.Id -ErrorAction SilentlyContinue
@@ -43,9 +46,9 @@ if($demoReport.device -eq 'Null' -or $demoReport.passes.Count -ne 3 -or -not $de
 foreach($demoPass in $demoReport.passes){
     if(-not $demoPass.completed -or -not $demoPass.checkpointRoundtrip -or $demoPass.kills -ne 3 -or $demoPass.shots -lt 9 -or $demoPass.travelled -lt 45 -or $demoPass.frames.totalFrames -lt 100){throw 'Incomplete actual mission pass.'}
     if($Candidate -eq 'v25' -and ($demoReport.audioRecipe -ne 'forgecore_layered_surface_audio_v2' -or $demoReport.audioClips -ne 28 -or $demoPass.footsteps -le 15)){throw 'Missing actual new-bank/grounded-footstep evidence.'}
-    if($Candidate -in @('v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1') -and ($demoReport.recordedFootstepBankId -cne 'gbox_subway_hardfloor_v1' -or $demoReport.audioClips -ne 34 -or $demoPass.recordedFootsteps -le 15)){throw 'Missing actual recorded-bank gameplay evidence.'}
-    if($Candidate -in @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1') -and (-not $demoPass.work -or $demoPass.work.totalSamples -le 0)){throw 'Missing named work profiling.'}
-    if($Candidate -in @('v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1')){
+    if($Candidate -in @('v26','v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2') -and ($demoReport.recordedFootstepBankId -cne 'gbox_subway_hardfloor_v1' -or $demoReport.audioClips -ne 34 -or $demoPass.recordedFootsteps -le 15)){throw 'Missing actual recorded-bank gameplay evidence.'}
+    if($Candidate -in @('v27','v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2') -and (-not $demoPass.work -or $demoPass.work.totalSamples -le 0)){throw 'Missing named work profiling.'}
+    if($Candidate -in @('v28','courtyard-v1','polished-v2','retro64-v1','retro64-v2','current-timing-v1','current-timing-v2')){
         $flush=@($demoPass.work.statistics | Where-Object kind -eq 'BackgroundFlush')
         $mainFlush=@($demoPass.work.statistics | Where-Object kind -eq 'StateFlush')
         if($flush.Count -ne 1 -or $flush[0].count -lt 5 -or ($mainFlush.Count -gt 0 -and $mainFlush[0].count -gt 0)){throw 'Automatic checkpoint flushes must run on the worker, not the gameplay thread.'}

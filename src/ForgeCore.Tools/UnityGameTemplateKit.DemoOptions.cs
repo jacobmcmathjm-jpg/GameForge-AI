@@ -73,7 +73,9 @@ namespace ForgeCoreGameTemplates
             if(!Application.isEditor)DemoQuality.Apply(Settings.quality,Settings.frameLimit);
         }
         public void StartNewGame() {
-            Initialize();Intro=false;settingsOpen=false;session.Restart();SaveCheckpoint("New mission checkpoint");session.SetPaused(false);
+            Initialize();Intro=false;settingsOpen=false;session.Restart();
+            using(var measured=DemoRuntimeTelemetry.Measure(DemoWorkKind.NewGameCheckpoint))SaveCheckpoint("New mission checkpoint");
+            session.SetPaused(false);
         }
         public bool SaveCheckpoint(string reason="Checkpoint saved") {
             var pending=RequestCheckpoint(reason);var ok=pending.GetAwaiter().GetResult();PublishSaveStatus();return ok;

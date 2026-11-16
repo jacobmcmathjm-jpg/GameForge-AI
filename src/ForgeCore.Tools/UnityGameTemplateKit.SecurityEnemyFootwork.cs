@@ -5,6 +5,7 @@ internal static partial class UnityGameTemplateKit
 using System;
 using System.Linq;
 using UnityEngine;
+using ForgeCore.Demo;
 namespace ForgeCoreGameTemplates
 {
     // Post-Animator, distance/turn-driven placement for the bounded flat security lab only.
@@ -43,10 +44,13 @@ namespace ForgeCoreGameTemplates
         public float Phase => phase;
         public SecurityEnemyFootwork(Transform owner,PrototypeSkinnedAnimator motion)
         {
+            using(var init=DemoRuntimeTelemetry.Measure(DemoWorkKind.FootworkInitialize)){
             root=owner;visual=motion.transform;visualRest=visual.localPosition;
             var bones=visual.GetComponentsInChildren<Transform>().ToDictionary(t=>t.name,t=>t);
             hips=bones["Hips"];chest=bones["Chest"];skin=visual.GetComponentInChildren<SkinnedMeshRenderer>();
             var weights=skin.sharedMesh.boneWeights;torsoVertices=new bool[weights.Length];handVertices=new byte[weights.Length];
+            using(var measured=DemoRuntimeTelemetry.Measure(DemoWorkKind.FootworkWeightMap)){
+            if(DemoRuntimeTelemetry.LegacySupportMap){
             for(var i=0;i<weights.Length;i++)
             {
                 var w=weights[i];var ids=new[]{w.boneIndex0,w.boneIndex1,w.boneIndex2,w.boneIndex3};
@@ -59,8 +63,16 @@ namespace ForgeCoreGameTemplates
                 }
                 torsoVertices[i]=torso>.5f;
             }
+            }else{
+                var skeleton=skin.bones;var roles=new byte[skeleton.Length];
+                for(var i=0;i<roles.Length;i++)roles[i]=DemoSkinSupportMap.Role(skeleton[i].name);
+                for(var i=0;i<weights.Length;i++){
+                    var w=weights[i];var mask=DemoSkinSupportMap.Evaluate(roles,w.boneIndex0,w.boneIndex1,w.boneIndex2,w.boneIndex3,w.weight0,w.weight1,w.weight2,w.weight3);
+                    torsoVertices[i]=mask.torso;handVertices[i]=mask.hand;
+                }
+            }}
             legs=new[]{MakeLeg(bones,"L"),MakeLeg(bones,"R")};
-            arms=new[]{MakeArm(bones,"L"),MakeArm(bones,"R")};Reset();
+            arms=new[]{MakeArm(bones,"L"),MakeArm(bones,"R")};Reset();}
         }
         private Arm MakeArm(System.Collections.Generic.Dictionary<string,Transform> bones,string side)
         {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 namespace ForgeCore.Demo
 {
-    public enum DemoWorkKind { StateWrite,StateRead,StateFlush,StateReplace,CheckpointRestore,NavigationRefresh,RouteSearch,CorpseSupport,ProbeCapture,GraphicsSettings,BackgroundWrite,BackgroundFlush,BackgroundReplace }
+    public enum DemoWorkKind { StateWrite,StateRead,StateFlush,StateReplace,CheckpointRestore,NavigationRefresh,RouteSearch,CorpseSupport,ProbeCapture,GraphicsSettings,BackgroundWrite,BackgroundFlush,BackgroundReplace,FootworkInitialize,FootworkWeightMap,ActorReset,AnimatorRebind,NewGameCheckpoint }
     [Serializable]public struct DemoWorkSample {public string kind;public int frame;public double startMilliseconds,durationMilliseconds;}
     [Serializable]public struct DemoWorkStatistic {public string kind;public int count;public double totalMilliseconds,maximumMilliseconds;}
     [Serializable]public sealed class DemoWorkSnapshot {public int totalSamples;public DemoWorkSample[] recent=Array.Empty<DemoWorkSample>();public DemoWorkStatistic[] statistics=Array.Empty<DemoWorkStatistic>();}
