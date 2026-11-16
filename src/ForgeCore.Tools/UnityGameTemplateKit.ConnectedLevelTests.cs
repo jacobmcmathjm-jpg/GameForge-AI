@@ -15,15 +15,30 @@ namespace ForgeCoreGameTemplates.Tests
 {
     public sealed class ConnectedLevelTests
     {
-        private GameObject root;private SecurityCombatSession session;private ConnectedIndustrialLevel level;
+        private GameObject root;private SecurityCombatSession session;private ConnectedIndustrialLevel level;private string assetFolder;
         [UnitySetUp]public IEnumerator Setup(){
             var path=AssetDatabase.FindAssets("t:Prefab",new[]{"Assets/ForgeCore/CharacterAnimations"}).Select(AssetDatabase.GUIDToAssetPath).Where(p=>p.EndsWith("/IndustrialMission.prefab")&&File.Exists(Path.GetDirectoryName(p)+"/connected-level-report.json")).OrderByDescending(File.GetLastWriteTimeUtc).First();
-            PrototypeInput.SetScriptedFrame(new PrototypeInputFrame());root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));level=root.GetComponent<ConnectedIndustrialLevel>();session=level.session;
+            assetFolder=Path.GetDirectoryName(path);PrototypeInput.SetScriptedFrame(new PrototypeInputFrame());root=UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path));level=root.GetComponent<ConnectedIndustrialLevel>();session=level.session;
             session.enabled=false;session.mission.enabled=false;session.SetPaused(true);yield return null;session.player.enabled=false;
             foreach(var enemy in session.enemies)enemy.enabled=false;foreach(var motion in root.GetComponentsInChildren<PrototypeSkinnedAnimator>(true))motion.enabled=false;
             session.options.StartNewGame();session.SetPaused(false);Physics.SyncTransforms();session.Navigation.Refresh();
         }
         [TearDown]public void Cleanup(){PrototypeInput.ClearScriptedFrame();if(root!=null)UnityEngine.Object.DestroyImmediate(root);}
+        [Test]public void ConnectedInteriorScreensAreBoundedAndDoNotAddCollision(){
+            var material=AssetDatabase.LoadAssetAtPath<Material>(assetFolder+"/ConnectedScreen.mat");Assert.NotNull(material);Assert.AreEqual("Standard",material.shader.name);
+            var texture=material.mainTexture;Assert.NotNull(texture);Assert.AreEqual(256,texture.width);Assert.AreEqual(128,texture.height);
+            var importer=(TextureImporter)AssetImporter.GetAtPath(assetFolder+"/ConnectedScreen.png");Assert.AreEqual(TextureImporterFormat.BC7,importer.GetPlatformTextureSettings("Standalone").format);
+            var report=File.ReadAllText(assetFolder+"/connected-interior-report.json");StringAssert.Contains("\"collisionUnchanged\": true",report);StringAssert.Contains("\"addedColliders\": 0",report);StringAssert.Contains("\"visualReviewed\": false",report);
+            Assert.AreEqual(49,root.GetComponentsInChildren<Collider>(true).Length);Assert.LessOrEqual(root.GetComponentsInChildren<Renderer>(true).Length,300);
+            Assert.True(root.GetComponentsInChildren<MeshRenderer>(true).Any(r=>r.sharedMaterial==material));
+        }
+        [Test]public void InteriorComparisonIsStaticChangedAndExplicitlyUnaccepted(){
+            var report=File.ReadAllText(assetFolder+"/connected-interior-review.json");StringAssert.Contains("static_editor_comparison_left_before_right_after_not_runtime_animation",report);StringAssert.Contains("fresh_same_output_before_optional_interior_dressing_not_previous_v6_binary",report);
+            StringAssert.Contains("\"humanArtAccepted\": false",report);StringAssert.Contains("\"stageComplete\": false",report);StringAssert.Contains("\"magentaPixels\": 0",report);
+            StringAssert.Contains("\"combatAndObjectivePosesUnchanged\": true",report);
+            var changed=System.Text.RegularExpressions.Regex.Match(report,"\"changedPixels\"\\s*:\\s*(\\d+)");Assert.True(changed.Success);Assert.GreaterOrEqual(int.Parse(changed.Groups[1].Value),1000);
+            var image=AssetDatabase.LoadAssetAtPath<Texture2D>(assetFolder+"/connected-interior-review.png");Assert.AreEqual(1536,image.width);Assert.AreEqual(1296,image.height);
+        }
         [Test]public void RetainedCourtyardBatchesHaveNoRooftopOrphanTriangles(){
             foreach(var name in new[]{"Courtyard presentation — original template, not reviewed library art","Indie environment v1","Courtyard detail v1 — bounded original candidate"}){
                 var branch=root.transform.Find(name);Assert.NotNull(branch);

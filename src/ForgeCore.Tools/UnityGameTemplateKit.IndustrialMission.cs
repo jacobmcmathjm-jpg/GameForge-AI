@@ -81,9 +81,11 @@ namespace ForgeCoreGameTemplates
                 if(Stage==0&&powerBox!=null&&!session.Paused&&session.player.Health>0&&powerBox.WithinReach(session.player.transform.position))
                     GUI.Box(new Rect(Screen.width/2-110,Screen.height/2+40,220,32),"E — Restore power");
                 if(Stage==1&&manifestTerminal!=null&&!session.Paused&&manifestTerminal.WithinReach(session.player.transform.position))
-                    GUI.Box(new Rect(Screen.width/2-130,Screen.height/2+40,260,32),manifestTerminal.Available?"E — Retrieve manifest":"Clear the yard guards first");
+                    GUI.Box(new Rect(Screen.width/2-130,Screen.height/2+40,260,32),manifestTerminal.Available?"E — Retrieve manifest":session.ConnectedLayout?"Clear warehouse guards first":"Clear the yard guards first");
                 if(Stage==2&&extractionTerminal!=null&&!session.Paused&&extractionTerminal.WithinReach(session.player.transform.position))
-                    GUI.Box(new Rect(Screen.width/2-130,Screen.height/2+40,260,32),extractionTerminal.Available?"E — Extract":"Clear the extraction guard first");
+                    GUI.Box(new Rect(Screen.width/2-130,Screen.height/2+40,260,32),extractionTerminal.Available?(session.ConnectedLayout?"E — Transmit / extract":"E — Extract"):session.ConnectedLayout?"Clear control-room guard first":"Clear the extraction guard first");
+                if(connected!=null&&!Completed&&objectives!=null&&objectives.Length==3)
+                    GUI.Label(new Rect(18,107,Screen.width-36,25),"Objective: "+Vector3.Distance(session.player.transform.position,objectives[Stage].position).ToString("0")+"m straight-line • use the marked doorways");
                 GUI.skin.label.fontSize=previousFont;return;
             }
             GUI.Box(new Rect(10,116,740,85),"INDUSTRIAL INFILTRATION — ordered mission prototype");

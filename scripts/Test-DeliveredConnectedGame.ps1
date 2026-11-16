@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('V5','V6')][string]$Candidate,
+    [Parameter(Mandatory)][ValidateSet('V5','V6','V7','V8')][string]$Candidate,
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedManifestSha256,
     [ValidatePattern('^[a-z0-9-]{1,24}$')][string]$Attempt='delivered'
 )

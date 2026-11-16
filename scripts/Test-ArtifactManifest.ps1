@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ManifestPath,
-    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','IndieReview','HeroReview','CharacterReview','ConnectedReview','Source')][string]$Kind,
+    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','IndieReview','HeroReview','CharacterReview','ConnectedReview','ConnectedInteriorReview','Source')][string]$Kind,
     [Parameter(Mandatory)][string]$ReceiptPath
 )
 $ErrorActionPreference='Stop'
@@ -38,6 +38,8 @@ if($Kind -eq 'Delivery') {
     if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-visual-polish-technical-review' -or
         $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or
         $manifest.fileCount -ne 7){throw 'Visual review must have exactly seven unaccepted payloads.'}
+}elseif($Kind -eq 'ConnectedInteriorReview') {
+    if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-connected-interior-review' -or $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or $manifest.stageComplete -isnot [bool] -or $manifest.stageComplete -cne $false -or $manifest.fileCount -ne 7){throw 'Connected interior review requires seven unaccepted runtime/static-comparison payloads.'}
 }elseif($Kind -eq 'ConnectedReview') {
     if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-connected-level-review' -or $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or $manifest.stageComplete -isnot [bool] -or $manifest.stageComplete -cne $false -or $manifest.fileCount -ne 4){throw 'Connected review requires four unaccepted payloads, not final stage approval.'}
 }elseif($Kind -eq 'CharacterReview') {

@@ -1,7 +1,7 @@
 namespace ForgeCore.Tools;
 internal static partial class UnityGameTemplateKit
 {
-    internal static readonly string[] ConnectedLevelArtifacts=["ConnectedDressing.asset","ConnectedSigns.mat","connected-level-report.json"];
+    internal static readonly string[] ConnectedLevelArtifacts=["ConnectedDressing.asset","ConnectedSigns.mat","ConnectedScreen.png","ConnectedScreen.mat","connected-interior-report.json","connected-interior-review.png","connected-interior-review.json","connected-level-report.json"];
     private const string ConnectedLevelBuilderSource="""
 using System;
 using System.IO;
@@ -110,6 +110,11 @@ namespace ForgeCoreGameTemplates.Editor
             var signMaterial=new Material(signShader){name="Connected physical world signs",mainTexture=atlas};
             AssetDatabase.CreateAsset(signMaterial,folder+"/ConnectedSigns.mat");
             foreach(var sign in signs)sign.GetComponent<MeshRenderer>().sharedMaterial=signMaterial;
+            // Both comparison sides must use the final connected actor/objective placements.
+            mission.objectives[1].position=new Vector3(-9,.3f,41.8f);mission.objectives[2].position=new Vector3(38,.3f,40.8f);
+            session.enemies[0].transform.position=new Vector3(-8,.02f,26);session.enemies[1].transform.position=new Vector3(0,.02f,37);session.enemies[2].transform.position=new Vector3(34,.02f,36);
+            using var interiorReview=ForgeCoreConnectedInterior.BeginReview(root);
+            ForgeCoreConnectedInterior.Apply(root,group,folder,blue,steel,concrete,lamp);
             // Static architecture shares material batches; keep independent solid colliders and movable gate leaves.
             var staticFilters=group.GetComponentsInChildren<MeshFilter>().Where(f=>f.transform!=gate0.transform&&f.transform!=gate1.transform).ToArray();
             foreach(var materialGroup in staticFilters.GroupBy(f=>f.GetComponent<MeshRenderer>().sharedMaterial)){
@@ -119,9 +124,7 @@ namespace ForgeCoreGameTemplates.Editor
                 var batch=new GameObject(mesh.name);batch.transform.SetParent(group,false);batch.layer=8;batch.AddComponent<MeshFilter>().sharedMesh=mesh;batch.AddComponent<MeshRenderer>().sharedMaterial=materialGroup.Key;
             }
             foreach(var f in staticFilters){UnityEngine.Object.DestroyImmediate(f.GetComponent<MeshRenderer>());UnityEngine.Object.DestroyImmediate(f);}
-            // Keep approach cells in front of the solid cabinets, not inside their 1m navigation cells.
-            mission.objectives[1].position=new Vector3(-9,.3f,41.8f);mission.objectives[2].position=new Vector3(38,.3f,40.8f);
-            session.enemies[0].transform.position=new Vector3(-8,.02f,26);session.enemies[1].transform.position=new Vector3(0,.02f,37);session.enemies[2].transform.position=new Vector3(34,.02f,36);
+            // Approach cells stay in front of the cabinets, not inside their 1m navigation cells.
             var report=new Report();var previous=session.player.transform.position;
             report.worldSignsDepthTested=signs.All(t=>t.GetComponent<MeshRenderer>().sharedMaterial.shader==signShader);
             report.legacyRoofFittingsTrimmed=legacyBranches.SelectMany(b=>b.GetComponentsInChildren<MeshFilter>()).All(f=>{var vertices=f.sharedMesh.vertices;return f.sharedMesh.triangles.All(i=>f.transform.TransformPoint(vertices[i]).z<17);});
@@ -140,6 +143,7 @@ namespace ForgeCoreGameTemplates.Editor
             report.renderers=root.GetComponentsInChildren<Renderer>(true).Length;report.colliders=root.GetComponentsInChildren<Collider>(true).Length;
             if(!report.worldSignsDepthTested||!report.legacyRoofFittingsTrimmed||!report.spawnSafe||!report.doorGatingVerified||!report.socketsUnchanged||!report.baseCombatAssetsUnchanged||report.routeMetres<110||report.routeMetres>350||report.renderers>300||report.colliders>100)throw new InvalidOperationException("Connected final physics/resource/preservation gate failed: "+JsonUtility.ToJson(report));
             using(var writer=new StreamWriter(new FileStream(folder+"/connected-level-report.json",FileMode.CreateNew)))writer.Write(JsonUtility.ToJson(report,true));
+            interiorReview.Save(folder);
             PrefabUtility.SaveAsPrefabAsset(root,folder+"/IndustrialMission.prefab");AssetDatabase.SaveAssets();AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);if(!EditorSceneManager.SaveScene(scene,scenePath))throw new InvalidOperationException("Connected scene save failed.");
             return "Fresh three-zone single-floor connected candidate saved: power-gated service yard, accessible warehouse with combat/manifest, manifest-gated control room and extraction. Final physics route and door gating audited. Existing character, rifle, audio and clips retained; human art/balance and original freeze remain open.";
         }
