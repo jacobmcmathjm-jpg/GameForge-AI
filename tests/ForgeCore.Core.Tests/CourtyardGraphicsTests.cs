@@ -47,6 +47,8 @@ public sealed class CourtyardGraphicsTests
         Assert.Fail("Courtyard pipeline failed to terminate within the bounded action budget.");
     }
     [Theory][InlineData("Create a detailed industrial courtyard named graphics-yard.","graphics-yard")]
+    [InlineData("Create an indie industrial courtyard named indie-yard.","indie-yard")]
+    [InlineData("Make an indie-style industrial courtyard.","detailed-courtyard")]
     [InlineData("Make an industrial courtyard.","detailed-courtyard")][InlineData("Please generate me a detailed industrial courtyard called demo-yard!","demo-yard")]
     public async Task OrdinaryCourtyardPromptUsesExistingOfflineMissionPipeline(string prompt,string name)
     {

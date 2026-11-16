@@ -47,9 +47,11 @@ namespace ForgeCoreGameTemplates.Editor
             lighting.mode=ReflectionProbeMode.Baked;lighting.refreshMode=ReflectionProbeRefreshMode.ViaScripting;lighting.timeSlicingMode=ReflectionProbeTimeSlicingMode.NoTimeSlicing;
             lighting.resolution=128;lighting.size=new Vector3(36,12,36);lighting.center=Vector3.zero;lighting.boxProjection=true;lighting.intensity=.65f;lighting.blendDistance=3;lighting.cullingMask=~(1<<9);lighting.nearClipPlane=.1f;lighting.farClipPlane=110;lighting.hdr=true;
             // Distinct cool exterior / warm practicals with bounded shadow distance; no realtime GI or extra shadow lights.
+            if(root.transform.Find("Indie environment v1")==null){
             if(RenderSettings.sun!=null){RenderSettings.sun.transform.rotation=Quaternion.Euler(24,-42,0);RenderSettings.sun.color=new Color(.93f,.96f,1);RenderSettings.sun.intensity=.95f;RenderSettings.sun.shadowStrength=.78f;}
             RenderSettings.ambientSkyColor=new Color(.34f,.41f,.51f);RenderSettings.ambientEquatorColor=new Color(.20f,.24f,.28f);RenderSettings.ambientGroundColor=new Color(.12f,.135f,.15f);
             RenderSettings.fogColor=new Color(.39f,.46f,.53f);RenderSettings.fogDensity=.009f;
+            }
             var reflectionPath=folder+"/CourtyardReflection.exr";if(File.Exists(reflectionPath))throw new IOException("Reflection destination occupied; no overwrite.");
             if(!Lightmapping.BakeReflectionProbe(lighting,reflectionPath))throw new InvalidOperationException("Actual scene reflection bake failed.");
             AssetDatabase.ImportAsset(reflectionPath,ImportAssetOptions.ForceSynchronousImport);

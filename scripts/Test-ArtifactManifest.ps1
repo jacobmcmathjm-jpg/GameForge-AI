@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ManifestPath,
-    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','Source')][string]$Kind,
+    [Parameter(Mandatory)][ValidateSet('Delivery','Review','CourtyardReview','VisualReview','IndieReview','Source')][string]$Kind,
     [Parameter(Mandatory)][string]$ReceiptPath
 )
 $ErrorActionPreference='Stop'
@@ -38,6 +38,8 @@ if($Kind -eq 'Delivery') {
     if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-visual-polish-technical-review' -or
         $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or
         $manifest.fileCount -ne 7){throw 'Visual review must have exactly seven unaccepted payloads.'}
+}elseif($Kind -eq 'IndieReview') {
+    if($manifest.schemaVersion -ne 1 -or $manifest.kind -cne 'ForgeCore-indie-environment-review' -or $manifest.humanArtAccepted -isnot [bool] -or $manifest.humanArtAccepted -cne $false -or $manifest.fileCount -ne 4){throw 'Indie technical review requires exactly four unaccepted payloads.'}
 }else {
     if($manifest.schemaVersion -notin @(1,2) -or $manifest.kind -cne 'sanitized-source-checkpoint'){throw 'Unsupported source checkpoint manifest.'}
 }

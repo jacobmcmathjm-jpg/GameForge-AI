@@ -195,6 +195,7 @@ namespace ForgeCoreGameTemplates.Editor
                     throw new InvalidOperationException("Mission spawn lacks a safe staging distance.");
             ForgeCoreCourtyardPresentation.Apply(root,folder);mission.courtyardPresentation=true;
             ForgeCoreCourtyardGraphics.Apply(root,folder);
+            if(!retro)ForgeCoreIndieEnvironment.Apply(root,folder);
             ForgeCoreVisualPolish.Apply(root,folder);
             if(retro)ForgeCoreRetroCourtyard.Apply(root,folder);
             if(PrefabUtility.SaveAsPrefabAsset(root,folder+"/IndustrialMission.prefab")==null)throw new InvalidOperationException("Mission prefab save failed.");

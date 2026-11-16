@@ -17,7 +17,7 @@ public sealed partial class BuiltInBlenderAssetModel(ILocalModel inner, string p
     public Task<AgentPlan> CreatePlanAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var courtyard=Regex.Match(request.UserMessage,@"^\s*(?:please\s+)?(?:create|make|generate)\s+(?:me\s+)?(?:an?\s+)?(?:(?:detailed|(?<retro>retro|n64-style|goldeneye(?:\s+007)?-style))\s+)?industrial\s+courtyard(?:\s+(?:named|called)\s+(?<name>[a-z][a-z0-9_-]{1,35}))?[.!]?\s*$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
+        var courtyard=Regex.Match(request.UserMessage,@"^\s*(?:please\s+)?(?:create|make|generate)\s+(?:me\s+)?(?:an?\s+)?(?:(?:detailed|indie(?:-style)?|(?<retro>retro|n64-style|goldeneye(?:\s+007)?-style))\s+)?industrial\s+courtyard(?:\s+(?:named|called)\s+(?<name>[a-z][a-z0-9_-]{1,35}))?[.!]?\s*$",RegexOptions.IgnoreCase|RegexOptions.CultureInvariant);
         var retroStyle=courtyard.Success&&courtyard.Groups["retro"].Success;
         if(courtyard.Success)
             request=request with{UserMessage="Create an industrial infiltration mission in Blender. Name it "+(courtyard.Groups["name"].Success?courtyard.Groups["name"].Value.ToLowerInvariant():retroStyle?"retro-courtyard":"detailed-courtyard")+"."};

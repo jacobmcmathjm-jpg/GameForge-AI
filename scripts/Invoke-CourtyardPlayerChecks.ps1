@@ -1,8 +1,11 @@
 [CmdletBinding()]
-param([ValidateSet('Courtyard-v19','PowerBox-v20','PowerBox-v21','Demo-v22','Demo-v23','Demo-v24','Audio-v25','RecordedFootsteps-v26','NextSteps-v28','GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off')][string]$Candidate='Courtyard-v19')
+param([ValidateSet('Courtyard-v19','PowerBox-v20','PowerBox-v21','Demo-v22','Demo-v23','Demo-v24','Audio-v25','RecordedFootsteps-v26','NextSteps-v28','GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1')][string]$Candidate='Courtyard-v19')
 $ErrorActionPreference='Stop'
 $checkRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
-if($Candidate -ceq 'StartupSplash-Off'){
+if($Candidate -ceq 'Indie-v1'){
+    $checkGame='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Indie-Environment-20261116'
+    $checkExe=Join-Path $checkGame 'ForgeCore-Indie.exe'
+}elseif($Candidate -ceq 'StartupSplash-Off'){
     $checkGame='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\S01-StartupFade-20261116\SplashOff'
     $checkExe=Join-Path $checkGame 'ForgeCore-SplashOff.exe'
 }elseif($Candidate -ceq 'CurrentTiming-v3'){
@@ -36,7 +39,7 @@ $checkStem='standalone-'+$Candidate.ToLowerInvariant()
 $checkReceipt=Join-Path $checkEvidence ($checkStem+'-checks.json')
 if(Test-Path -LiteralPath $checkReceipt){throw 'Evidence exists; no replay or overwrite.'}
 $checkResults=[Collections.Generic.List[object]]::new()
-$checkModes=if($Candidate -cin @('GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off') -or $Candidate.StartsWith('PowerBox-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Demo-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Audio-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('RecordedFootsteps-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('NextSteps-', [StringComparison]::Ordinal)){@('courtyard','powerbox','render','corpse')}else{@('courtyard','render','corpse')}
+$checkModes=if($Candidate -cin @('GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1') -or $Candidate.StartsWith('PowerBox-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Demo-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Audio-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('RecordedFootsteps-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('NextSteps-', [StringComparison]::Ordinal)){@('courtyard','powerbox','render','corpse')}else{@('courtyard','render','corpse')}
 foreach($checkMode in $checkModes) {
     $checkLog=Join-Path $checkEvidence ($checkStem+"-$checkMode.log")
     if(Test-Path -LiteralPath $checkLog){throw 'Diagnostic log exists; preserve it and explicitly select a fresh attempt.'}
