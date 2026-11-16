@@ -1,6 +1,6 @@
 # Blender creation, Unity integration and cross-game reuse
 
-Requested target: ForgeCore should create the game's 3D asset set in Blender, integrate it into Unity and reuse suitable work in subsequent games. The first bounded local adapter is implemented: one original weathered-barrel recipe. The whole-game pipeline below remains a roadmap, not a claim of general autonomous art production.
+Requested target: ForgeCore should create the game's 3D asset set in Blender, integrate it into Unity and reuse suitable work in subsequent games. Two bounded original recipes are implemented: a weathered barrel and an explicitly technical rigged mannequin. The whole-game pipeline below remains a roadmap, not a claim of general autonomous art production.
 
 ## Current evidence
 
@@ -9,11 +9,13 @@ Requested target: ForgeCore should create the game's 3D asset set in Blender, in
 - The existing vault requires current technical evidence plus separate live human visual/rights records. No such records have been fabricated for the watchtower or any new content.
 - `CreateBlenderAsset` and `ImportBlenderAsset` now provide typed creation/exact-match reuse and separately approved non-overwriting imports. The Desktop prompt `Create a weathered barrel in Blender. Name it yard-barrel.` deterministically routes creation, import, bridge installation, compilation, structural inspection and four-view preview without loading a local language model. It stops short of human acceptance and scene placement.
 - The IndustrialYardV1 environment remains original Unity procedural geometry. One local Blender barrel has been imported and placed in a separate test scene; this is not a whole Blender-generated environment.
+- `Create a rigged mannequin in Blender. Name it training-enemy.` adds the original S02 skinning foundation: 22 named bones, normalized weights, source preservation, exact import and real Unity bind/pose tests into a fresh review scene/PNG. The real five-action prompt route passed without inference or a paid provider. This is not detailed character art, a Humanoid avatar, an animation set or automatic gameplay-enemy replacement. [S02 measurements and limits](outcomes/S02-2026-10-27.md).
 
 ## Implemented local contract
 
+- S03 introduces `Create an animated rigged mannequin in Blender. Name it training-motion.` The base still comes from the unchanged Blender recipe; motion is authored locally as Unity skeletal `.anim` curves, not Blender Actions. The route installs the verified animation kit, compiles, verifies the rig, and creates a fresh clip/controller/lab folder. This is a bounded technical animation foundation with open rendered-motion/quality acceptance, not arbitrary animation generation or an existing-game replacement. [S03 work note](outcomes/S03-2026-10-27.md).
 - Configure existing absolute `BlenderPath`, `BlenderVersion: "5.2"` and `BlenderTimeoutSeconds` (30–1200). A fresh install's example path is empty: execution fails closed until configured. This workstation is configured to its installed executable.
-- Only `weathered_barrel_v1` is supported. Inputs are project, bounded lowercase name, seed 0–999999, height 1000–1500 mm and radius 250–500 mm. No arbitrary script, file, URL, output path, plugin or command argument is accepted. Explicit unsupported Blender creation requests stop instead of falling through to cloud.
+- `weathered_barrel_v1` inputs are project, bounded lowercase name, seed 0–999999, height 1000–1500 mm and radius 250–500 mm. `rigged_humanoid_v1` accepts the same project/name/seed limits and height 1600–2000 mm, but no radius argument. No arbitrary script, file, URL, output path, plugin or command argument is accepted. Explicit unsupported Blender creation requests stop instead of falling through to cloud.
 - The recipe is embedded in the Tools assembly and copied into a fresh run directory. Blender starts background/factory/disable-autoexec/offline with two CPU threads, a time limit, bounded output and only an allow-listed process environment. No provider credentials are inherited. Blender/Python is still not an OS sandbox. Unity and Blender must be closed at the external-process check; ForgeCore never kills user-owned editors.
 - Runs are serialized within the adapter and by a cross-process library lease. A stale lease stops work rather than being removed silently. Project operations also use the executor's existing per-project lease; interactive editors launched concurrently by another application cannot be prevented by this check.
 - The library is workspace `.forgecore/blender-library`: isolated runs/logs, recipe references, and content-addressed objects. Objects retain `.blend`, `.glb`, studio preview, three packed source PBR PNGs, measured metrics, exact request and recipe. Entry hash, every file hash/length, binary/recipe/request identity, GLB structure, PNG envelopes, geometry budget, dimensions and bottom pivot are checked. The recipe uses image-based albedo/roughness/metallic textures, UVs, rolled rims, ribs, recessed lid and bung details. No normal-map bake or LOD is provided yet.
@@ -21,6 +23,7 @@ Requested target: ForgeCore should create the game's 3D asset set in Blender, in
 - All bundles remain `unreviewed_local_recipe`. This is separate from the existing human-reviewed GLB vault; it neither manufactures visual/rights attestations nor makes the local source automatically eligible for approved production-vault selection. Cross-game semantic suitability search, source-aware reviewed-vault migration, variations and approval UI remain future work.
 - Cancellation stops the owned Blender process tree. Before atomic publication it leaves only an isolated partial run for diagnosis; once publication commits, the complete immutable bundle is retained and its tiny reference write is finished. A cancelled task does not proceed to a dependent import. Startup, geometry, appearance and runtime checks are distinct. The app prompt does not choose an arbitrary existing scene or silently replace a placeholder.
 - Kit 0.16.33 limits the procedural material pass to explicitly `Yard.<Finish>.*` renderers, preserving imported multi-material PBR slots/textures. Known 0.16.32 installations upgrade only by exact hashes with a protected prior-version backup.
+- Character bundles additionally retain `rig.json` with the explicit Generic named-bone convention and original source-pose measurements. Dense GLB skin arrays are inspected before publication. Unity's `inspect_character_rig` checks the actual import, rejects invalid bind/weights or excessive diagnostic deformation, and preserves a fresh test scene plus four-pose sheet. These local technical records do not grant human review or approved-vault eligibility. Existing barrel cache identities remain compatible.
 
 ## Intended production lifecycle
 
@@ -48,7 +51,7 @@ Acceptance must demonstrate:
 - import of that same content hash into a second fresh project/game destination, without remodelling or changing the source bundle;
 - a playable Windows delivery with unresolved quality requirements stated honestly.
 
-Characters, rigging/skinning, locomotion/combat animation, organic terrain, detailed hero weapons and art-direction iteration are later separate milestones. Blender can produce these classes of content, but the quality of autonomous output depends on the implemented recipes/models, training/reference assets, integration and verification—not the presence of Blender alone.
+The bounded technical mannequin now establishes a rigging/skinning foundation only. Detailed characters, full locomotion/combat animation, organic terrain, detailed hero weapons and art-direction iteration remain separate milestones. Blender can produce these classes of content, but the quality of autonomous output depends on the implemented recipes/models, training/reference assets, integration and verification—not the presence of Blender alone.
 
 ## Primary references
 

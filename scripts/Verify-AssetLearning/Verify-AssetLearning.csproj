@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/ForgeCore.Tools/ForgeCore.Tools.csproj" />
+    <ProjectReference Include="../../src/ForgeCore.LocalAI/ForgeCore.LocalAI.csproj" />
+  </ItemGroup>
+</Project>

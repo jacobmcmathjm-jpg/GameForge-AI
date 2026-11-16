@@ -29,8 +29,8 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
         {
             var expectedPermission = call.Kind switch
             {
-                ToolKind.ListFiles or ToolKind.ReadTextFile or ToolKind.IndexProject or ToolKind.SearchProject or ToolKind.InspectStagedAsset or ToolKind.SearchAssetVault => PermissionKind.Read,
-                ToolKind.WriteTextFile or ToolKind.ApplyTextPatch or ToolKind.RestoreTextSnapshot or ToolKind.CreateDirectory or ToolKind.ScaffoldProject or ToolKind.ImportStagedAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.ReviewGameArtAsset or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.ImportBlenderAsset => PermissionKind.Write,
+                ToolKind.ListFiles or ToolKind.ReadTextFile or ToolKind.IndexProject or ToolKind.SearchProject or ToolKind.InspectStagedAsset or ToolKind.SearchAssetVault or ToolKind.SearchLocalBlenderAssets or ToolKind.InspectLocalBlenderAsset or ToolKind.CheckLocalBlenderCompatibility or ToolKind.PlanIndustrialAssets => PermissionKind.Read,
+                ToolKind.WriteTextFile or ToolKind.ApplyTextPatch or ToolKind.RestoreTextSnapshot or ToolKind.CreateDirectory or ToolKind.ScaffoldProject or ToolKind.ImportStagedAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.ReviewGameArtAsset or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.ImportBlenderAsset or ToolKind.PromoteLocalBlenderAsset or ToolKind.ImportIndustrialAssetSet => PermissionKind.Write,
                 ToolKind.StageWebAsset or ToolKind.SearchAssetCatalog or ToolKind.Generate3DAsset => PermissionKind.Network,
                 ToolKind.DotnetBuild or ToolKind.DotnetTest or ToolKind.RunCommand or ToolKind.UnityEditorAction or ToolKind.UnityMcpAction or ToolKind.UnityPlayerSmokeTest or ToolKind.UnityPlayerProfileTest or ToolKind.CreateBlenderAsset => PermissionKind.Execute,
                 _ => throw new ArgumentException("Unknown tool.")
@@ -48,7 +48,9 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                         throw new ArgumentException("Local generation requires a configured existing Blender 5.2 executable; it will not install or download one.");
                     _ = paths.Resolve(".forgecore/blender-library", true);
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
-                        $"Run the bundled fixed {blender.Recipe} recipe in local Blender 5.2, seed {blender.Seed}, {blender.HeightMillimetres} mm tall and {blender.RadiusMillimetres} mm radius. Retain source, GLB, PBR images and preview as an unreviewed immutable local bundle; reuse only an exact verified recipe match. No cloud, API key, download, arbitrary Python, or Unity import is included."));
+                        $"Run the bundled fixed {blender.Recipe} recipe in local Blender 5.2, seed {blender.Seed}, {blender.HeightMillimetres} mm tall" +
+                        (blender.Recipe == BlenderAssetSpec.CharacterRecipe ? "; original generic 22-bone technical mannequin, no motion clips" : $" and {blender.RadiusMillimetres} mm radius") +
+                        ". Retain source, GLB, PBR images and preview as an unreviewed immutable local bundle; reuse only an exact verified recipe match. No cloud, API key, download, arbitrary Python, or Unity import is included."));
                 case ToolKind.ImportBlenderAsset:
                     var blenderImport = BlenderAssetImportSpec.From(call);
                     var blenderProject = RequireUnityProject(blenderImport.ProjectPath);
@@ -57,10 +59,11 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                     var blenderTarget = RequireUserPath(Path.Combine(blenderImport.ProjectPath, blenderImport.DestinationPath), true);
                     EnsureWithinProject(blenderProject, blenderTarget);
                     var blenderFolder = Path.GetDirectoryName(blenderTarget)!;
-                    if (File.Exists(blenderFolder) || Directory.Exists(blenderFolder) || File.Exists(blenderFolder + ".meta"))
+                    if (File.Exists(blenderFolder) || Directory.Exists(blenderFolder) || File.Exists(blenderFolder + ".meta") || Directory.Exists(blenderFolder + ".meta"))
                         throw new ArgumentException("Local Blender import destination already exists.");
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
-                        $"Re-verify local bundle {blenderImport.BundleSha256}, editable source and exact GLB SHA-256 {blenderImport.ExpectedAssetSha256}; import without overwrite to {blenderImport.DestinationPath}. Source remains reusable; human visual and rights review are still pending."));
+                        $"Re-verify local bundle {blenderImport.BundleSha256}, editable source and exact GLB SHA-256 {blenderImport.ExpectedAssetSha256}; import without overwrite to {blenderImport.DestinationPath}. " +
+                        (blenderImport.RequiresSourceReviews ? "Also require both exact current approved source review hashes; changed/revoked decisions block the import. Target-game acceptance is separate." : "Source remains reusable; human visual and rights review are still pending.")));
                 case ToolKind.ListFiles:
                 case ToolKind.ReadTextFile:
                     RequirePath(call, allowMissingLeaf: false);
@@ -152,6 +155,33 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                         throw new ArgumentException("Import destination or provenance sidecar already exists.");
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
                         $"Re-inspect the quarantined asset, verify SHA-256 {import.ExpectedSha256}, and import it without overwrite to {import.DestinationPath} with a licence sidecar."));
+                case ToolKind.InspectLocalBlenderAsset:
+                    var localInspect=LocalBlenderInspectSpec.From(call);
+                    var localEntry=paths.Resolve($".forgecore/blender-library/objects/{localInspect.BundleSha256}/entry.json",false);
+                    if(!HashMatches(localEntry,localInspect.BundleSha256,1,128*1024))throw new ArgumentException("Exact local source entry is missing or changed.");
+                    return ValueTask.FromResult(new PolicyResult(SecurityDecision.Allowed,"Read exact local source, preview and measurements for review; no attestation, editor launch or import."));
+                case ToolKind.CheckLocalBlenderCompatibility:
+                    var localCompatibility=LocalBlenderCompatibilitySpec.From(call);
+                    if(!HashMatches(paths.Resolve($".forgecore/blender-library/objects/{localCompatibility.BundleSha256}/entry.json",false),localCompatibility.BundleSha256,1,128*1024))
+                        throw new ArgumentException("Exact source entry is missing or changed.");
+                    return ValueTask.FromResult(new PolicyResult(SecurityDecision.Allowed,"Read-only exact source constraints and current review/promotion status. No target Unity or animation compatibility is inferred."));
+                case ToolKind.PlanIndustrialAssets:
+                case ToolKind.ImportIndustrialAssetSet:
+                    var industrial=IndustrialAssetPlanSpec.From(call);RequireUnityProject(industrial.ProjectPath);
+                    return ValueTask.FromResult(new PolicyResult(call.Kind==ToolKind.PlanIndustrialAssets?SecurityDecision.Allowed:SecurityDecision.ApprovalRequired,
+                        call.Kind==ToolKind.PlanIndustrialAssets?"Read-only bounded industrial recipe/source manifest. No import or acceptance.":
+                        "Revalidate this exact industrial plan and current live source reviews/promotion, then import five exact source versions into fresh folders with a no-replay journal. Missing or revoked reviews block all initial imports. Target Unity inspection and human target acceptance remain separate; no placement."));
+                case ToolKind.PromoteLocalBlenderAsset:
+                    var localPromotion=LocalBlenderPromotionSpec.From(call);
+                    if(!HashMatches(paths.Resolve($".forgecore/blender-library/objects/{localPromotion.Identity.BundleSha256}/entry.json",false),localPromotion.Identity.BundleSha256,1,128*1024))
+                        throw new ArgumentException("Exact source entry is missing or changed.");
+                    _=paths.Resolve($".forgecore/blender-library/approved/{localPromotion.Identity.BundleSha256}",true);
+                    return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,"Re-verify this exact source and both exact current live human review records, then publish an immutable source-only promotion. No source overwrite, editor launch, import or target-game approval."));
+                case ToolKind.SearchLocalBlenderAssets:
+                    _ = LocalBlenderSearchSpec.From(call);
+                    _ = paths.Resolve(".forgecore/blender-library/objects",true);
+                    return ValueTask.FromResult(new PolicyResult(SecurityDecision.Allowed,
+                        "Read-only offline search of hash-verified local Blender candidates. No editor launch, source writes, import, visual/rights approval or reviewed-vault promotion."));
                 case ToolKind.SearchAssetVault:
                     var vaultSearch = AssetVaultSearchSpec.From(call);
                     _ = paths.Resolve(Path.Combine(".forgecore", "asset-vault"), allowMissingLeaf: true);
@@ -197,6 +227,16 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
                         $"Install ForgeCore's fixed, hash-verified shared prototype kit for the exact '{gameTemplate.TemplateId}' template. The kit supports only four reviewed prototype families and never overwrites unknown or modified files."));
                 case ToolKind.ReviewGameArtAsset:
+                    if(LocalBlenderReviewSpec.IsLocal(call))
+                    {
+                        var localReview=LocalBlenderReviewSpec.FromProposal(call);var id=localReview.Identity;
+                        var localRoot=paths.Resolve($".forgecore/blender-library/objects/{id.BundleSha256}",false);
+                        foreach(var binding in new[]{("entry.json",id.BundleSha256), ("asset.glb",id.AssetSha256), ("model.blend",id.SourceSha256), ("preview.png",id.PreviewSha256), ("metrics.json",id.MetricsSha256)})
+                            if(!HashMatches(paths.Resolve(Path.Combine(localRoot,binding.Item1),false),binding.Item2,1,100*1024*1024))
+                                throw new ArgumentException("Exact local source review identity changed before the live dialog.");
+                        return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
+                            "LIVE HUMAN SOURCE REVIEW ONLY: inspect the verified source preview/metrics and independently assess usage rights. Approve/reject records only this exact source version; closing records nothing. No target-game, Unity or placement acceptance is implied."));
+                    }
                     var review = GameArtReviewSpec.FromProposal(call);
                     var reviewProject = RequireUnityProject(review.ProjectPath);
                     var reviewAsset = RequireUserPath(Path.Combine(review.ProjectPath, review.AssetPath), allowMissingLeaf: false);
@@ -250,19 +290,20 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                     }
                     else if (unity.ScenePath is not null)
                     {
-                        var scene = RequireUserPath(Path.Combine(unity.ProjectPath, unity.ScenePath), allowMissingLeaf: unity.Operation is "create_scene" or "create_map_demo" or "create_game_template");
+                        var scene = RequireUserPath(Path.Combine(unity.ProjectPath, unity.ScenePath), allowMissingLeaf: unity.Operation is "create_scene" or "create_map_demo" or "create_game_template" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission");
                         EnsureWithinProject(unityProject, scene);
                         if (unity.Operation is "create_scene" or "create_map_demo" or "create_game_template" && (File.Exists(scene) || Directory.Exists(scene))) throw new ArgumentException("Unity scene creation target already exists.");
-                        if (unity.Operation is not "create_scene" and not "create_map_demo" and not "create_game_template" && !File.Exists(scene)) throw new ArgumentException("Unity scene_path does not exist.");
+                        if (unity.Operation is "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission" && (File.Exists(scene) || Directory.Exists(scene) || File.Exists(scene+".meta") || Directory.Exists(scene+".meta"))) throw new ArgumentException("Character review scene or metadata already exists.");
+                        if (unity.Operation is not "create_scene" and not "create_map_demo" and not "create_game_template" and not "inspect_character_rig" and not "prepare_character_animation" and not "create_security_combat_lab" and not "prepare_industrial_prop" and not "create_industrial_mission" && !File.Exists(scene)) throw new ArgumentException("Unity scene_path does not exist.");
                     }
-                    if (unity.Operation is "prepare_generated_asset" or "inspect_game_art_asset" or "capture_game_art_preview")
+                    if (unity.Operation is "prepare_generated_asset" or "inspect_game_art_asset" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission")
                     {
                         var generatedAsset = RequireUserPath(Path.Combine(unity.ProjectPath, unity.AssetPath!), allowMissingLeaf: false);
                         var provenance = RequireUserPath(Path.Combine(unity.ProjectPath, unity.AssetPath! + ".asset.json"), allowMissingLeaf: false);
                         EnsureWithinProject(unityProject, generatedAsset); EnsureWithinProject(unityProject, provenance);
                         if (!File.Exists(generatedAsset) || !File.Exists(provenance))
                             throw new ArgumentException("Generated asset work requires the imported GLB and provenance sidecar.");
-                        if (unity.Operation is "inspect_game_art_asset" or "capture_game_art_preview")
+                        if (unity.Operation is "inspect_game_art_asset" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission")
                         {
                             var meta = RequireUserPath(Path.Combine(unity.ProjectPath, unity.AssetPath! + ".meta"), allowMissingLeaf: false);
                             EnsureWithinProject(unityProject, meta);
@@ -273,9 +314,9 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                     {
                         var output = RequireUserPath(Path.Combine(unity.ProjectPath, unity.OutputPath), allowMissingLeaf: true);
                         EnsureWithinProject(unityProject, output);
-                        if (unity.Operation is "capture_scene_preview" or "capture_game_art_preview")
+                        if (unity.Operation is "capture_scene_preview" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission")
                         {
-                            var previewProvenance = output + (unity.Operation == "capture_game_art_preview" ? ".forgecore-art-preview.json" : ".forgecore-preview.json");
+                            var previewProvenance = output + (unity.Operation == "capture_game_art_preview" ? ".forgecore-art-preview.json" : unity.Operation is "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission" ? ".forgecore-rig-preview.json" : ".forgecore-preview.json");
                             EnsureWithinProject(unityProject, previewProvenance);
                             if (File.Exists(output) || Directory.Exists(output) || File.Exists(previewProvenance) || Directory.Exists(previewProvenance))
                                 throw new ArgumentException("Unity scene preview output or ForgeCore provenance already exists; previews never overwrite.");
@@ -290,8 +331,24 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                                 throw new ArgumentException("Unity build output, its _Data directory, or ForgeCore provenance already exists; builds never overwrite.");
                         }
                     }
+                    if((unity.Operation is "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission"))
+                    {
+                        var target=(unity.Operation=="prepare_industrial_prop"?"Assets/ForgeCore/IndustrialProps/":"Assets/ForgeCore/CharacterAnimations/")+unity.AssetSetId;
+                        foreach(var relative in new[]{target,target+".meta"})
+                        {var folder=RequireUserPath(Path.Combine(unity.ProjectPath,relative),true);EnsureWithinProject(unityProject,folder);if(File.Exists(folder)||Directory.Exists(folder))throw new ArgumentException("Animation destination exists; no overwrite.");}
+                    }
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
-                        unity.Operation == "prepare_generated_asset"
+                        unity.Operation == "prepare_industrial_prop"
+                            ? $"Create a fresh technical industrial prop prefab/review scene at '{unity.ScenePath}' with exact source/LOD identities, PBR, conservative box collision and a rendered preview. Preserve imported source/metadata. No human visual/rights review or level placement approval."
+                        : unity.Operation == "create_industrial_mission"
+                            ? $"Create a fresh industrial mission greybox at '{unity.ScenePath}' with three ordered objectives, gated guard encounters and reset. Its ten prop footprints remain explicit greybox placeholders, not accepted industrial art. Preserve original character sources; no human art, balance or full-game certification."
+                        : unity.Operation == "create_security_combat_lab"
+                            ? $"Create a new isolated security combat lab at '{unity.ScenePath}': original skeletal clips, extracted skinned first-person arms, original training rifle, bounded static-grid navigation, enemy combat and local technical reports under Assets/ForgeCore/CharacterAnimations/{unity.AssetSetId}. Original GLB/provenance/metadata stay protected. No downloads, visual/rights acceptance or full-game certification."
+                        : unity.Operation == "prepare_character_animation"
+                            ? $"Generate eight original parameterized skeletal clips, a blended Animator controller and a fresh animation lab at '{unity.ScenePath}', using the exact imported GLB. New assets stay under Assets/ForgeCore/CharacterAnimations/{unity.AssetSetId}; source GLB/provenance/metadata are protected. No detailed art, tactical enemy integration, rights or human quality acceptance is granted."
+                        : unity.Operation == "inspect_character_rig"
+                            ? $"Launch Unity to verify the exact imported character skin, weights, bind pose and bounded shoulder/elbow/hip/knee poses; save a fresh diagnostic scene at '{unity.ScenePath}' and four-pose PNG at '{unity.OutputPath}'. Original GLB, provenance and metadata remain protected. Generic named-bone convention only: no Humanoid retargeting, motion clips, gameplay integration, visual or rights approval is granted."
+                        : unity.Operation == "prepare_generated_asset"
                             ? $"Launch Unity in bounded batch mode to verify the exact generated GLB hash, instantiate it under '{unity.ParentObjectName}', scale it to {unity.TargetHeight:0.##} metres, add {unity.ColliderMode} collision, optionally hide placeholder visuals, and save the backed-up scene. No package is installed."
                             : unity.Operation == "inspect_game_art_asset"
                                 ? $"Launch Unity in bounded batch mode to hash-verify and inspect the exact imported GLB as art role '{unity.AssetRole}' in style family '{unity.StyleFamily}'. Mesh, material, rig, animation, LOD, collider, bounds, and missing-resource evidence is written locally; the asset and scene are not modified, and rights/visual review remain incomplete."
@@ -331,7 +388,7 @@ public sealed class SecurityPolicy(WorkspacePathGuard paths, IEnumerable<string>
                     if (!File.Exists(profileExecutable) || !Directory.Exists(profileData) || !File.Exists(Path.Combine(profileData, "level0")) || !File.Exists(profileProvenance))
                         throw new ArgumentException("Unity player profile test requires an existing ForgeCore-provenance Windows build and level0 data.");
                     return ValueTask.FromResult(new PolicyResult(SecurityDecision.ApprovalRequired,
-                        $"Launch the exact hash-verified ForgeCore Windows player with visible rendering at {UnityPlayerProfileTestSpec.Width}x{UnityPlayerProfileTestSpec.Height} for a bounded {profile.DurationSeconds}-second measurement. A hash-bound local request drives the fixed scripted_gameplay_v1 input scenario and collects standalone frame, optional GPU, memory, scene-complexity, movement, and genre-action evidence; only the launched process may be terminated. No shell, network, package installation, project edit, or upload is requested."));
+                        $"Launch the exact hash-verified ForgeCore Windows player with visible rendering at {UnityPlayerProfileTestSpec.Width}x{UnityPlayerProfileTestSpec.Height} for a bounded {profile.DurationSeconds}-second measurement. A hash-bound local request drives the fixed scripted_gameplay_v1 input scenario and collects standalone frame, startup/warmup, monotonic long-frame/focus/GC context, optional GPU, memory, scene-complexity, movement, and genre-action evidence. Acceptance includes a 100 ms maximum interactive interval and a 15 second startup-to-measurement limit alongside p95; only the launched process may be terminated. No shell, network, package installation, project edit, or upload is requested."));
                 case ToolKind.UnityMcpAction:
                     var mcp = UnityMcpActionSpec.From(call, maxUnityMcpArgumentsCharacters);
                     var mcpProject = RequireUnityProject(mcp.ProjectPath);

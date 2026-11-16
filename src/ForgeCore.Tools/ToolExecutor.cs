@@ -25,7 +25,7 @@ public delegate Task<UnityPlayerProfileRunResult> UnityPlayerProfileRunner(strin
     string logPath, string requestPath, string resultPath, string requestSha256, TimeSpan duration,
     CancellationToken cancellationToken);
 
-public sealed class ToolExecutor : IToolExecutor, IDisposable
+public sealed partial class ToolExecutor : IToolExecutor, IDisposable
 {
     private readonly WorkspacePathGuard paths;
     private readonly HashSet<string> _allowed;
@@ -144,6 +144,25 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
 
     public async Task<ToolResult> ExecuteAsync(ToolCall call, CancellationToken cancellationToken)
     {
+        var result = await ExecuteCoreAsync(call, cancellationToken);
+        var failedMotion = !result.Success && call.Kind == ToolKind.UnityEditorAction && call.Arguments.TryGetValue("operation", out var operation) &&
+            operation is "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "create_industrial_mission";
+        if (call.Kind != ToolKind.CreateBlenderAsset && !failedMotion) return result;
+        try
+        {
+            return result with { LearningStatus = failedMotion
+                ? await _blenderAssets.RecordUnityFailureExperienceAsync(call, cancellationToken)
+                : await _blenderAssets.RecordSourceExperienceAsync(call, result, cancellationToken) };
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or JsonException or InvalidOperationException or OperationCanceledException or KeyNotFoundException)
+        {
+            // The actual tool result remains authoritative. Never expose raw failures/prompts/secrets in learning data.
+            return result with { LearningStatus = "not_recorded_execution_result_unchanged" };
+        }
+    }
+
+    private async Task<ToolResult> ExecuteCoreAsync(ToolCall call, CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
@@ -158,6 +177,13 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                 ToolKind.ScaffoldProject => await ScaffoldProjectAsync(call, cancellationToken),
                 ToolKind.StageWebAsset => await StageWebAssetAsync(call, cancellationToken),
                 ToolKind.Generate3DAsset => await Generate3DAssetAsync(call, cancellationToken),
+                ToolKind.SearchLocalBlenderAssets => await _blenderAssets.SearchAsync(LocalBlenderSearchSpec.From(call),cancellationToken),
+                ToolKind.InspectLocalBlenderAsset => await _blenderAssets.InspectReviewAsync(LocalBlenderInspectSpec.From(call),cancellationToken),
+                ToolKind.CheckLocalBlenderCompatibility => await _blenderAssets.CheckCompatibilityAsync(LocalBlenderCompatibilitySpec.From(call),cancellationToken),
+                ToolKind.PromoteLocalBlenderAsset => await _blenderAssets.PromoteAsync(LocalBlenderPromotionSpec.From(call),cancellationToken),
+                ToolKind.PlanIndustrialAssets => await _blenderAssets.PlanIndustrialAssetsAsync(IndustrialAssetPlanSpec.From(call),cancellationToken),
+                ToolKind.ImportIndustrialAssetSet => await WithUnityProjectLeaseAsync(call,
+                    ()=>_blenderAssets.ImportIndustrialAssetSetAsync(IndustrialAssetPlanSpec.From(call),call.Arguments["plan_sha256"].ToLowerInvariant(),cancellationToken),cancellationToken),
                 ToolKind.CreateBlenderAsset => await WithUnityProjectLeaseAsync(call,
                     () => _blenderAssets.CreateAsync(BlenderAssetSpec.From(call), cancellationToken), cancellationToken),
                 ToolKind.ImportBlenderAsset => await WithUnityProjectLeaseAsync(call,
@@ -864,8 +890,8 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
     private async Task<string> ExecuteUnityEditorActionAsync(ToolCall call, CancellationToken token)
     {
         var spec = UnityEditorActionSpec.From(call); var projectRoot = ResolveUnityProject(spec.ProjectPath);
-        if (spec.Operation is "prepare_generated_asset" or "inspect_game_art_asset" or "capture_game_art_preview") await VerifyImportedGeneratedAssetAsync(spec, projectRoot, token);
-        if (spec.Operation is "create_game_template" or "create_game_campaign" or "verify_gameplay" or "profile_scene" &&
+        if (spec.Operation is "prepare_generated_asset" or "inspect_game_art_asset" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission") await VerifyImportedGeneratedAssetAsync(spec, projectRoot, token);
+        if (spec.Operation is "create_game_template" or "create_game_campaign" or "verify_gameplay" or "profile_scene" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission" &&
             !await UnityGameTemplateKit.InstallationMatchesAsync(projectRoot, token))
             throw new UnauthorizedAccessException("The installed ForgeCore game-template kit does not match this release; execution is blocked.");
         var editor = _unityEditorPath;
@@ -926,9 +952,10 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         var requestBytes = JsonSerializer.SerializeToUtf8Bytes(request, new JsonSerializerOptions { WriteIndented = true });
         var requestHash = Convert.ToHexString(SHA256.HashData(requestBytes)).ToLowerInvariant();
         var backup = await PrepareUnityActionTargetsAsync(spec, requestId, token);
-        var artInspectionState = spec.Operation is "inspect_game_art_asset" or "capture_game_art_preview"
+        var artInspectionState = spec.Operation is "inspect_game_art_asset" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission"
             ? await CaptureImportedArtInspectionStateAsync(spec, projectRoot, requestId, token)
             : null;
+        var industrialInputState=spec.Operation=="prepare_industrial_prop"?await CaptureIndustrialInputStateAsync(spec,requestId,token):null;
         var packageState = _enableUnityProjectPackages ? await CaptureLockedUnityPackagesAsync(projectRoot, token) : null;
         await File.WriteAllBytesAsync(requestPath, requestBytes, token);
         var arguments = new List<string>
@@ -940,6 +967,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         if (!_enableUnityProjectPackages) arguments.Insert(5, "-noUpm");
         if (spec.Operation is not "play_mode" and not "verify_gameplay" and not "profile_scene" and not "capture_scene_preview") arguments.Insert(1, "-quit");
         var artInspectionStateVerified = false;
+        var industrialInputsVerified=false;
         try
         {
             var process = await _unityProcessRunner(editor, arguments, projectRoot, UnityTimeoutFor(spec), token);
@@ -949,6 +977,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                 await VerifyAndProtectImportedArtInspectionStateAsync(artInspectionState, token);
                 artInspectionStateVerified = true;
             }
+            if(industrialInputState!=null){await VerifyIndustrialInputStateAsync(industrialInputState,token);industrialInputsVerified=true;}
             var log = await ReadOptionalBoundedFileAsync(logPath, token);
             if (!File.Exists(resultPath))
                 throw new InvalidOperationException($"Unity did not produce a ForgeCore bridge result (exit {process.ExitCode}).\n{RenderUnityDiagnostics(process, log)}");
@@ -979,6 +1008,12 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
             var artPreviewEvidence = spec.Operation == "capture_game_art_preview"
                 ? await ValidateUnityGameArtPreviewAsync(spec, projectRoot, token)
                 : null;
+            var characterEvidence = spec.Operation == "inspect_character_rig"
+                ? await WriteUnityCharacterRigEvidenceAsync(spec,projectRoot,result.CharacterRig,requestId,token) : null;
+            if((spec.Operation is "prepare_character_animation" or "create_security_combat_lab" or "create_industrial_mission"))
+                characterEvidence = await WriteUnityCharacterAnimationEvidenceAsync(spec,projectRoot,requestId,token);
+            if(spec.Operation=="prepare_industrial_prop")
+                characterEvidence=await WriteIndustrialPropEvidenceAsync(spec,projectRoot,requestId,token);
             return $"Unity '{spec.Operation}' succeeded through bridge {result.BridgeVersion} on Editor {result.EditorVersion}.\n{result.Summary}\n" +
                    (backup is null ? string.Empty : $"Pre-change project snapshot: {backup}\n") +
                    (buildProvenance is null ? string.Empty : $"Build provenance: {buildProvenance}\n") +
@@ -986,14 +1021,22 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                    (gameplayEvidence is null ? string.Empty : $"Gameplay evidence: {gameplayEvidence}\n") +
                    (performanceEvidence is null ? string.Empty : $"Performance evidence: {performanceEvidence}\n") +
                    (artEvidence is null ? string.Empty : $"Game-art evidence: {artEvidence}\n") +
-                   (artPreviewEvidence is null ? string.Empty : $"Game-art preview evidence: {artPreviewEvidence}\n") + $"Log: {logPath}";
+                   (artPreviewEvidence is null ? string.Empty : $"Game-art preview evidence: {artPreviewEvidence}\n") +
+                   (characterEvidence is null ? string.Empty : $"Character rig evidence: {characterEvidence}\n") + $"Log: {logPath}";
         }
         finally
         {
-            if (artInspectionState is not null && !artInspectionStateVerified)
-                await VerifyAndProtectImportedArtInspectionStateAsync(artInspectionState, CancellationToken.None);
-            if (File.Exists(requestPath)) File.Delete(requestPath);
-            if (File.Exists(resultPath)) File.Delete(resultPath);
+            try {
+                if (artInspectionState is not null && !artInspectionStateVerified)
+                    await VerifyAndProtectImportedArtInspectionStateAsync(artInspectionState, CancellationToken.None);
+            } finally {
+                try {
+                    if(industrialInputState!=null&&!industrialInputsVerified)await VerifyIndustrialInputStateAsync(industrialInputState,CancellationToken.None);
+                } finally {
+                    if (File.Exists(requestPath)) File.Delete(requestPath);
+                    if (File.Exists(resultPath)) File.Delete(resultPath);
+                }
+            }
         }
     }
 
@@ -1130,6 +1173,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
 
     private async Task<string> ExecuteGameArtReviewAsync(ToolCall call, CancellationToken token)
     {
+        if(LocalBlenderReviewSpec.IsLocal(call))return await _blenderAssets.RecordReviewAsync(call,token);
         var spec = GameArtReviewSpec.FromExecution(call);
         var projectRoot = ResolveUnityProject(spec.ProjectPath);
         var asset = Path.GetFullPath(Path.Combine(projectRoot, spec.AssetPath.Replace('/', Path.DirectorySeparatorChar)));
@@ -1474,34 +1518,21 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         var resultPath = Path.Combine(resultDirectory, requestId + ".json");
         var logPath = Path.Combine(logDirectory, requestId + ".log");
         var evidencePath = Path.Combine(evidenceDirectory, requestId + ".json");
-        var runnerDirectory = Path.Combine(root, "runs"); Directory.CreateDirectory(runnerDirectory);
-        var runnerObservationPath = Path.Combine(runnerDirectory, requestId + ".json");
         var scene = provenance.Scenes[0];
+        var rawDirectory = paths.Resolve(Path.Combine(spec.ProjectPath,".forgecore","unity","player-profile","raw-results"),true);
+        Directory.CreateDirectory(rawDirectory);
+        var rawResultPath = Path.Combine(rawDirectory,requestId+".json");
         const string profileScenario = "scripted_gameplay_v1";
         var request = new UnityPlayerProfileRequest(3, requestId, UnityGameTemplateKit.Version,
             spec.OutputPath.Replace('\\', '/'), executableSha256, level0Sha256, provenanceSha256,
             scene.Path, scene.Sha256, profileScenario, spec.DurationSeconds, UnityPlayerProfileTestSpec.Width,
             UnityPlayerProfileTestSpec.Height, DateTimeOffset.UtcNow);
-        // Keep each owned request/result and runner record, including failed profiles; never replay or replace prior evidence.
+        try
         {
             await WriteJsonNewAsync(requestPath, request, token);
             var requestSha256 = await HashFileAsync(requestPath, token);
-            var runnerStartedUtc = DateTimeOffset.UtcNow;
-            var runnerTimer = Stopwatch.StartNew();
-            UnityPlayerProfileRunResult? run = null;
-            try
-            {
-                run = await _unityPlayerProfileRunner(executable, Path.GetDirectoryName(executable)!, logPath,
-                    requestPath, resultPath, requestSha256, TimeSpan.FromSeconds(spec.DurationSeconds), token);
-            }
-            finally
-            {
-                runnerTimer.Stop();
-                await WriteJsonNewAsync(runnerObservationPath, new { schemaVersion = 1, requestId, requestSha256,
-                    runnerStartedUtc, runnerElapsedMilliseconds = runnerTimer.Elapsed.TotalMilliseconds,
-                    runnerReturned = run is not null, timedOut = run?.TimedOut, exitCode = run?.ExitCode,
-                    qualification = "Host runner wall time includes process startup and shutdown; not per-frame or native startup attribution. Missing player result does not establish a stutter cause." }, CancellationToken.None);
-            }
+            var run = await _unityPlayerProfileRunner(executable, Path.GetDirectoryName(executable)!, logPath,
+                requestPath, resultPath, requestSha256, TimeSpan.FromSeconds(spec.DurationSeconds), token);
             var log = await ReadOptionalBoundedFileAsync(logPath, token);
             if (!File.Exists(logPath)) throw new InvalidOperationException("Unity player did not create the required profile-test log.");
             if (run.TimedOut) throw new InvalidOperationException($"Unity player profile test exceeded its bounded runtime and was terminated.\n{log}");
@@ -1511,17 +1542,16 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
             if (!File.Exists(resultPath)) throw new InvalidOperationException("Unity player did not create the required profile result.");
             var resultInfo = new FileInfo(resultPath);
             if (resultInfo.Length is < 2 or > 1_048_576) throw new InvalidDataException("Unity player profile result has an invalid byte length.");
+            var resultBytes = await File.ReadAllBytesAsync(resultPath,token);
+            await using (var raw = new FileStream(rawResultPath,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+                await raw.WriteAsync(resultBytes,token);
             UnityPlayerProfileResult result;
             try
             {
-                var resultJson = await File.ReadAllTextAsync(resultPath, Encoding.UTF8, token);
-                using var shape = JsonDocument.Parse(resultJson);
-                if (!shape.RootElement.TryGetProperty("timingDiagnostics", out var timingJson)) throw new InvalidDataException("Phase timing diagnostics are missing.");
-                ValidateTimingJsonShape(timingJson);
-                result = JsonSerializer.Deserialize<UnityPlayerProfileResult>(resultJson, new JsonSerializerOptions(StrictUnityJson) { IncludeFields = true })
+                result = JsonSerializer.Deserialize<UnityPlayerProfileResult>(resultBytes, StrictUnityJson)
                     ?? throw new JsonException("Unity player profile result is empty.");
             }
-            catch (JsonException ex) { throw new InvalidDataException("Unity player profile result is malformed or contains unexpected fields.", ex); }
+            catch (JsonException ex) { throw new InvalidDataException($"Unity player profile result is malformed or contains unexpected fields. Bounded raw result: {rawResultPath}", ex); }
 
             var expectedSceneName = Path.GetFileNameWithoutExtension(scene.Path);
             var invalidGpuEvidence = result.GpuTimingAvailable
@@ -1556,27 +1586,22 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                  result.CompletedObjectives < 0 || result.CompletedObjectives > result.RequiredObjectives ||
                  result.MinimumHealth is < 0 or > 100 ||
                  result.CompletedUtc == default)
-                throw new InvalidDataException("Unity player profile metrics or identity were outside the reviewed evidence contract.");
-
-            // Unity's field serializer can encode a null custom class as an explicit all-default object.
-            // Normalize ONLY that fully present, empty sentinel when no long frames were observed.
-            if (result.TimingDiagnostics.longFrameCount == 0 && IsEmptyTimingEvent(result.TimingDiagnostics.worstLongFrame))
-                result.TimingDiagnostics.worstLongFrame = null!;
-            ForgeCore.Diagnostics.ProfileTimingCollector.Validate(result.TimingDiagnostics, spec.DurationSeconds,
-                result.SampledFrames, result.AverageFrameMilliseconds, result.MaximumFrameMilliseconds);
+                throw new InvalidDataException($"Unity player profile metrics or identity were outside the reviewed evidence contract. Bounded raw result: {rawResultPath}");
 
             const double p95FrameBudgetMilliseconds = 33.334d;
-            // S01 provisional measured-window gate. Startup and warmup need separate live evidence.
-            const double maximumFrameBudgetMilliseconds = 100d;
+            if (result.FrameDiagnostics is null) throw new InvalidDataException($"Frame-phase diagnostics are required; p95 alone is not acceptance. Bounded raw result: {rawResultPath}");
+            try { result.FrameDiagnostics.Validate(result.SampledFrames, result.DurationSeconds, result.MaximumFrameMilliseconds); }
+            catch (ArgumentException ex) { throw new InvalidDataException($"{ex.Message} Bounded raw result: {rawResultPath}",ex); }
             const double p95GpuBudgetMilliseconds = 33.334d;
             const long peakAllocatedMemoryBudgetBytes = 4_294_967_296;
             var frameBudgetPassed = result.P95FrameMilliseconds <= p95FrameBudgetMilliseconds;
-            var maximumFrameBudgetPassed = result.MaximumFrameMilliseconds <= maximumFrameBudgetMilliseconds;
             var gpuBudgetPassed = result.GpuTimingAvailable && result.P95GpuMilliseconds <= p95GpuBudgetMilliseconds;
             var memoryBudgetPassed = result.PeakAllocatedMemoryBytes <= peakAllocatedMemoryBudgetBytes;
-            var workstationBaselineBudgetPassed = frameBudgetPassed && maximumFrameBudgetPassed && memoryBudgetPassed && (!result.GpuTimingAvailable || gpuBudgetPassed);
-            var resultSha256 = await HashFileAsync(resultPath, token);
-            var evidence = new UnityPlayerPerformanceEvidence(4, requestId, requestSha256, resultSha256,
+            var smoothnessBudgetPassed = result.FrameDiagnostics.SmoothnessPassed(result.MaximumFrameMilliseconds);
+            var startupBudgetPassed = result.FrameDiagnostics.StartupPassed;
+            var workstationBaselineBudgetPassed = frameBudgetPassed && smoothnessBudgetPassed && startupBudgetPassed && memoryBudgetPassed && (!result.GpuTimingAvailable || gpuBudgetPassed);
+            var resultSha256 = Convert.ToHexString(SHA256.HashData(resultBytes)).ToLowerInvariant();
+            var evidence = new UnityPlayerPerformanceEvidence(3, requestId, requestSha256, resultSha256,
                 spec.OutputPath.Replace('\\', '/'), provenance.EditorVersion, UnityGameTemplateKit.Version,
                 provenance.TemplateKitManifestSha256, executableSha256, level0Sha256, provenanceSha256,
                 scene.Path, scene.Sha256, result.DurationSeconds, result.Width, result.Height, result.SceneBuildIndex,
@@ -1590,48 +1615,26 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
                  result.ActionEvents, result.CompletedObjectives, result.RequiredObjectives, result.MinimumHealth,
                  p95FrameBudgetMilliseconds, p95GpuBudgetMilliseconds, peakAllocatedMemoryBudgetBytes,
                 frameBudgetPassed, gpuBudgetPassed, memoryBudgetPassed, workstationBaselineBudgetPassed,
-                maximumFrameBudgetMilliseconds, maximumFrameBudgetPassed,
-                JsonSerializer.SerializeToElement(result.TimingDiagnostics, new JsonSerializerOptions { IncludeFields = true }),
-                runnerStartedUtc, runnerTimer.Elapsed.TotalMilliseconds, await HashFileAsync(runnerObservationPath, token), false,
-                 "Measured gameplay-window gate only, including the warmup-boundary frame. Startup is Unity-clock initialization latency (no startup rendered-frame distribution); pre-runtime native startup is unobserved. Warmup remains fixed at one second; startup/warmup budgets and whole-session smoothness are not accepted. GC/memory correlations are not causal attribution; first 64 long frames and a separate worst event are retained. Not cold-cache, hardware-wide or shipping certification.",
-                result.CompletedUtc, DateTimeOffset.UtcNow);
+                 "Standalone scripted-gameplay rendered-player baseline on this workstation at 1280x720; not certification for other hardware, resolutions, representative production content, or final shipping quality.",
+                result.CompletedUtc, DateTimeOffset.UtcNow, result.FrameDiagnostics,
+                PlayerFrameDiagnostics.MaximumFrameBudgetMilliseconds, PlayerFrameDiagnostics.StartupBudgetMilliseconds,
+                smoothnessBudgetPassed, startupBudgetPassed);
             await WriteJsonNewAsync(evidencePath, evidence, token);
             if (!workstationBaselineBudgetPassed)
-                throw new InvalidOperationException($"Unity player profile completed, but the standalone workstation baseline budget failed (p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms; maximum budget={maximumFrameBudgetMilliseconds:F2} ms). Evidence: {evidencePath}");
+                throw new InvalidOperationException($"Unity player profile completed, but the standalone workstation baseline budget failed. Evidence: {evidencePath}");
             return $"Unity scripted-gameplay profile passed for {spec.OutputPath}: {result.SampledFrames} rendered frames at {result.Width}x{result.Height}, " +
-                   $"p95={result.P95FrameMilliseconds:F2} ms, maximum={result.MaximumFrameMilliseconds:F2} ms, gpu_p95={(result.GpuTimingAvailable ? result.P95GpuMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " ms" : "unavailable")}, " +
-                   $"startup_unity_clock={result.TimingDiagnostics.profileInitializedSeconds * 1000:F2} ms, warmup_max={result.TimingDiagnostics.phases[1].maximumFrameMilliseconds:F2} ms (not accepted), " +
+                   $"p95={result.P95FrameMilliseconds:F2} ms, gpu_p95={(result.GpuTimingAvailable ? result.P95GpuMilliseconds.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) + " ms" : "unavailable")}, " +
+                   $"max={Math.Max(result.MaximumFrameMilliseconds,result.FrameDiagnostics.MaximumStopwatchFrameMilliseconds):F2} ms, frames_over_100ms={result.FrameDiagnostics.FramesOver100Milliseconds}, startup={result.FrameDiagnostics.InteractiveSinceStartupMilliseconds:F0} ms, " +
                    $"peak_memory={result.PeakAllocatedMemoryBytes} bytes, travel={result.PlayerTravelMetres:F2} m, actions={result.ActionEvents}.\nEvidence: {evidencePath}\nLog: {logPath}";
+        }
+        finally
+        {
+            if (File.Exists(requestPath)) File.Delete(requestPath);
+            if (File.Exists(resultPath)) File.Delete(resultPath);
         }
     }
 
     private static bool IsPositiveBounded(double value) => double.IsFinite(value) && value is > 0 and <= 10_000;
-
-    private static void ValidateTimingJsonShape(JsonElement timing)
-    {
-        static void Fields(JsonElement value, Type type)
-        {
-            if (value.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Phase timing diagnostics object missing.");
-            var expected = type.GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var p in value.EnumerateObject())
-                if (!expected.Contains(p.Name) || !seen.Add(p.Name)) throw new InvalidDataException("Phase timing diagnostics have unknown/duplicate fields.");
-            if (!seen.SetEquals(expected)) throw new InvalidDataException("Phase timing diagnostics fields are missing; defaults are not evidence.");
-        }
-        Fields(timing, typeof(ForgeCore.Diagnostics.ProfileTimingReport));
-        var phases = timing.GetProperty("phases"); var events = timing.GetProperty("longFrames");
-        if (phases.ValueKind != JsonValueKind.Array || phases.GetArrayLength() != 3 || events.ValueKind != JsonValueKind.Array || events.GetArrayLength() > 64)
-            throw new InvalidDataException("Phase timing diagnostics exceed bounded array contracts.");
-        foreach (var p in phases.EnumerateArray()) Fields(p, typeof(ForgeCore.Diagnostics.ProfilePhaseTiming));
-        foreach (var e in events.EnumerateArray()) Fields(e, typeof(ForgeCore.Diagnostics.ProfileLongFrame));
-        var worst = timing.GetProperty("worstLongFrame");
-        if (worst.ValueKind != JsonValueKind.Null) Fields(worst, typeof(ForgeCore.Diagnostics.ProfileLongFrame));
-    }
-
-    private static bool IsEmptyTimingEvent(ForgeCore.Diagnostics.ProfileLongFrame? e) => e is not null &&
-        string.IsNullOrEmpty(e.phase) && e.frameIndex == 0 && e.startSeconds == 0 && e.endSeconds == 0 && e.frameMilliseconds == 0 &&
-        !e.crossesStartupBoundary && !e.crossesWarmupBoundary && e.gc0Collections == 0 && e.gc1Collections == 0 && e.gc2Collections == 0 &&
-        e.managedMemoryBeforeBytes == 0 && e.managedMemoryAfterBytes == 0 && e.allocatedMemoryAfterBytes == 0;
 
     private static bool IsSafeProfileLabel(string value, int maximumLength) =>
         !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength && !value.Any(char.IsControl);
@@ -1794,6 +1797,18 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
 
     private async Task<string?> PrepareUnityActionTargetsAsync(UnityEditorActionSpec spec, string requestId, CancellationToken token)
     {
+        if(spec.Operation is "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission")
+        {
+            var destinations=new List<string>{spec.ScenePath!,spec.ScenePath!+".meta",spec.OutputPath!,spec.OutputPath!+".forgecore-rig-preview.json"};
+            if((spec.Operation is "prepare_character_animation" or "create_security_combat_lab" or "create_industrial_mission" or "prepare_industrial_prop"))
+            { var folder=(spec.Operation=="prepare_industrial_prop"?"Assets/ForgeCore/IndustrialProps/":"Assets/ForgeCore/CharacterAnimations/")+spec.AssetSetId;destinations.Add(folder);destinations.Add(folder+".meta"); }
+            foreach(var relative in destinations)
+            {
+                var target=ResolveUserPath(Path.Combine(spec.ProjectPath,relative),true);
+                if(File.Exists(target) || Directory.Exists(target))throw new InvalidOperationException("Character review destination already exists; no overwrite.");
+            }
+            return null;
+        }
         if (spec.OutputPath is not null)
         {
             var output = ResolveUserPath(Path.Combine(spec.ProjectPath, spec.OutputPath), allowMissingLeaf: true);
@@ -1967,7 +1982,8 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         [property: System.Text.Json.Serialization.JsonPropertyName("success")] bool Success,
         [property: System.Text.Json.Serialization.JsonPropertyName("summary")] string Summary,
         [property: System.Text.Json.Serialization.JsonPropertyName("artInspection")] UnityBridgeArtInspection? ArtInspection = null,
-        [property: System.Text.Json.Serialization.JsonPropertyName("performance")] UnityBridgePerformance? Performance = null);
+        [property: System.Text.Json.Serialization.JsonPropertyName("performance")] UnityBridgePerformance? Performance = null,
+        [property: System.Text.Json.Serialization.JsonPropertyName("characterRig")] CharacterRigEvidence? CharacterRig = null);
 
     private sealed record UnityBridgePerformance(
         [property: System.Text.Json.Serialization.JsonPropertyName("environment")] string Environment,
@@ -2086,7 +2102,7 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
          [property: System.Text.Json.Serialization.JsonPropertyName("requiredObjectives")] int RequiredObjectives,
          [property: System.Text.Json.Serialization.JsonPropertyName("minimumHealth")] int MinimumHealth,
          [property: System.Text.Json.Serialization.JsonPropertyName("completedUtc")] DateTimeOffset CompletedUtc,
-         [property: System.Text.Json.Serialization.JsonPropertyName("timingDiagnostics")] ForgeCore.Diagnostics.ProfileTimingReport TimingDiagnostics);
+         [property: System.Text.Json.Serialization.JsonPropertyName("frameDiagnostics")] PlayerFrameDiagnostics FrameDiagnostics);
 
     private sealed record UnityPlayerPerformanceEvidence(
         [property: System.Text.Json.Serialization.JsonPropertyName("schemaVersion")] int SchemaVersion,
@@ -2143,16 +2159,14 @@ public sealed class ToolExecutor : IToolExecutor, IDisposable
         [property: System.Text.Json.Serialization.JsonPropertyName("gpuBudgetPassed")] bool GpuBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("memoryBudgetPassed")] bool MemoryBudgetPassed,
         [property: System.Text.Json.Serialization.JsonPropertyName("workstationBaselineBudgetPassed")] bool WorkstationBaselineBudgetPassed,
-        [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetMilliseconds")] double MaximumFrameBudgetMilliseconds,
-        [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetPassed")] bool MaximumFrameBudgetPassed,
-        [property: System.Text.Json.Serialization.JsonPropertyName("timingDiagnostics")] JsonElement TimingDiagnostics,
-        [property: System.Text.Json.Serialization.JsonPropertyName("runnerStartedUtc")] DateTimeOffset RunnerStartedUtc,
-        [property: System.Text.Json.Serialization.JsonPropertyName("runnerElapsedMilliseconds")] double RunnerElapsedMilliseconds,
-        [property: System.Text.Json.Serialization.JsonPropertyName("runnerObservationSha256")] string RunnerObservationSha256,
-        [property: System.Text.Json.Serialization.JsonPropertyName("wholeSessionSmoothnessAccepted")] bool WholeSessionSmoothnessAccepted,
         [property: System.Text.Json.Serialization.JsonPropertyName("qualification")] string Qualification,
         [property: System.Text.Json.Serialization.JsonPropertyName("playerCompletedUtc")] DateTimeOffset PlayerCompletedUtc,
-        [property: System.Text.Json.Serialization.JsonPropertyName("evidenceCreatedUtc")] DateTimeOffset EvidenceCreatedUtc);
+        [property: System.Text.Json.Serialization.JsonPropertyName("evidenceCreatedUtc")] DateTimeOffset EvidenceCreatedUtc,
+        [property: System.Text.Json.Serialization.JsonPropertyName("frameDiagnostics")] PlayerFrameDiagnostics FrameDiagnostics,
+        [property: System.Text.Json.Serialization.JsonPropertyName("maximumFrameBudgetMilliseconds")] double MaximumFrameBudgetMilliseconds,
+        [property: System.Text.Json.Serialization.JsonPropertyName("startupBudgetMilliseconds")] double StartupBudgetMilliseconds,
+        [property: System.Text.Json.Serialization.JsonPropertyName("smoothnessBudgetPassed")] bool SmoothnessBudgetPassed,
+        [property: System.Text.Json.Serialization.JsonPropertyName("startupBudgetPassed")] bool StartupBudgetPassed);
 
     private sealed record UnityBuildProvenance(
         [property: System.Text.Json.Serialization.JsonPropertyName("schemaVersion")] int SchemaVersion,

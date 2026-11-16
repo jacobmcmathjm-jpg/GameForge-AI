@@ -32,7 +32,7 @@ Extract the ZIP into a **new** directory, not an existing checkout. The JSON man
 
 The snapshot contains source, not prebuilt engines/runtimes or a complete asset/game data backup. Install/use a compatible .NET SDK and restore the pinned dependencies from an approved cache/feed. From the restored root, build and test `ForgeCore.slnx`; configure workspace/data paths and installed Unity/Blender paths locally before live engine work. Optional local language-model weights are external; never commit credentials to configuration.
 
-The milestone acceptance snapshot has 259 host tests. If tests need external tools/data, report that prerequisite instead of treating a skipped live test as a pass. A clean source build does not recreate the external Unity project or recover excluded databases/assets.
+The initial outcomes-v1 snapshot has 259 host tests; the first S01 diagnostic checkpoint has 264; the S02 rig-foundation checkpoint has 291; the S03 animation-foundation implementation has 309. Use the dated outcome note for each checkpoint's expected count. If tests need external tools/data, report that prerequisite instead of treating a skipped live test as a pass. A clean source build does not recreate the external Unity project or recover excluded databases/assets.
 
 ## GitHub checkpoint protocol
 

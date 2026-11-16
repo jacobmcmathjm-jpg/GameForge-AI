@@ -1,25 +1,30 @@
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName='WithGame')]
 param(
     [Parameter(Mandatory)][string]$PublishedApp,
-    [Parameter(Mandatory)][string]$UnityGameFolder,
-    [Parameter(Mandatory)][string]$UnityExecutableName,
+    [Parameter(Mandatory,ParameterSetName='WithGame')][string]$UnityGameFolder,
+    [Parameter(Mandatory,ParameterSetName='WithGame')][string]$UnityExecutableName,
+    [Parameter(Mandatory,ParameterSetName='AppOnly')][switch]$AppOnly,
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9-]{1,60}$')][string]$Label
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $outputRoot = Join-Path $repoRoot 'outputs'
 $appSource = (Get-Item -LiteralPath $PublishedApp).FullName
-$gameSource = (Get-Item -LiteralPath $UnityGameFolder).FullName
-if ([IO.Path]::GetFileName($UnityExecutableName) -cne $UnityExecutableName -or
-    [IO.Path]::GetExtension($UnityExecutableName) -ine '.exe') { throw 'Expected an executable filename, not a path.' }
-$gameStem = [IO.Path]::GetFileNameWithoutExtension($UnityExecutableName)
+if (-not $AppOnly) {
+    $gameSource = (Get-Item -LiteralPath $UnityGameFolder).FullName
+    if ([IO.Path]::GetFileName($UnityExecutableName) -cne $UnityExecutableName -or
+        [IO.Path]::GetExtension($UnityExecutableName) -ine '.exe') { throw 'Expected an executable filename, not a path.' }
+    $gameStem = [IO.Path]::GetFileNameWithoutExtension($UnityExecutableName)
+}
 foreach ($file in @('ForgeCore.Desktop.exe', 'coreclr.dll', 'ForgeCore.Desktop.runtimeconfig.json')) {
     if (-not (Test-Path -LiteralPath (Join-Path $appSource $file) -PathType Leaf)) { throw "Missing app payload: $file" }
 }
-foreach ($file in @($UnityExecutableName, 'UnityPlayer.dll', "$UnityExecutableName.forgecore-build.json")) {
-    if (-not (Test-Path -LiteralPath (Join-Path $gameSource $file) -PathType Leaf)) { throw "Missing game payload: $file" }
+if (-not $AppOnly) {
+    foreach ($file in @($UnityExecutableName, 'UnityPlayer.dll', "$UnityExecutableName.forgecore-build.json")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $gameSource $file) -PathType Leaf)) { throw "Missing game payload: $file" }
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $gameSource ($gameStem + '_Data')) -PathType Container)) { throw 'Missing Unity game data folder.' }
 }
-if (-not (Test-Path -LiteralPath (Join-Path $gameSource ($gameStem + '_Data')) -PathType Container)) { throw 'Missing Unity game data folder.' }
 
 function New-DeliveryFolder([string]$Source, [string]$Destination, [bool]$App) {
     $resolvedDestination = [IO.Path]::GetFullPath($Destination)
@@ -56,4 +61,4 @@ function New-DeliveryFolder([string]$Source, [string]$Destination, [bool]$App) {
 }
 
 New-DeliveryFolder $appSource (Join-Path $outputRoot "ForgeCore-Windows-x64-$Label") $true
-New-DeliveryFolder $gameSource (Join-Path $outputRoot "ForgeCore-TestGame-$Label") $false
+if (-not $AppOnly) { New-DeliveryFolder $gameSource (Join-Path $outputRoot "ForgeCore-TestGame-$Label") $false }

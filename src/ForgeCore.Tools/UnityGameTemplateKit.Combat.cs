@@ -252,7 +252,7 @@ namespace ForgeCoreGameTemplates
                 reloadUntil = Time.time + 1.8f; ReloadCount++; pose.Reload(1.8f); return;
             }
             if (PrototypeProjectile.Launch(muzzle.position, direction, transform, true) == null) return;
-            rounds--; ShotsFired++; pose.Fire(); PrototypeFeedback.Fire(muzzle.position);
+            rounds--; ShotsFired++; pose.Fire(); PrototypeFeedback.Fire(muzzle.position,muzzle.forward);
             nextShot = Time.time + 0.9f + target.order * 0.06f;
             if (rounds == 0 && reserve > 0) { reloadUntil = Time.time + 1.8f; ReloadCount++; pose.Reload(1.8f); }
         }

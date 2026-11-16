@@ -47,6 +47,12 @@ public static class StructuredPlanParser
             "stage_web_asset" => ToolKind.StageWebAsset,
             "generate_3d_asset" => ToolKind.Generate3DAsset,
             "create_blender_asset" => ToolKind.CreateBlenderAsset,
+            "search_local_blender_assets" => ToolKind.SearchLocalBlenderAssets,
+            "inspect_local_blender_asset" => ToolKind.InspectLocalBlenderAsset,
+            "check_local_blender_compatibility" => ToolKind.CheckLocalBlenderCompatibility,
+            "promote_local_blender_asset" => ToolKind.PromoteLocalBlenderAsset,
+            "plan_industrial_assets" => ToolKind.PlanIndustrialAssets,
+            "import_industrial_asset_set" => ToolKind.ImportIndustrialAssetSet,
             "import_blender_asset" => ToolKind.ImportBlenderAsset,
             "dotnet_build" => ToolKind.DotnetBuild,
             "dotnet_test" => ToolKind.DotnetTest,
@@ -70,8 +76,8 @@ public static class StructuredPlanParser
         };
         var permission = kind switch
         {
-            ToolKind.ListFiles or ToolKind.ReadTextFile or ToolKind.IndexProject or ToolKind.SearchProject or ToolKind.InspectStagedAsset or ToolKind.SearchAssetVault => PermissionKind.Read,
-            ToolKind.WriteTextFile or ToolKind.ApplyTextPatch or ToolKind.RestoreTextSnapshot or ToolKind.CreateDirectory or ToolKind.ScaffoldProject or ToolKind.ImportStagedAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.ImportBlenderAsset => PermissionKind.Write,
+            ToolKind.ListFiles or ToolKind.ReadTextFile or ToolKind.IndexProject or ToolKind.SearchProject or ToolKind.InspectStagedAsset or ToolKind.SearchAssetVault or ToolKind.SearchLocalBlenderAssets or ToolKind.InspectLocalBlenderAsset or ToolKind.CheckLocalBlenderCompatibility or ToolKind.PlanIndustrialAssets => PermissionKind.Read,
+            ToolKind.WriteTextFile or ToolKind.ApplyTextPatch or ToolKind.RestoreTextSnapshot or ToolKind.CreateDirectory or ToolKind.ScaffoldProject or ToolKind.ImportStagedAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.ImportBlenderAsset or ToolKind.PromoteLocalBlenderAsset or ToolKind.ImportIndustrialAssetSet => PermissionKind.Write,
             ToolKind.StageWebAsset or ToolKind.SearchAssetCatalog or ToolKind.Generate3DAsset => PermissionKind.Network,
             ToolKind.DotnetBuild or ToolKind.DotnetTest or ToolKind.RunCommand or ToolKind.UnityEditorAction or ToolKind.UnityMcpAction or ToolKind.UnityPlayerSmokeTest or ToolKind.UnityPlayerProfileTest or ToolKind.CreateBlenderAsset => PermissionKind.Execute,
             _ => throw new FormatException("Unsupported tool kind.")
@@ -79,9 +85,11 @@ public static class StructuredPlanParser
         var arguments = action.Arguments ?? throw new FormatException("Every action requires arguments.");
         var required = kind switch
         {
+            ToolKind.InspectLocalBlenderAsset => "bundle_sha256",
+            ToolKind.CheckLocalBlenderCompatibility or ToolKind.PromoteLocalBlenderAsset => "bundle_sha256",
             ToolKind.RunCommand => "command",
-            ToolKind.StageWebAsset or ToolKind.Generate3DAsset or ToolKind.InspectStagedAsset or ToolKind.ImportStagedAsset or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.UnityEditorAction or ToolKind.UnityMcpAction or ToolKind.UnityPlayerSmokeTest or ToolKind.UnityPlayerProfileTest or ToolKind.DotnetBuild or ToolKind.DotnetTest or ToolKind.CreateBlenderAsset or ToolKind.ImportBlenderAsset => "project_path",
-            ToolKind.SearchAssetCatalog or ToolKind.SearchAssetVault => "query",
+            ToolKind.StageWebAsset or ToolKind.Generate3DAsset or ToolKind.InspectStagedAsset or ToolKind.ImportStagedAsset or ToolKind.StoreReviewedAsset or ToolKind.ImportVaultAsset or ToolKind.InstallUnityBridge or ToolKind.ScaffoldUnityMapDemo or ToolKind.ScaffoldUnityGameTemplate or ToolKind.UnityEditorAction or ToolKind.UnityMcpAction or ToolKind.UnityPlayerSmokeTest or ToolKind.UnityPlayerProfileTest or ToolKind.DotnetBuild or ToolKind.DotnetTest or ToolKind.CreateBlenderAsset or ToolKind.ImportBlenderAsset or ToolKind.PlanIndustrialAssets or ToolKind.ImportIndustrialAssetSet => "project_path",
+            ToolKind.SearchAssetCatalog or ToolKind.SearchAssetVault or ToolKind.SearchLocalBlenderAssets => "query",
             _ => "path"
         };
         if (!arguments.TryGetValue(required, out var value) || string.IsNullOrWhiteSpace(value)) throw new FormatException($"Action '{action.Kind}' requires '{required}'.");
@@ -156,6 +164,31 @@ public static class StructuredPlanParser
             try { _ = ReviewedAssetStoreSpec.From(new ToolCall(Guid.Empty, kind, arguments, permission, action.Description)); }
             catch (ArgumentException ex) { throw new FormatException("Invalid reviewed-asset store action.", ex); }
         }
+        if(kind==ToolKind.InspectLocalBlenderAsset)
+        {
+            try{_=LocalBlenderInspectSpec.From(new ToolCall(Guid.Empty,kind,arguments,permission,action.Description));}
+            catch(ArgumentException ex){throw new FormatException("Invalid local Blender source inspection.",ex);}
+        }
+        if(kind is ToolKind.PlanIndustrialAssets or ToolKind.ImportIndustrialAssetSet)
+        {
+            try{_=IndustrialAssetPlanSpec.From(new ToolCall(Guid.Empty,kind,arguments,permission,action.Description));}
+            catch(ArgumentException e){throw new FormatException("Invalid industrial manifest/import.",e);}
+        }
+        if(kind==ToolKind.CheckLocalBlenderCompatibility)
+        {
+            try{_=LocalBlenderCompatibilitySpec.From(new ToolCall(Guid.Empty,kind,arguments,permission,action.Description));}
+            catch(ArgumentException ex){throw new FormatException("Invalid local Blender source constraints.",ex);}
+        }
+        if(kind==ToolKind.PromoteLocalBlenderAsset)
+        {
+            try{_=LocalBlenderPromotionSpec.From(new ToolCall(Guid.Empty,kind,arguments,permission,action.Description));}
+            catch(ArgumentException ex){throw new FormatException("Invalid local Blender source promotion.",ex);}
+        }
+        if (kind == ToolKind.SearchLocalBlenderAssets)
+        {
+            try { _ = LocalBlenderSearchSpec.From(new ToolCall(Guid.Empty,kind,arguments,permission,action.Description)); }
+            catch(ArgumentException ex){throw new FormatException("Invalid local Blender library search.",ex);}
+        }
         if (kind == ToolKind.SearchAssetVault)
         {
             try { _ = AssetVaultSearchSpec.From(new ToolCall(Guid.Empty, kind, arguments, permission, action.Description)); }
@@ -210,7 +243,7 @@ public static class StructuredPlanParser
             ToolKind.StageWebAsset => new[] { "project_path", "file_name", "url", "source_page", "license", "sha256" },
             ToolKind.Generate3DAsset => new[] { "project_path", "provider", "asset_name", "prompt", "model" },
             ToolKind.CreateBlenderAsset => new[] { "project_path", "asset_name", "recipe", "seed", "height_mm", "radius_mm" },
-            ToolKind.ImportBlenderAsset => new[] { "project_path", "asset_name", "bundle_sha256", "expected_asset_sha256" },
+            ToolKind.ImportBlenderAsset => new[] { "project_path", "asset_name", "bundle_sha256", "expected_asset_sha256", "expected_visual_review_sha256", "expected_rights_review_sha256" },
             ToolKind.DotnetBuild or ToolKind.DotnetTest => new[] { "project_path", "configuration" },
             ToolKind.IndexProject => new[] { "path" },
             ToolKind.SearchProject => new[] { "path", "query", "max_results" },
@@ -219,6 +252,12 @@ public static class StructuredPlanParser
             ToolKind.ImportStagedAsset => new[] { "project_path", "file_name", "destination_path", "expected_sha256" },
             ToolKind.StoreReviewedAsset => new[] { "project_path", "asset_set_id", "expected_asset_sha256", "tags" },
             ToolKind.SearchAssetVault => new[] { "query", "asset_role", "style_family", "max_results" },
+            ToolKind.SearchLocalBlenderAssets => new[] { "query", "asset_role", "recipe", "rig_required", "height_min_mm", "height_max_mm", "max_triangles", "max_results" },
+            ToolKind.InspectLocalBlenderAsset => new[] { "bundle_sha256" },
+            ToolKind.CheckLocalBlenderCompatibility => new[] { "bundle_sha256","asset_role","recipe","rig_required","height_min_mm","height_max_mm","max_triangles" },
+            ToolKind.PromoteLocalBlenderAsset => new[] { "bundle_sha256","expected_asset_sha256","expected_source_sha256","expected_preview_sha256","expected_metrics_sha256","expected_visual_review_sha256","expected_rights_review_sha256" },
+            ToolKind.PlanIndustrialAssets => new[]{"project_path","level_id"},
+            ToolKind.ImportIndustrialAssetSet => new[]{"project_path","level_id","plan_sha256"},
             ToolKind.ImportVaultAsset => new[] { "project_path", "bundle_sha256", "expected_asset_sha256", "destination_directory" },
             ToolKind.InstallUnityBridge => new[] { "project_path" },
             ToolKind.ScaffoldUnityMapDemo => new[] { "project_path", "map_template" },
@@ -299,6 +338,13 @@ internal static class PlanPrompt
         - inspect_staged_asset: {"project_path":"relative existing project directory","file_name":"plain staged passive-asset filename"}
         - import_staged_asset: {"project_path":"relative existing project directory","file_name":"plain staged passive-asset filename","destination_path":"relative path inside project ending with file_name","expected_sha256":"exact hash returned by inspection"}
         - search_asset_vault: {"query":"2-120 character local asset description","asset_role":"optional supported game-art role","style_family":"optional supported style family","max_results":"1-20"}
+        - inspect_local_blender_asset: {"bundle_sha256":"exact 64-character local library bundle hash"}. Read-only editable source, preview and measured metadata; source reviews and target-project acceptance stay distinct. Never fabricate a human attestation.
+        - import_blender_asset: {"project_path":"Unity project","asset_name":"bounded new name","bundle_sha256":"exact source bundle hash","expected_asset_sha256":"exact GLB hash","expected_visual_review_sha256":"optional current approved source-review hash; requires rights hash too","expected_rights_review_sha256":"optional current approved rights hash; requires visual hash too"}. If review hashes are provided the executor rechecks both exact current decisions under the shared source-decision lease; missing/rejected/changed decisions block the import. No target approval is implied.
+        - plan_industrial_assets: {"project_path":"Unity project","level_id":"2-20 lowercase identifier characters","recipe_set":"optional legacy_v1|refined_v1; default legacy_v1"}. Read-only exact manifest for the chosen fixed five-recipe industrial kit. Never silently replace legacy sources with refined versions. Missing live source reviews/promotion block imports; no placement or acceptance.
+        - import_industrial_asset_set: {"project_path":"Unity project","level_id":"same planned identifier","recipe_set":"same optional recipe_set as plan","plan_sha256":"exact hash from current manifest"}. Separately approved source-only import into fresh folders; rechecks current reviews and recipe-set/plan identity, retains no-replay journal. Target inspection/review/placement remain separate.
+        - search_local_blender_assets: {"query":"2-120 letters/numbers/spaces/hyphens/underscores","asset_role":"optional environment_props|characters","recipe":"optional supported local recipe","rig_required":"optional true|false","height_min_mm":"optional 0-20000","height_max_mm":"optional 1-20000","max_triangles":"optional 1-60000","max_results":"optional 1-20"}. Read-only original-recipe candidate discovery; never treat these as visually/rights approved assets. Separate exact import and target Unity inspection are required.
+        - check_local_blender_compatibility: {"bundle_sha256":"exact SHA-256","asset_role":"optional environment_props|characters","recipe":"optional supported recipe","rig_required":"optional true|false","height_min_mm":"optional 0-20000","height_max_mm":"optional 1-20000","max_triangles":"optional 1-60000"}. Read-only source constraints and current review/promotion hashes; never target-engine, retargeting or game approval.
+        - promote_local_blender_asset: {"bundle_sha256":"exact SHA-256","expected_asset_sha256":"exact SHA-256","expected_source_sha256":"exact SHA-256","expected_preview_sha256":"exact SHA-256","expected_metrics_sha256":"exact SHA-256","expected_visual_review_sha256":"current approved human record SHA-256","expected_rights_review_sha256":"current approved human record SHA-256"}. Separately approved source-library write. Never invent reviews or treat promotion as game acceptance. No import or placement follows implicitly.
         - store_reviewed_asset: {"project_path":"source Unity project","asset_set_id":"exact reviewed asset-set id","expected_asset_sha256":"exact current asset hash","tags":"1-16 comma-separated lowercase search tags"}
         - import_vault_asset: {"project_path":"target Unity project","bundle_sha256":"exact bundle hash returned by vault search","expected_asset_sha256":"exact asset hash returned by vault search","destination_directory":"new Assets/ForgeCore/Generated/Vault/... directory"}
         - install_unity_bridge: {"project_path":"relative existing Unity project directory"}
@@ -319,6 +365,8 @@ internal static class PlanPrompt
         - unity_editor_action verify_gameplay: {"project_path":"Unity project","operation":"verify_gameplay","scene_path":"existing reviewed ForgeCore template scene","duration_seconds":"2-30"}
         - unity_editor_action profile_scene: {"project_path":"Unity project","operation":"profile_scene","scene_path":"existing reviewed ForgeCore template scene","duration_seconds":"5-30"}
         - unity_editor_action capture_scene_preview: {"project_path":"Unity project","operation":"capture_scene_preview","scene_path":"Assets/Scenes/Name.unity","output_path":"Previews/Name.png","duration_seconds":"1-30"}
+        - unity_editor_action inspect_character_rig: {"project_path":"Unity project","operation":"inspect_character_rig","asset_path":"exact imported GLB under Assets/ForgeCore/Generated/","expected_sha256":"64 hex","scene_path":"new Assets/Scenes/CharacterRigs/Name.unity","output_path":"new Previews/CharacterRigs/Name.png"} (checks the generic_named_bones_v1 technical mannequin and creates a fresh diagnostic scene/sheet; no motion clips, Humanoid retargeting, gameplay replacement or human acceptance)
+        - unity_editor_action prepare_character_animation: {"project_path":"Unity project","operation":"prepare_character_animation","asset_path":"exact imported Generic mannequin GLB under Assets/ForgeCore/Generated/","expected_sha256":"64 hex","asset_set_id":"new bounded motion identifier","scene_path":"fresh Assets/Scenes/CharacterAnimations/Name.unity","output_path":"fresh Previews/CharacterAnimations/Name.png"} (requires verified template kit; original parameterized Unity skeletal clips/controller/lab, not arbitrary scripts, Humanoid retargeting, polished motion or human approval)
         - unity_editor_action build_windows: {"project_path":"Unity project","operation":"build_windows","output_path":"Builds/Name/Name.exe","development_build":"true|false","scene_path":"optional exact Assets/... .unity scene","level_count":"optional 1-12 only for an exact linked campaign beginning -Level01.unity"}
         - unity_player_smoke_test: {"project_path":"Unity project","output_path":"exact successful ForgeCore Builds/... .exe","duration_seconds":"5-30"}
         - unity_player_profile_test: {"project_path":"Unity project","output_path":"exact schema-3 ForgeCore development Builds/... .exe","duration_seconds":"5-30"} (runs the fixed scripted_gameplay_v1 movement/action exercise; no custom script or input is accepted)

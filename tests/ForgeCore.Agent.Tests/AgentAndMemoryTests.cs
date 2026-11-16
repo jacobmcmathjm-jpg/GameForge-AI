@@ -38,6 +38,27 @@ public sealed class AgentAndMemoryTests : IDisposable
         Assert.Equal(0, executor.Count); Assert.False(result.ToolResults.Single().Success); Assert.Contains("test", result.Response);
     }
 
+    [Theory]
+    [InlineData(ApprovalDecision.Approved)]
+    [InlineData(ApprovalDecision.Rejected)]
+    [InlineData(ApprovalDecision.Cancelled)]
+    public async Task LocalSourceHumanReviewUsesExistingLiveGateWithoutImport(ApprovalDecision choice)
+    {
+        var hash=new string('a',64);var identity=new LocalBlenderReviewIdentity(hash,hash,hash,hash,hash);
+        var review=LocalBlenderReviewSpec.Proposal(identity,"visual");var executor=new RecordingExecutor();
+        using var global=new GlobalCancellation();
+        var runner=new AgentRunner(new ScriptedModel(new AgentPlan("Human source review",[review]),new AgentPlan("Stopped",[])),
+            new FixedPolicy(SecurityDecision.ApprovalRequired),new DecisionApproval(choice),executor,new MemoryStore(),global,new(),NullLogger<AgentRunner>.Instance);
+        var result=await runner.RunAsync(Guid.NewGuid(),"Review source",default);
+        if(choice==ApprovalDecision.Cancelled){Assert.Equal(0,executor.Count);Assert.False(result.ToolResults.Single().Success);}
+        else
+        {
+            Assert.Equal(1,executor.Count);Assert.NotNull(executor.LastCall);
+            var spec=LocalBlenderReviewSpec.FromExecution(executor.LastCall);Assert.Equal(identity,spec.Identity);
+            Assert.Equal(choice==ApprovalDecision.Approved?"approved":"rejected",spec.Decision);
+        }
+    }
+
     [Fact] public async Task HumanGameArtReview_BindsLiveRejectAndExecutesWhileCancellationRecordsNothing()
     {
         var hash = new string('a', 64);

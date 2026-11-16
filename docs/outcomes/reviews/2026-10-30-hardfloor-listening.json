@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-30",
+  "reviewKind": "user_recorded_footstep_preview_listening",
+  "bankId": "gbox_subway_hardfloor_v1",
+  "processingRecipe": "dc_remove_peak055_fade3ms10ms_v1",
+  "userAnswer": "Yes, use these footsteps",
+  "question": "Do these recorded footsteps sound closer to what you want? They are the new v26 preview above; the gunshot is unchanged.",
+  "previewListeningAccepted": true,
+  "approvedUse": "Keep this exact six-take recorded hard-floor pack for the current industrial demo. v28 already retains these unchanged recordings.",
+  "preview": {
+    "path": "outputs/ForgeCore-RecordedFootstepReview-20261030-v26/Recorded-HardFloor-Walk-v1.wav",
+    "sha256": "fb7433be5174e96f0efbcc1596f000891dda7943fb3e613bbd2e4414084a5e73"
+  },
+  "sourcePackSha256": "4153a9f069f3f8860561c1e116f393c8ae052ef1f7928544f6eca28af0ce3b97",
+  "processedFiles": [
+    { "file": "Demo-recorded-hardfloor-0.wav", "sha256": "4f9b68738c85c0647e121f0dac2436822e5f0e4a228135fd5a3d8b1caaf923a8" },
+    { "file": "Demo-recorded-hardfloor-1.wav", "sha256": "d3bf5b536c5fd0dcdf8287a579258b8f1adf9303f1a938e89494ee63f25d98a0" },
+    { "file": "Demo-recorded-hardfloor-2.wav", "sha256": "92caf398036600729bae26f84ef426270c867d8df9e5a6c92864228829e060d5" },
+    { "file": "Demo-recorded-hardfloor-3.wav", "sha256": "dc232a0038d7ec0d9141e690fa4ea16a28f4c92d644b19ea9248806fb2ca070a" },
+    { "file": "Demo-recorded-hardfloor-4.wav", "sha256": "51270267c7547dd2c0eb5813279f000b64719c454331e87f4017326d620bfc80" },
+    { "file": "Demo-recorded-hardfloor-5.wav", "sha256": "01d4267feee8ecb2a6429370d68ee690a80694db6c646ae34bcda24dd02cdcbf" }
+  ],
+  "doesNotApprove": [
+    "Final in-game spatial mix or every surface/genre",
+    "Different recordings, processing recipes or future external sources",
+    "Art, frame smoothness, larger maps or whole-stage completion"
+  ],
+  "gunshotChanged": false,
+  "historicalGenerationAndPackageReceiptsModified": false,
+  "runtimeApprovalConsumerAdded": false,
+  "note": "This is the later scoped user-review record. Earlier generated source/audition/diagnostic humanListeningAccepted=false fields remain truthful historical generation evidence; no bundled source, signed/hash-bound kit, delivery manifest or backup is rewritten. This documentation record is not a newly implemented runtime approval gate."
+}

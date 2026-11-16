@@ -4,12 +4,17 @@ using System.Text.Json;
 
 namespace ForgeCore.Tools;
 
-internal static class UnityBridgeTemplate
+internal static partial class UnityBridgeTemplate
 {
     public const string ProtocolVersion = "1.0";
-    public const string BridgeVersion = "0.17.15";
+    public const string BridgeVersion = "0.17.22";
     public static readonly IReadOnlyDictionary<string, string> UpgradeableBridges = new Dictionary<string, string>(StringComparer.Ordinal)
     {
+        ["0.17.21"] = "14c3b64892e11f47ded81e6ca1ce0eaeb443e922eb9551ab292c38616f05db79",
+        ["0.17.20"] = "148958f6b132440144d0fc63c3a65d1a8b5be6f412737dcf70ef18c40f1f41aa",
+        ["0.17.19"] = "707173a958b975091f9bbc4ccb98e335d0a98d4409a3a92ae91eeb29c3407dc2",
+        ["0.17.18"] = "5b1201394e19882e642df6eafba71a53d34040b4ae099af687aa333f3478cc6c",
+        ["0.17.17"] = "b0c33b48f319054843595e5f7a313888b708a29b5301a2f14cde03ce144590f2",
         ["0.16.0"] = "bad2638764d00c40aa8fd3f1f72685589b271abf86703ba4faae1c3c9e63ab11",
         ["0.17.0"] = "f06b55dbf775ee0210c87e1408c65dcba9e45910ccb37db8bbfeb4a1ca5a156d",
         ["0.17.1"] = "719253e0e9674f5c68fbb6fa03a09c26945737f44736d71d890d75d49742ca73",
@@ -25,7 +30,9 @@ internal static class UnityBridgeTemplate
         ["0.17.11"] = "dcd49f8a42543bf84eff4f3c6124b4bbbff68d457dd22df28875efff402be892",
         ["0.17.12"] = "b050c2ae6d85cf6cf432f8eb5d7cabc69f7b6ae12bbb0c2d211031d713dc6a38",
         ["0.17.13"] = "b2b03369111a8091c9b03b3e41e2e4ea63b3df3706f1d01634e276527171f770",
-        ["0.17.14"] = "4da6b9a5003fd8f98e214a16809b9f8dd787d23b4d648996fe306a60db49bbb2"
+        ["0.17.14"] = "4da6b9a5003fd8f98e214a16809b9f8dd787d23b4d648996fe306a60db49bbb2",
+        ["0.17.15"] = "ad7ca6c869836057814a809a2f967081406169f90d7b7b654d03c5f0872bc272",
+        ["0.17.16"] = "2e15f43bc4f5f30fd0a1890cad19db3245bcd1a21b7306a12cfd0eaa934a47f2"
     };
 
     public static string Sha256 => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Source))).ToLowerInvariant();
@@ -37,11 +44,13 @@ internal static class UnityBridgeTemplate
         installedUtc = DateTimeOffset.UtcNow
     }, new JsonSerializerOptions { WriteIndented = true });
 
-    public const string Source = """
+    public static string Source => (MainSource + "\n" + CharacterRigSource + "\n" + CharacterAnimationBridgeSource + "\n" + IndustrialBridgeSource).Replace("__FORGECORE_BRIDGE_VERSION__", BridgeVersion, StringComparison.Ordinal);
+    private const string MainSource = """
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
@@ -55,10 +64,10 @@ using UnityEngine.SceneManagement;
 
 namespace ForgeCore.Editor
 {
-    public static class ForgeCoreBridge
+    public static partial class ForgeCoreBridge
     {
         private const string ProtocolVersion = "1.0";
-        private const string BridgeVersion = "0.17.15";
+        private const string BridgeVersion = "__FORGECORE_BRIDGE_VERSION__";
         private const string PlayPending = "ForgeCore.Play.Pending";
         private const string PlayResultPath = "ForgeCore.Play.ResultPath";
         private const string PlayRequestId = "ForgeCore.Play.RequestId";
@@ -127,6 +136,7 @@ namespace ForgeCore.Editor
             public string summary;
             public BridgeArtInspection artInspection;
             public BridgePerformance performance;
+            public RigInspection characterRig;
         }
 
         [Serializable]
@@ -222,7 +232,7 @@ namespace ForgeCore.Editor
                 {
                     case "capabilities":
                         WriteResult(resultPath, request, true,
-                            "ForgeCore Unity bridge ready; operations=capabilities,compile,create_scene,create_map_demo,create_game_template,create_game_campaign,create_primitive,add_component,prepare_generated_asset,inspect_game_art_asset,capture_game_art_preview,run_tests,play_mode,verify_gameplay,profile_scene,capture_scene_preview,build_windows; editor=" + Application.unityVersion);
+                            "ForgeCore Unity bridge ready; operations=capabilities,compile,create_scene,create_map_demo,create_game_template,create_game_campaign,create_primitive,add_component,prepare_generated_asset,inspect_game_art_asset,inspect_character_rig,prepare_character_animation,create_security_combat_lab,prepare_industrial_prop,create_industrial_mission,capture_game_art_preview,run_tests,play_mode,verify_gameplay,profile_scene,capture_scene_preview,build_windows; editor=" + Application.unityVersion);
                         return;
                     case "compile":
                         AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
@@ -269,6 +279,18 @@ namespace ForgeCore.Editor
                             "; animation clips=" + artInspection.animationClipCount +
                             "; LOD groups=" + artInspection.lodGroupCount + "; colliders=" + artInspection.colliderCount +
                             ". Structural inspection does not complete rights or visual review.", artInspection);
+                        return;
+                    case "inspect_character_rig":
+                        var rig = InspectCharacterRig(request);
+                        WriteResult(resultPath, request, true, "Character skin, bind pose and three diagnostic poses passed. Generic named-bone rig; no Humanoid avatar, motion clips, visual or rights acceptance is implied.", characterRig: rig);
+                        return;
+                    case "prepare_character_animation":
+                    case "create_security_combat_lab":
+                    case "create_industrial_mission":
+                        WriteResult(resultPath, request, true, PrepareCharacterAnimation(request));
+                        return;
+                    case "prepare_industrial_prop":
+                        WriteResult(resultPath, request, true, PrepareIndustrialProp(request));
                         return;
                     case "capture_game_art_preview":
                         var artPreviewSummary = CaptureGameArtPreview(request);
@@ -1007,8 +1029,11 @@ namespace ForgeCore.Editor
         private static void ValidateRequest(BridgeRequest request)
         {
             if (request == null || request.protocolVersion != ProtocolVersion || string.IsNullOrEmpty(request.requestId)) throw new InvalidOperationException("Unity bridge protocol/request identifier is invalid.");
-            var allowed = new HashSet<string>(StringComparer.Ordinal) { "capabilities", "compile", "create_scene", "create_map_demo", "create_game_template", "create_game_campaign", "create_primitive", "add_component", "prepare_generated_asset", "inspect_game_art_asset", "capture_game_art_preview", "play_mode", "verify_gameplay", "profile_scene", "capture_scene_preview", "build_windows" };
+            var allowed = new HashSet<string>(StringComparer.Ordinal) { "capabilities", "compile", "create_scene", "create_map_demo", "create_game_template", "create_game_campaign", "create_primitive", "add_component", "prepare_generated_asset", "inspect_game_art_asset", "inspect_character_rig", "prepare_character_animation", "create_security_combat_lab", "prepare_industrial_prop", "create_industrial_mission", "capture_game_art_preview", "play_mode", "verify_gameplay", "profile_scene", "capture_scene_preview", "build_windows" };
             if (!allowed.Contains(request.operation)) throw new InvalidOperationException("Unity bridge operation is not allowed.");
+            if (request.operation == "inspect_character_rig" && (string.IsNullOrEmpty(request.scenePath) || string.IsNullOrEmpty(request.outputPath) ||
+                string.IsNullOrEmpty(request.assetPath) || string.IsNullOrEmpty(request.assetSha256) || !Regex.IsMatch(request.assetSha256,"^[a-f0-9]{64}$",RegexOptions.CultureInvariant)))
+                throw new InvalidOperationException("Character rig inspection arguments are invalid.");
             if (request.operation == "prepare_generated_asset" &&
                 (request.targetHeight < 1f || request.targetHeight > 100f || (request.colliderMode != "mesh" && request.colliderMode != "box") ||
                  string.IsNullOrEmpty(request.parentObjectName) || string.IsNullOrEmpty(request.objectName)))
@@ -1132,10 +1157,10 @@ namespace ForgeCore.Editor
             throw new InvalidOperationException("Missing command-line argument " + name + ".");
         }
 
-        private static void WriteResult(string path, BridgeRequest request, bool success, string summary, BridgeArtInspection artInspection = null, BridgePerformance performance = null)
+        private static void WriteResult(string path, BridgeRequest request, bool success, string summary, BridgeArtInspection artInspection = null, BridgePerformance performance = null, RigInspection characterRig = null)
         {
             if (string.IsNullOrEmpty(path)) return;
-            var result = new BridgeResult { requestId = request == null ? "unknown" : request.requestId, operation = request == null ? "unknown" : request.operation, success = success, summary = summary, artInspection = artInspection, performance = performance };
+            var result = new BridgeResult { requestId = request == null ? "unknown" : request.requestId, operation = request == null ? "unknown" : request.operation, success = success, summary = summary, artInspection = artInspection, performance = performance, characterRig = characterRig };
             var temporary = path + ".tmp"; Directory.CreateDirectory(Path.GetDirectoryName(path));
             File.WriteAllText(temporary, JsonUtility.ToJson(result, true), new UTF8Encoding(false));
             if (File.Exists(path)) throw new InvalidOperationException("Bridge result already exists.");

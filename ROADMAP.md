@@ -156,7 +156,7 @@ Still required beyond v0.14: install an approved Unity GLB importer manually, li
 - Versioned per-task game blueprints persisted through an optional store capability, with non-game requests excluded
 - Schema 2 deterministic campaign plans with one to twelve level roles, seeds, mechanic focus, validation gates, and adjacent completion transitions
 - Schema 3 coherent art-set plans with bounded style families, genre-dependent asset slots, minimum counts, technical gates, and deterministic migration from stored schema-2 blueprints
-- Frontier Valley designated as the first certified third-person-action reference pack; other genres remain explicitly prototype-only
+- Frontier Valley is an intended third-person-action reference benchmark, not an existing certification. The current genre registry marks its families as prototypes; no universal or polished all-genre builder is certified.
 
 October target: accept any bounded game-genre prompt, produce a typed system graph and playable prototype path, and deliver polished output from several certified genre families. Certification requires a deterministic template, automated system tests, bounded Play Mode evidence, standalone build evidence, and documented performance/visual acceptance; equal commercial polish across every possible genre is not implied.
 

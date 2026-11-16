@@ -1,0 +1,13 @@
+# Archived S03 animation-foundation checkpoint — 27 October 2026
+
+Status: **in progress — bounded animation-lab foundation; not full animation/gameplay acceptance**. The active checklist remains [OUTCOMES.md](../../OUTCOMES.md); this archive does not start an unattended task queue.
+
+ForgeCore now has original local Unity curve authoring for Idle, Walk, Run, Aim, Fire, Reload, Hit and Death against the unchanged S02 Generic Blender skeleton. It retains editable `.anim` clips, a speed blend tree and exclusive action controller, fresh lab scenes, sampled deformation/loop/stance-target measurements, PNG pose sheets and exact-hash provenance. Root translation is runtime-owned; root motion is off. This is parameterized recipe code executed by ForgeCore, not an unrestricted learned character/motion generator or a downloaded animation set.
+
+The real seven-action offline prompt route created a fresh Blender base, imported it, verified its skin and generated its animation lab without provider/inference fallback. Typed paths/hash binding, protected source, exact-version kit checks, non-overwriting destinations and separate human acceptance are preserved. Initial failed/diagnostic attempts remain unaccepted and were not overwritten. Detailed measurements, test logs, delivery hashes and remaining limits are in [the dated S03 note](../outcomes/S03-2026-10-27.md).
+
+App and animation-lab Windows folders are `outputs/ForgeCore-Windows-x64-20261027-S03AnimationV1` and `outputs/ForgeCore-TestGame-20261027-S03AnimationV1`. Their payload manifests were verified; the app's offline package probe passed, and the lab's fifteen-second **headless** startup probe passed. The runtime-camera attempt timed out; neither that startup check nor the corrected sampled pose sheet proves a rendered gameplay sequence. Full rendered transition/ground-contact/grip/death-contact acceptance is still open.
+
+Local source recovery label: `backups/20261027-s03-animation-foundation-v1`. The separate verification receipt records archive identity, source-restore verification and final checks. Source snapshots exclude the external Unity project, binary assets, model weights, live configuration, runtime databases/logs and complete Git history. Actual editable Blender bundles remain in the workspace library. No S03 GitHub upload, paid generation or recurring monitor was enabled.
+
+The character remains a basic technical mannequin with a box training rifle. Detailed S04 art, S05 first-person arms, S06 tactical enemy integration and general S18 character/motion creation remain separate. No human visual/rights record or approved-vault promotion is manufactured. S01/S02 retain their own open acceptance requirements.

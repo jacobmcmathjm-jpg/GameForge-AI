@@ -24,6 +24,14 @@ internal static class PackageSelfCheck
             var tools = Assembly.Load(new AssemblyName("ForgeCore.Tools"));
             using (var recipe = tools.GetManifestResourceStream("ForgeCore.Tools.Blender.WeatheredBarrel.py"))
                 if (recipe is null || recipe.Length < 1000) return 6;
+            using (var recipe = tools.GetManifestResourceStream("ForgeCore.Tools.Blender.RiggedHumanoid.py"))
+                if (recipe is null || recipe.Length < 1000) return 6;
+            using (var recipe = tools.GetManifestResourceStream("ForgeCore.Tools.Blender.IndustrialSecurity.py"))
+                if (recipe is null || recipe.Length < 1000) return 6;
+            using (var recipe = tools.GetManifestResourceStream("ForgeCore.Tools.Blender.IndustrialProps.py"))
+                if (recipe is null || recipe.Length < 1000) return 6;
+            using (var recipe = tools.GetManifestResourceStream("ForgeCore.Tools.Blender.IndustrialPropsV2.py"))
+                if (recipe is null || recipe.Length < 1000) return 6;
             foreach (var backend in new[] { "avx", "avx2", "avx512", "noavx", "vulkan" })
                 foreach (var file in new[] { "llama.dll", "ggml.dll", "ggml-base.dll" })
                     if (!File.Exists(Path.Combine(directory, "runtimes", "win-x64", "native", backend, file))) return 5;

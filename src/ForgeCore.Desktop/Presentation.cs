@@ -213,7 +213,7 @@ public sealed class MainViewModel(IAgentRunner agent, IForgeStore store, ILocalM
                 continue;
             }
             PendingApprovals.Add(new(item.Id, item.Call.Description,
-                live ? $"{item.Call.Kind} · expires {item.ExpiresUtc.LocalDateTime:t}" : $"{item.Call.Kind} · prior session (reject only)", live));
+                live ? item.Call.Kind==ToolKind.ReviewGameArtAsset?"Human art review · inspect and accept in its verified preview dialog (inbox rejects only)":$"{item.Call.Kind} · expires {item.ExpiresUtc.LocalDateTime:t}" : $"{item.Call.Kind} · prior session (reject only)", live&&item.Call.Kind!=ToolKind.ReviewGameArtAsset));
         }
         CommandManager.InvalidateRequerySuggested();
     }
@@ -261,12 +261,13 @@ public sealed record ChatMessageItem(string Role, string Content)
 
 public sealed record ApprovalInboxItemView(Guid Id, string Title, string Detail, bool CanApprove);
 
-public sealed class WpfApprovalService(TaskAuthorizationSession authorization, IApprovalInboxStore inbox) : IApprovalService
+public sealed class WpfApprovalService(TaskAuthorizationSession authorization, IApprovalInboxStore inbox, ILocalBlenderReviewReader localReviewReader, IGameArtReviewReader? targetReviewReader=null) : IApprovalService
 {
     private sealed class LiveApproval
     {
         public TaskCompletionSource<ApprovalDecision> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public SemaphoreSlim DecisionGate { get; } = new(1, 1);
+        public bool RequiresPreviewAcknowledgement { get; init; }
     }
 
     private readonly ConcurrentDictionary<Guid, LiveApproval> _live = new();
@@ -274,8 +275,12 @@ public sealed class WpfApprovalService(TaskAuthorizationSession authorization, I
     public bool IsLive(Guid approvalId) => _live.ContainsKey(approvalId);
 
     public async Task<bool> ResolveLiveAsync(Guid approvalId, bool approved, CancellationToken cancellationToken)
+        =>await ResolveLiveCoreAsync(approvalId,approved,false,cancellationToken);
+
+    private async Task<bool> ResolveLiveCoreAsync(Guid approvalId,bool approved,bool fromPreviewDialog,CancellationToken cancellationToken)
     {
         if (!_live.TryGetValue(approvalId, out var live)) return false;
+        if(approved&&live.RequiresPreviewAcknowledgement&&!fromPreviewDialog)return false;
         await live.DecisionGate.WaitAsync(cancellationToken);
         try
         {
@@ -290,19 +295,48 @@ public sealed class WpfApprovalService(TaskAuthorizationSession authorization, I
     public async Task<ApprovalDecision> RequestApprovalAsync(ApprovalRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        LocalBlenderReviewPacket? localPacket=null;
+        GameArtReviewPacket? targetPacket=null;
+        if(LocalBlenderReviewSpec.IsLocal(request.Call))
+        {
+            var spec=LocalBlenderReviewSpec.FromProposal(request.Call);
+            localPacket=await localReviewReader.ReadAsync(spec.Identity.BundleSha256,cancellationToken);
+            if(localPacket.Identity!=spec.Identity)throw new InvalidDataException("Exact local source review packet changed before display.");
+        }
+        else if(request.Call.Kind==ToolKind.ReviewGameArtAsset)
+        {
+            if(targetReviewReader is null)throw new InvalidOperationException("Verified Unity target review reader is unavailable.");
+            targetPacket=await targetReviewReader.ReadAsync(request.Call,cancellationToken);
+            if(targetPacket.Proposal!=GameArtReviewSpec.FromProposal(request.Call))throw new InvalidDataException("Exact target review packet changed before display.");
+        }
         if (authorization.TryConsume(request)) return ApprovalDecision.Approved;
         Guid? inboxId = request.TaskId is Guid taskId && taskId != Guid.Empty
             ? await inbox.EnqueueApprovalAsync(taskId, request, DateTimeOffset.UtcNow.AddHours(24), cancellationToken)
             : null;
         var dispatcher = Application.Current.Dispatcher;
-        var live = new LiveApproval();
+        var live = new LiveApproval{RequiresPreviewAcknowledgement=localPacket is not null||targetPacket is not null};
         if (inboxId is Guid registeredId && !_live.TryAdd(registeredId, live))
             throw new InvalidOperationException("The approval request is already active.");
-        PermissionDialogWindow? dialog = null;
+        Window? dialog = null;
+        try
+        {
         await dispatcher.InvokeAsync(() =>
         {
-            dialog = new PermissionDialogWindow(request) { Owner = Application.Current.MainWindow };
-            dialog.DecisionMade += approved => ResolveFromDialog(inboxId, live, approved);
+            if(localPacket is not null)
+            {
+                var sourceDialog=new LocalBlenderReviewDialogWindow(request,localPacket){Owner=Application.Current.MainWindow};
+                sourceDialog.DecisionMade+=approved=>ResolveFromDialog(inboxId,live,approved);dialog=sourceDialog;
+            }
+            else if(targetPacket is not null)
+            {
+                var targetDialog=new GameArtReviewDialogWindow(request,targetPacket){Owner=Application.Current.MainWindow};
+                targetDialog.DecisionMade+=approved=>ResolveFromDialog(inboxId,live,approved);dialog=targetDialog;
+            }
+            else
+            {
+                var actionDialog=new PermissionDialogWindow(request){Owner=Application.Current.MainWindow};
+                actionDialog.DecisionMade+=approved=>ResolveFromDialog(inboxId,live,approved);dialog=actionDialog;
+            }
             dialog.Closed += (_, _) => CancelFromDialog(inboxId, live);
             dialog.Show(); dialog.Activate();
         }, DispatcherPriority.Normal, cancellationToken);
@@ -311,8 +345,6 @@ public sealed class WpfApprovalService(TaskAuthorizationSession authorization, I
             live.Completion.TrySetCanceled(cancellationToken);
             _ = dispatcher.BeginInvoke(() => dialog?.Close());
         });
-        try
-        {
             return await live.Completion.Task;
         }
         finally
@@ -329,7 +361,7 @@ public sealed class WpfApprovalService(TaskAuthorizationSession authorization, I
 
     private void ResolveFromDialog(Guid? inboxId, LiveApproval live, bool approved)
     {
-        if (inboxId is Guid id) _ = ResolveLiveAsync(id, approved, CancellationToken.None);
+        if (inboxId is Guid id) _ = ResolveLiveCoreAsync(id, approved, true, CancellationToken.None);
         else live.Completion.TrySetResult(approved ? ApprovalDecision.Approved : ApprovalDecision.Rejected);
     }
 

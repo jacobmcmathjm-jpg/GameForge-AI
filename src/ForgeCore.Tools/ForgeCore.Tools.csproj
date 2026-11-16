@@ -1,7 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <EmbeddedResource Include="../ForgeCore.Core/GuardMotionProfile.cs" LogicalName="ForgeCore.Tools.GuardMotionProfile.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoState.cs" LogicalName="ForgeCore.Tools.DemoState.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoFrameWindow.cs" LogicalName="ForgeCore.Tools.DemoFrameWindow.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoTimingTrace.cs" LogicalName="ForgeCore.Tools.DemoTimingTrace.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoWorkJournal.cs" LogicalName="ForgeCore.Tools.DemoWorkJournal.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoCheckpointQueue.cs" LogicalName="ForgeCore.Tools.DemoCheckpointQueue.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/DemoAudioSynthesis.cs" LogicalName="ForgeCore.Tools.DemoAudioSynthesis.cs" />
+    <EmbeddedResource Include="../ForgeCore.Core/RecordedFootstepBank.cs" LogicalName="ForgeCore.Tools.RecordedFootstepBank.cs" />
+    <EmbeddedResource Include="Audio/RecordedFootsteps.json" LogicalName="ForgeCore.Tools.RecordedFootsteps.json" />
     <EmbeddedResource Include="Blender/WeatheredBarrel.py" />
-    <EmbeddedResource Include="../ForgeCore.Core/ProfileTimingDiagnostics.cs" LogicalName="ForgeCore.ProfileTimingDiagnostics.cs" />
+    <EmbeddedResource Include="Blender/RiggedHumanoid.py" />
+    <EmbeddedResource Include="Blender/IndustrialSecurity.py" />
+    <EmbeddedResource Include="Blender/IndustrialProps.py" />
+    <EmbeddedResource Include="Blender/IndustrialPropsV2.py" />
     <ProjectReference Include="../ForgeCore.Core/ForgeCore.Core.csproj" />
     <ProjectReference Include="../ForgeCore.Security/ForgeCore.Security.csproj" />
   </ItemGroup>

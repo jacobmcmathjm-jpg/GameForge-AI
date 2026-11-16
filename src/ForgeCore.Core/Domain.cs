@@ -2,7 +2,7 @@ namespace ForgeCore.Core;
 
 public enum ForgeTaskState { Pending, Planning, AwaitingApproval, Running, Completed, Failed, Cancelled }
 public enum PermissionKind { Read, Write, Network, Execute, Administrator }
-public enum ToolKind { ListFiles, ReadTextFile, WriteTextFile, ApplyTextPatch, RestoreTextSnapshot, CreateDirectory, ScaffoldProject, StageWebAsset, Generate3DAsset, DotnetBuild, DotnetTest, RunCommand, IndexProject, SearchProject, SearchAssetCatalog, InspectStagedAsset, ImportStagedAsset, InstallUnityBridge, ScaffoldUnityMapDemo, ScaffoldUnityGameTemplate, UnityEditorAction, UnityMcpAction, UnityPlayerSmokeTest, UnityPlayerProfileTest, ReviewGameArtAsset, StoreReviewedAsset, SearchAssetVault, ImportVaultAsset, CreateBlenderAsset, ImportBlenderAsset }
+public enum ToolKind { ListFiles, ReadTextFile, WriteTextFile, ApplyTextPatch, RestoreTextSnapshot, CreateDirectory, ScaffoldProject, StageWebAsset, Generate3DAsset, DotnetBuild, DotnetTest, RunCommand, IndexProject, SearchProject, SearchAssetCatalog, InspectStagedAsset, ImportStagedAsset, InstallUnityBridge, ScaffoldUnityMapDemo, ScaffoldUnityGameTemplate, UnityEditorAction, UnityMcpAction, UnityPlayerSmokeTest, UnityPlayerProfileTest, ReviewGameArtAsset, StoreReviewedAsset, SearchAssetVault, ImportVaultAsset, CreateBlenderAsset, ImportBlenderAsset, SearchLocalBlenderAssets, InspectLocalBlenderAsset, CheckLocalBlenderCompatibility, PromoteLocalBlenderAsset, PlanIndustrialAssets, ImportIndustrialAssetSet }
 public enum SecurityDecision { Allowed, ApprovalRequired, Denied }
 public enum ApprovalDecision { Approved, Rejected, Cancelled }
 
@@ -36,7 +36,12 @@ public sealed record ModelRequest(
 public sealed record AgentPlan(string Response, IReadOnlyList<ToolCall> Actions);
 public sealed record AgentRunResult(string Response, IReadOnlyList<ToolResult> ToolResults,
     Guid? WorkQueueId = null, ForgeTaskState State = ForgeTaskState.Completed);
-public sealed record ToolResult(Guid ToolCallId, bool Success, string Output, string? Error = null);
+public sealed record ToolResult(Guid ToolCallId, bool Success, string Output, string? Error = null)
+{
+    // Separate from execution success: a full/unwritable advisory journal must not cause
+    // a completed, non-idempotent generation to be retried as if the generation failed.
+    public string? LearningStatus { get; init; }
+}
 public sealed record PolicyResult(SecurityDecision Decision, string Reason);
 public sealed record ApprovalRequest(ToolCall Call, string Reason, Guid? TaskId = null);
 public enum ApprovalInboxStatus { Pending, Approved, Rejected, Cancelled, Expired, Executing, Executed, Failed }
@@ -596,7 +601,7 @@ public sealed record UnityEditorActionSpec(
     string? AssetSetId, string? AssetRole, string? StyleFamily)
 {
     public static readonly IReadOnlySet<string> Operations = new HashSet<string>(
-        ["capabilities", "compile", "create_scene", "create_map_demo", "create_game_template", "create_game_campaign", "create_primitive", "add_component", "prepare_generated_asset", "inspect_game_art_asset", "capture_game_art_preview", "run_tests", "play_mode", "verify_gameplay", "profile_scene", "capture_scene_preview", "build_windows"],
+        ["capabilities", "compile", "create_scene", "create_map_demo", "create_game_template", "create_game_campaign", "create_primitive", "add_component", "prepare_generated_asset", "inspect_game_art_asset", "inspect_character_rig", "prepare_character_animation", "create_security_combat_lab", "prepare_industrial_prop", "create_industrial_mission", "capture_game_art_preview", "run_tests", "play_mode", "verify_gameplay", "profile_scene", "capture_scene_preview", "build_windows"],
         StringComparer.Ordinal);
     public static readonly IReadOnlySet<string> SceneTemplates = new HashSet<string>(["empty", "basic_2d", "basic_3d"], StringComparer.Ordinal);
     public static readonly IReadOnlySet<string> Primitives = new HashSet<string>(["empty", "cube", "sphere", "capsule", "cylinder", "plane", "quad"], StringComparer.Ordinal);
@@ -618,6 +623,9 @@ public sealed record UnityEditorActionSpec(
             "add_component" => new[] { "project_path", "operation", "scene_path", "object_name", "component_type" },
             "prepare_generated_asset" => new[] { "project_path", "operation", "scene_path", "asset_path", "expected_sha256", "parent_object_name", "object_name", "target_height", "collider_mode", "replace_placeholder" },
             "inspect_game_art_asset" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "asset_role", "style_family" },
+            "inspect_character_rig" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "scene_path", "output_path" },
+            "create_industrial_mission" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "scene_path", "output_path", "style_family" },
+            "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "scene_path", "output_path" },
             "capture_game_art_preview" => new[] { "project_path", "operation", "asset_path", "expected_sha256", "asset_set_id", "output_path" },
             "run_tests" => new[] { "project_path", "operation", "test_mode" },
             "play_mode" => new[] { "project_path", "operation", "scene_path", "duration_seconds" },
@@ -647,7 +655,7 @@ public sealed record UnityEditorActionSpec(
         if (testMode is not null && testMode is not "edit" and not "play") throw new ArgumentException("test_mode must be edit or play.");
         if (outputPath is not null)
         {
-            if (operation is "capture_scene_preview" or "capture_game_art_preview") ValidatePreviewPath(outputPath);
+            if (operation is "capture_scene_preview" or "capture_game_art_preview" or "inspect_character_rig" or "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission") ValidatePreviewPath(outputPath);
             else ValidateBuildPath(outputPath);
         }
         if (mapTemplate is not null && mapTemplate != UnityMapDemoSpec.FrontierValley) throw new ArgumentException("map_template must be frontier_valley.");
@@ -662,7 +670,7 @@ public sealed record UnityEditorActionSpec(
             throw new ArgumentException("asset_set_id must be a bounded identifier.");
         if (assetRole is not null && !GameArtSetPlanner.TryParseRole(assetRole, out _))
             throw new ArgumentException("asset_role is not a supported game-art role.");
-        if (styleFamily is not null && !GameArtSetPlanner.AllowedStyleFamilies.Contains(styleFamily, StringComparer.Ordinal))
+        if (styleFamily is not null && (operation=="create_industrial_mission"?styleFamily!=RetroCourtyardProfile.Id:!GameArtSetPlanner.AllowedStyleFamilies.Contains(styleFamily, StringComparer.Ordinal)))
             throw new ArgumentException("style_family is not a supported game-art style family.");
         var seed = ParseSeed(call); var levelCount = ParseLevelCount(call);
         if (operation == "create_game_campaign" && (scenePath is null || templateId is null || seed is null || levelCount is null))
@@ -677,6 +685,10 @@ public sealed record UnityEditorActionSpec(
             throw new ArgumentException("profile_scene requires scene_path and duration_seconds.");
         if (operation == "inspect_game_art_asset" && (assetPath is null || expectedSha256 is null || assetSetId is null || assetRole is null || styleFamily is null))
             throw new ArgumentException("inspect_game_art_asset requires asset_path, expected_sha256, asset_set_id, asset_role, and style_family.");
+        if (operation == "inspect_character_rig" && (assetPath is null || expectedSha256 is null || scenePath is null || outputPath is null))
+            throw new ArgumentException("inspect_character_rig requires exact asset/hash and fresh scene_path/output_path.");
+        if ((operation is "prepare_character_animation" or "create_security_combat_lab" or "prepare_industrial_prop" or "create_industrial_mission") && (assetPath is null || expectedSha256 is null || assetSetId is null || scenePath is null || outputPath is null || assetSetId.Contains("..", StringComparison.Ordinal)))
+            throw new ArgumentException("prepare_character_animation requires exact asset/hash, a bounded new asset_set_id and fresh scene_path/output_path.");
         if (operation == "capture_game_art_preview" && (assetPath is null || expectedSha256 is null || assetSetId is null || outputPath is null))
             throw new ArgumentException("capture_game_art_preview requires asset_path, expected_sha256, asset_set_id, and output_path.");
 
@@ -821,7 +833,8 @@ public sealed record GameArtReviewSpec(
 
     public static ToolCall BindUserDecision(ToolCall proposal, ApprovalDecision decision)
     {
-        _ = FromProposal(proposal);
+        if(LocalBlenderReviewSpec.IsLocal(proposal))_ = LocalBlenderReviewSpec.FromProposal(proposal);
+        else _ = FromProposal(proposal);
         if (decision == ApprovalDecision.Cancelled)
             throw new ArgumentException("A cancelled approval cannot be bound as a game-art review decision.");
         var arguments = new Dictionary<string, string>(proposal.Arguments, StringComparer.Ordinal)
@@ -830,7 +843,8 @@ public sealed record GameArtReviewSpec(
             ["attestation_source"] = UserLiveApproval
         };
         var bound = proposal with { Arguments = arguments };
-        _ = FromExecution(bound);
+        if(LocalBlenderReviewSpec.IsLocal(bound))_ = LocalBlenderReviewSpec.FromExecution(bound);
+        else _ = FromExecution(bound);
         return bound;
     }
 

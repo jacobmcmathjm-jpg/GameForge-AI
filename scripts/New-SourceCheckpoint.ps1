@@ -25,7 +25,7 @@ function Assert-CheckpointPlainPath([string]$Path) {
 }
 
 # Only source/build/docs/test text from known roots, never a recursive workspace copy.
-$checkpointExtensions = @('.cs','.xaml','.csproj','.sln','.slnx','.props','.targets','.json','.md','.py','.ps1','.manifest','.config')
+$checkpointExtensions = @('.cs','.xaml','.csproj','.sln','.slnx','.props','.targets','.pubxml','.json','.md','.py','.ps1','.manifest','.config')
 $checkpointFiles = @(& git -C $checkpointRepo ls-files --cached --others --exclude-standard)
 if ($LASTEXITCODE -ne 0) { throw 'Could not enumerate repository source files.' }
 $checkpointFiles = @($checkpointFiles | Sort-Object -Unique | Where-Object {
@@ -60,15 +60,16 @@ foreach ($checkpointRelative in $checkpointFiles) {
     Assert-CheckpointPlainPath $checkpointSource
     $checkpointItem = Get-Item -LiteralPath $checkpointSource -Force
     if ($checkpointItem.PSIsContainer -or $checkpointItem.Length -gt 5MB) { throw 'Source file is not bounded text.' }
-    $checkpointText = [IO.File]::ReadAllText($checkpointSource, $checkpointUtf8)
+    $checkpointBytes = [IO.File]::ReadAllBytes($checkpointSource)
+    $checkpointText = $checkpointUtf8.GetString($checkpointBytes)
     if ($checkpointText.Contains([char]0)) { throw 'Binary content in source selection.' }
     foreach ($checkpointRule in $checkpointSecretPatterns.GetEnumerator()) {
         if ([regex]::IsMatch($checkpointText,$checkpointRule.Value)) {
             $checkpointFindings.Add([pscustomobject]@{path=$checkpointRelative; rule=$checkpointRule.Key})
         }
     }
-    # A portable text checkpoint, not a byte-for-byte copy of machine-specific line endings.
-    $checkpointSelected.Add([pscustomobject]@{path=$checkpointRelative.Replace('\','/'); text=$checkpointText.Replace("`r`n","`n").Replace("`r","`n")})
+    # Recipe/embedded-template identities depend on exact bytes. Never normalize their line endings or BOM.
+    $checkpointSelected.Add([pscustomobject]@{path=$checkpointRelative.Replace('\','/'); text=$checkpointText; data=$checkpointBytes})
 }
 if ($checkpointFindings.Count) {
     # Never echo candidate secret values into the terminal/log.
@@ -77,12 +78,12 @@ if ($checkpointFindings.Count) {
 }
 $checkpointExample = $checkpointSelected | Where-Object path -eq 'appsettings.example.json'
 if ($null -eq $checkpointExample) { throw 'Safe configuration example is required.' }
-$checkpointConfig = $checkpointExample.text | ConvertFrom-Json
+$checkpointConfig = $checkpointExample.text.TrimStart([char[]]@([char]0xFEFF)) | ConvertFrom-Json
 if ($checkpointConfig.ForgeCore.EnableSeeleGeneration -or $checkpointConfig.ForgeCore.EnableMeshyGeneration -or
     $checkpointConfig.ForgeCore.EnableOnlineCatalogSearch -or $checkpointConfig.LocalModel.EnableLlamaSharp) {
     throw 'Safe configuration example must disable cloud, online search and local model loading.'
 }
-$checkpointSelected.Add([pscustomobject]@{path='src/ForgeCore.Desktop/appsettings.json';text=$checkpointExample.text})
+$checkpointSelected.Add([pscustomobject]@{path='src/ForgeCore.Desktop/appsettings.json';text=$checkpointExample.text;data=$checkpointExample.data})
 $checkpointSourceRoot = Join-Path $checkpointRoot 'source'
 Assert-CheckpointPlainPath $checkpointSourceRoot
 [IO.Directory]::CreateDirectory($checkpointSourceRoot) | Out-Null
@@ -91,7 +92,7 @@ foreach ($checkpointFile in ($checkpointSelected | Sort-Object path)) {
     $checkpointTarget = Join-Path $checkpointSourceRoot $checkpointFile.path
     Assert-CheckpointPlainPath $checkpointTarget
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($checkpointTarget)) | Out-Null
-    $checkpointData = $checkpointUtf8.GetBytes($checkpointFile.text)
+    $checkpointData = $checkpointFile.data
     $checkpointStream = [IO.File]::Open($checkpointTarget,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
     try { $checkpointStream.Write($checkpointData,0,$checkpointData.Length) } finally { $checkpointStream.Dispose() }
     $checkpointSha = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($checkpointData)).ToLowerInvariant()
@@ -103,8 +104,8 @@ foreach ($checkpointFile in ($checkpointSelected | Sort-Object path)) {
     $checkpointManifestFiles.Add([ordered]@{path=$checkpointFile.path;bytes=$checkpointData.Length;sha256=$checkpointSha;gitBlobSha1=$checkpointGitSha})
 }
 $checkpointManifest = [ordered]@{
-    schemaVersion=1;label=$Label;createdUtc=[DateTime]::UtcNow.ToString('O');kind='sanitized-source-checkpoint'
-    textEncoding='UTF-8 without BOM; LF';fileCount=$checkpointManifestFiles.Count
+    schemaVersion=2;label=$Label;createdUtc=[DateTime]::UtcNow.ToString('O');kind='sanitized-source-checkpoint'
+    textEncoding='Exact UTF-8 source bytes, original line endings and BOM if present; safe example substitutes live configuration.';fileCount=$checkpointManifestFiles.Count
     totalBytes=($checkpointManifestFiles | ForEach-Object {[long]$_.bytes} | Measure-Object -Sum).Sum
     configuration='Live Desktop configuration excluded; safe example substituted in this snapshot only.'
     excluded=@('Full Git history','Secrets and live configuration','Model weights','SQLite/runtime data and logs','Generated games and build outputs','External Unity project','Blender/vault binary assets')

@@ -24,6 +24,24 @@ public partial class App : Application
             Shutdown(PackageSelfCheck.Run(AppContext.BaseDirectory));
             return;
         }
+        if(e.Args.Length==4&&e.Args[0]=="--verify-local-review-ui")
+        {
+            try{await LocalBlenderReviewUiProbe.RunAsync(e.Args[1],e.Args[2],e.Args[3]);Shutdown(0);}
+            catch(Exception error){Console.Error.WriteLine("Offscreen source-review validation failed: "+error.GetType().Name+": "+error.Message);Shutdown(1);}
+            return;
+        }
+        if(e.Args.Length==4&&e.Args[0]=="--verify-target-review-ui")
+        {
+            try{await GameArtReviewUiProbe.RunAsync(e.Args[1],e.Args[2],e.Args[3]);Shutdown(0);}
+            catch(Exception error){Console.Error.WriteLine("Offscreen target-review validation failed: "+error.GetType().Name+": "+error.Message);Shutdown(1);}
+            return;
+        }
+        if(e.Args.Length==2&&e.Args[0] is "--verify-courtyard-pipeline" or "--verify-retro-courtyard-pipeline")
+        {
+            try{await CourtyardPipelineProbe.RunAsync(e.Args[1],e.Args[0]=="--verify-retro-courtyard-pipeline");Shutdown(0);}
+            catch(Exception error){Console.Error.WriteLine("Offline courtyard planner probe failed: "+error.GetType().Name+": "+error.Message);Shutdown(1);}
+            return;
+        }
         _host = Host.CreateDefaultBuilder(e.Args).ConfigureAppConfiguration(builder => builder
             .SetBasePath(AppContext.BaseDirectory).AddJsonFile("appsettings.json", optional: false).AddEnvironmentVariables("FORGECORE_"))
             .ConfigureServices((context, services) => ConfigureServices(context.Configuration, services)).Build();
@@ -39,6 +57,8 @@ public partial class App : Application
         var guard = new WorkspacePathGuard(forge.WorkspaceRoot);
         services.AddSingleton(forge).AddSingleton(local).AddSingleton(guard)
             .AddSingleton<IGlobalCancellation, GlobalCancellation>()
+            .AddSingleton<ILocalBlenderReviewReader>(_=>new LocalBlenderReviewReader(guard))
+            .AddSingleton<IGameArtReviewReader>(_=>new GameArtReviewReader(guard,forge.UnityEditorVersion))
             .AddSingleton<TaskAuthorizationSession>()
             .AddSingleton<IAutomaticApprovalGrant>(provider => provider.GetRequiredService<TaskAuthorizationSession>())
             .AddSingleton<ISystemMetrics, ProcessSystemMetrics>()

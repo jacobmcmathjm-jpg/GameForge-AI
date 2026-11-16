@@ -9,6 +9,7 @@ public sealed record GameProductionPlan(
     WorkQueueDefinition Workflow, IReadOnlyList<string> OutstandingRequirements)
 {
     public const string QueuePrefix = "Game production: ";
+    public GameAudioPlan AudioPlan=>GameAudioPlanner.Create(Blueprint);
 
     public static bool IsCreationRequest(string message)
     {
@@ -97,6 +98,7 @@ public sealed record GameProductionPlan(
             "health_damage", "combat_ranged", "combat_melee", "enemy_ai", "platforming", "collectibles", "vehicle_physics", "race_rules"], StringComparer.Ordinal);
         var unfinished = blueprint.SystemPackIds.Where(x => !implemented.Contains(x)).ToArray();
         if (unfinished.Length > 0) pending.Add("Requested systems without complete runtime acceptance: " + string.Join(", ", unfinished) + ".");
+        pending.Add("Genre-specific audio requirements: "+string.Join(", ",GameAudioPlanner.Create(blueprint).Cues.Select(c=>c.Id))+". This is a requirements plan, not automatic audio integration or listening acceptance.");
         return new(blueprint, project, firstScene, output, workflow, pending);
 
         void Editor(string operation, string description, params (string Key, string Value)[] args) =>
