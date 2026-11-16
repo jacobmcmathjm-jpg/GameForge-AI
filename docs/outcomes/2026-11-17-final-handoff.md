@@ -1,0 +1,26 @@
+# 17 November — final technical handoff
+
+The latest executable game is **ConnectedLevelV8**, not the older timing/character builds. Keep the complete folder: `outputs/ForgeCore-TestGame-20261117-ConnectedLevelV8/ForgeCore-Connected.exe`. The latest app-only reader update is `outputs/ForgeCore-Windows-x64-20261117-ConnectedValidationV1/ForgeCore.Desktop.exe`. Close older instances yourself before opening these. No diagnostic flags are needed for normal play. Leave Unity closed while ForgeCore owns a batch operation.
+
+Use **New game / Enter**, then WASD/mouse, Shift sprint, Space jump, LMB fire, RMB sights, R reload, E interact, Esc pause, F5 restart. Restore power, enter the warehouse and defeat its two guards, collect the manifest, enter the control room, defeat its guard and transmit/extract. This is a fixed original three-zone single-floor prototype, not arbitrary maps, stairs, a finished indie/AA title or all-genre generation.
+
+The original warehouse/cargo/workstation detail is a reusable ForgeCore factory change. Existing controls, warm flash, gunshot, recorded footsteps, character/weapon/arm assets and clips remain. The app-only reader now enforces bounded typed interior/comparison reports, false non-approval flags, matching-pose/static scope and actual PNG envelope/dimension checks before recording successful connected preparation. This is not an image-quality model or a human-review substitute.
+
+## Final verification addendum
+
+- V8 game: **129 graphics PlayMode / 19 Editor checks**, four exported-player modes and **12 actual missions**: nine at 1920×1080 (including a relocated complete delivery) plus three at 1280×720 with thirty-second idle soaks per preset. The latter pass all-zone/gate/checkpoint checks; gameplay maximum **17.1140ms**, warmup **570.4993ms**, raw receipt SHA-256 **440ddfe6943c9cd90de2b1d6754ce17b79dea93b566f12bdff57546b8012ebcb**. This supplements, without rewriting, the immutable earlier v8 delivery/evidence.
+- Latest app source: **1,057 host tests** (696 Core / 40 Agent / 321 Security), then the same **1,057** again from the independently extracted/offline-restored/Release-built exact 414-file source archive `20261117-connected-host-validation-v1`. ZIP **e0d3b2beb9774380c54369f93c8b053bb119ddb073efed979f5edb5a359c76f1**. No normal app, model/provider or live database was opened by those recovery checks.
+- Final readback verifies every latest app/game/review payload, all 413 primary source files other than the deliberately preserved live configuration, **2,364** protected project hashes, **306** v8 artifacts, its scene and installed kit. No owned Unity/game probe remains running at the audit. Existing human approvals are unchanged.
+- Source code backup commits: v8 factory **129d5d613b66b23233fe148ce24db6d5cbf165ef** (`codex/connected-interior-details-20261117`); app-only reader **a9ebb2d724453103ffbb3c8843b81f1136b295fd** (`codex/connected-interior-validation-20261117`). Main and draft/unmerged PR #3 remain unchanged; prior branches and failed candidates remain. GitHub/source ZIP backups exclude game binaries, external Unity project, model weights and live configuration/data.
+
+## Human acceptance still needed
+
+Review `outputs/ForgeCore-ConnectedInteriorReview-20261117-V8/`. `runtime.png` is an actual exterior runtime camera render. The interior sheet is a **STATIC** before-left/after-right same-output environment comparison, three views top-to-bottom; it protects 99 actor/bone/objective transforms. It is not animation, gameplay footage, the previous binary or final art approval.
+
+Check the three-area pacing, doorway readability, cover/encounter placement, save/load, animations/corpse contact and actual incoming fire. All twelve scripted mission records have zero hostile shots: the very fast/accurate bot does not establish human difficulty. The separate legacy-fixture AI→animation-marker→projectile player-damage regression passes, which is not larger-level balance acceptance. Keep those scopes distinct.
+
+The original intermittent freeze and whole-session smoothness remain open: gameplay maxima in these controlled runs are about 17–19ms, but warmup still reaches roughly 570–577ms. Art/lighting/balance/accessibility, approved-library placement and further genre-specific production remain open. Original screen patterns are decorative, not functional computer gameplay. No human acceptance is invented.
+
+The optional fresh preparation to exercise the complete new writer path was requested separately and, absent explicit reply, was not executed. The app-used read-only validator itself was exercised against four original hash-bound v8 artifacts without modifying or re-registering them. Existing tested v8 remains ready for playtesting.
+
+Suggested next order: human three-area playtest → exact source/target art review and purposeful integration → cover/incoming-fire/encounter pacing → input/device/accessibility acceptance → further genre-specific builders after this benchmark is accepted. Detailed history: [connected level](S10-2026-11-16-connected-level.md), [sign/roof polish](S10-2026-11-17-connected-polish.md), [interiors and retained v7 failures](S10-2026-11-17-connected-interiors.md), [app-side reader](S10-2026-11-17-interior-host-validation.md).
