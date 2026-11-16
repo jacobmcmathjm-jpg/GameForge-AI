@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "label": "20261116-s01-async-start-v1",
-  "createdUtc": "2026-11-16T04:59:42.0762495Z",
+  "label": "20261116-s01-startup-fade-v1",
+  "createdUtc": "2026-11-16T07:14:00.0778362Z",
   "kind": "sanitized-source-checkpoint",
   "textEncoding": "Exact UTF-8 source bytes, original line endings and BOM if present; safe example substitutes live configuration.",
-  "fileCount": 350,
-  "totalBytes": 4785347.0,
+  "fileCount": 357,
+  "totalBytes": 4819563.0,
   "configuration": "Live Desktop configuration excluded; safe example substituted in this snapshot only.",
   "excluded": [
     "Full Git history",
@@ -247,6 +247,12 @@
       "gitBlobSha1": "39c8490645333755eb42c72665e9dfdd10e15833"
     },
     {
+      "path": "docs/outcomes/S01-2026-11-16-startup-fade.md",
+      "bytes": 6856,
+      "sha256": "736783f7e222711f4842aa7b7eac0df1b3611acdc7dbadb6e7d2e9276be6e92b",
+      "gitBlobSha1": "c09bad37b3bf539e0296de98842ff006c5022b68"
+    },
+    {
       "path": "docs/outcomes/S01-2026-11-16-support-map.md",
       "bytes": 9349,
       "sha256": "5f6e7669c478379b17a667a7ee0f225570b5b8d69fb0c8e9e0675143fd738a31",
@@ -476,9 +482,9 @@
     },
     {
       "path": "OUTCOMES.md",
-      "bytes": 41727,
-      "sha256": "a0f38af7a5b0dc226147dd2fd6389391c4e60441e063d1d73c4b707f8a0d7fce",
-      "gitBlobSha1": "587d396a08b6f23fc2def377c8a973aa352763dc"
+      "bytes": 42315,
+      "sha256": "ba9a6ecd93de1c29451281a536e990ac0d8e7558bfa3f74f033a2c2e7ee2b70a",
+      "gitBlobSha1": "f4f4b54d3bcb872bcd28b6b4f710fd73b8b233a8"
     },
     {
       "path": "README.md",
@@ -536,15 +542,21 @@
     },
     {
       "path": "scripts/Invoke-CourtyardPlayerChecks.ps1",
-      "bytes": 6376,
-      "sha256": "9e1fab7be37dc0b4c73c97c06c5437269e6011bd165e96ee295bed02ac917ed4",
-      "gitBlobSha1": "8e1493607484cf32ea0fcc50cfc79b0194910a3d"
+      "bytes": 6621,
+      "sha256": "646b536ebc0cfcd77eb997aeedb5ae1f825111ad9cf54bf88b7706150a949179",
+      "gitBlobSha1": "da2f95bf3d4fb530b5dd082feec14c907ecbeb59"
     },
     {
       "path": "scripts/Invoke-DemoAcceptance.ps1",
       "bytes": 7975,
       "sha256": "6b07d83ecc29d7c6732b3317a3ad274dae1a358f5945d2093e903a7afa29c92f",
       "gitBlobSha1": "b3460bed83f4aa7c470c7cd5b5712f6c0700290f"
+    },
+    {
+      "path": "scripts/Invoke-StartupCpuCapture.ps1",
+      "bytes": 4484,
+      "sha256": "cce81f0935f917f63f5e830f5524ff597e1eb3c6e15bd33b55d4a732ec57018a",
+      "gitBlobSha1": "afb228bb336cab2a21a8da11ecfab10e8e1c5f83"
     },
     {
       "path": "scripts/Invoke-VisualPassTests.ps1",
@@ -593,6 +605,24 @@
       "bytes": 4577,
       "sha256": "2b50a71bcd0f5a068e104f2b7b850918970d53e87edea77a21501713ee619b52",
       "gitBlobSha1": "12ded41f456a11be01eee005cd6472433c4844c7"
+    },
+    {
+      "path": "scripts/StartupProfiler/README.md",
+      "bytes": 5325,
+      "sha256": "f606ac554e0b4ad5fe83f4a69792954030ac96407f05ce0ecf7f5dcbf3577870",
+      "gitBlobSha1": "be306abb8c41fe0ef2d93a498ee80caaf4def1ce"
+    },
+    {
+      "path": "scripts/StartupProfiler/StartupProfileReader.cs",
+      "bytes": 4080,
+      "sha256": "b7bb46d91dd0042c798b24a7e5d73f5b22e72b0acd1dd9e7f24be3997db9d207",
+      "gitBlobSha1": "76272467bc5b802963388e2f8f5bf120e220f6d5"
+    },
+    {
+      "path": "scripts/StartupProfiler/StartupSplashComparisonBuild.cs",
+      "bytes": 3484,
+      "sha256": "b25af2e55f6fabe1653f9aeb0ac68e1672f42a38bbf17cdb49d5905e258c82ac",
+      "gitBlobSha1": "43e17c9641bc46c8532ca8f1f642cfd928ee129f"
     },
     {
       "path": "scripts/Test-ArtifactManifest.ps1",
@@ -653,6 +683,18 @@
       "bytes": 7430,
       "sha256": "d777a47bfa92b3518caee7bd265f881a734c3b187942aed94cd95dbcb845af44",
       "gitBlobSha1": "e0f5393920e6bd6370335de406794c33a2190a31"
+    },
+    {
+      "path": "scripts/Test-StartupSplashComparison.ps1",
+      "bytes": 5109,
+      "sha256": "3553b83b36a0927adbe1188c4891eb03aa11284a28b7a6c94214aff99519dbd4",
+      "gitBlobSha1": "fe6a6f50398f0664d789245a6006798f06d19899"
+    },
+    {
+      "path": "scripts/Test-StartupSplashComparisonHarness.ps1",
+      "bytes": 4045,
+      "sha256": "745ea2c99cca1f1b0d17b31bfcd9f5377d5a1b987c09bbf209a1cffa6bcf5189",
+      "gitBlobSha1": "4071edf6619097da9c73a40ba4e3f703cfe0c9e0"
     },
     {
       "path": "scripts/Test-VisualPolishPackage.ps1",
