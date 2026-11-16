@@ -1,5 +1,7 @@
 # Indie rifle — reusable silhouette replacement
 
+Follow-through: [fresh quieter-workstation validation](2026-11-16-indie-rifle-validation.md) now completes the unchanged candidate's full 116 PlayMode / 19 EditMode suite, six actual missions, four player modes, successful production preview and preservation audit. The failed attempts and provisional restrictions below are retained as historical evidence, not erased; see that dated follow-through for current technical status. Human visual acceptance and the original freeze remain open.
+
 16 November 2026. Continues the first indie environment candidate. This increment replaces the rifle's visible model through ForgeCore's reusable generation recipe. **It does not replace or improve the hand/guard anatomy, add a larger level, finish another genre, or fix the intermittent freeze.** Those remain separate work.
 
 ## Recipe and preservation

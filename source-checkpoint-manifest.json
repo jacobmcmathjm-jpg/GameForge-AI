@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "label": "20261116-indie-rifle-candidate-v1",
-  "createdUtc": "2026-11-16T10:13:07.5937258Z",
+  "label": "20261116-indie-rifle-quiet-v1",
+  "createdUtc": "2026-11-16T11:03:26.7356348Z",
   "kind": "sanitized-source-checkpoint",
   "textEncoding": "Exact UTF-8 source bytes, original line endings and BOM if present; safe example substitutes live configuration.",
-  "fileCount": 374,
-  "totalBytes": 4926916.0,
+  "fileCount": 375,
+  "totalBytes": 4937882.0,
   "configuration": "Live Desktop configuration excluded; safe example substituted in this snapshot only.",
   "excluded": [
     "Full Git history",
@@ -229,10 +229,16 @@
       "gitBlobSha1": "300dc4ac706ecaf296fe498a1de9b9851ade4d5a"
     },
     {
+      "path": "docs/outcomes/2026-11-16-indie-rifle-validation.md",
+      "bytes": 6666,
+      "sha256": "c361685d414b91aaecc2b3873395ad044de770924c17c0f30906087ff4868dd9",
+      "gitBlobSha1": "c47e3e8ae6941cb5c2dcb564675b2e445dbf9f0e"
+    },
+    {
       "path": "docs/outcomes/2026-11-16-indie-rifle.md",
-      "bytes": 11318,
-      "sha256": "7933a7906f3635bb99d15c5436b5d84455d8480fe110c6ab03b52221e8c86811",
-      "gitBlobSha1": "d219d1a11b0f9fc34e9f5c66dba0ac9e71d31563"
+      "bytes": 11810,
+      "sha256": "0ad1ca5526e7061d67261cc40d6593267c9022925e9490d4a7b1537d11531a00",
+      "gitBlobSha1": "e76b1aec7f3c68292be3d6f94627e4311f28839e"
     },
     {
       "path": "docs/outcomes/REFINED-INDUSTRIAL-REVIEW-2026-10-30.md",
@@ -500,9 +506,9 @@
     },
     {
       "path": "OUTCOMES.md",
-      "bytes": 43969,
-      "sha256": "5dc8cfcb7797a82cda4a453cbd8c9af5b9b5965fb291b549dff98866506590df",
-      "gitBlobSha1": "6a93f7832f600229499c842f8f40655a11d0ab25"
+      "bytes": 44736,
+      "sha256": "d8e865c3aa8e3ec7d24e1403a5ffa8476f5599c084d8df0c4f2d08ba94c61315",
+      "gitBlobSha1": "b802b86f64de6c781a7a4988f8282cca8c65647b"
     },
     {
       "path": "README.md",
@@ -548,9 +554,9 @@
     },
     {
       "path": "scripts/Export-IndieHeroReview.ps1",
-      "bytes": 6234,
-      "sha256": "29cbce83dcb633ab750d321def30f6117ed53d55accc096819c1209112db4500",
-      "gitBlobSha1": "b9aa2a1896374b4e32ffddafb7668c2dd4276003"
+      "bytes": 8836,
+      "sha256": "82b1f8420a0d70abb6db93b999fa4ad9636603d97120c84d5a3cbb2434b54bb3",
+      "gitBlobSha1": "7bbbedb4f69c9e76bed2998ce72bbbddac644f18"
     },
     {
       "path": "scripts/Export-RefinedIndustrialReview.ps1",
@@ -818,9 +824,9 @@
     },
     {
       "path": "scripts/Verify-IndieHero/Program.cs",
-      "bytes": 7180,
-      "sha256": "8aaa4a7a18812c504e582dab7d9ea25a2a438fd6e8119e6c9e20757c00a8278c",
-      "gitBlobSha1": "e205c1a3cbbc7569b36b5fb8301ec139f67fa5cb"
+      "bytes": 7619,
+      "sha256": "cfe71d860dabee099a5695552d9c853a6ad55dc68c9c3a700290302837cd24f9",
+      "gitBlobSha1": "d347ffe1926cb511a2d56826443e89cd9e24171f"
     },
     {
       "path": "scripts/Verify-IndieHero/Verify-IndieHero.csproj",

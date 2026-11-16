@@ -23,12 +23,15 @@ try {
         case "generate":await Run("generate-hero-v1",Action("create_industrial_mission",("asset_path","Assets/ForgeCore/Generated/Blender/s04-industrial-security-v1/s04-industrial-security-v1.glb"),("expected_sha256","ccb702f8dad9a98645692cccbadb137d53554c7b1093d65c210f134abfaaabf0"),("asset_set_id","indie-hero-v1"),("scene_path",scene),("output_path","Previews/Indie/Industrial-Indie-Hero-v1.png")));break;
         case "capture":await Run("capture-hero-v1",Action("capture_scene_preview",("scene_path",scene),("output_path","Previews/Indie/Runtime-Hero-v1.png"),("duration_seconds","2")));break;
         case "capture-v2":await Run("capture-hero-v2",Action("capture_scene_preview",("scene_path",scene),("output_path","Previews/Indie/Runtime-Hero-v2.png"),("duration_seconds","2")));break;
+        case "capture-quiet":await Run("capture-hero-quiet-v1",Action("capture_scene_preview",("scene_path",scene),("output_path","Previews/Indie/Runtime-Hero-Quiet-v1.png"),("duration_seconds","2")));break;
         case "build":
             if(!File.Exists(Path.Combine(evidence,"generate-hero-v1.json")))throw new IOException("Generate first.");
             if(Directory.Exists(guard.Resolve(project+"/Builds/Indie-Hero-20261116",false)))throw new IOException("Fresh build destination required.");
             await Run("build-v97",Action("build_windows",("scene_path",scene),("output_path",player),("development_build","true")));break;
         case "edit-tests":await Run("edit-tests-v97",Action("run_tests",("test_mode","edit")));break;
+        case "edit-tests-quiet":await Run("edit-tests-v97-quiet-v1",Action("run_tests",("test_mode","edit")));break;
         case "audit-after":await Audit(true);break;
+        case "audit-quiet":await Audit(true,"preservation-quiet-v1");break;
         default:throw new ArgumentException("Unknown mode.");
     }
 }catch(Exception ex){Console.Error.WriteLine("CURRENT_TIMING_STOPPED "+ex.GetType().Name+": "+ex.Message.Split('\n')[0]);Environment.ExitCode=1;}
@@ -43,7 +46,7 @@ async Task Run(string name,ToolCall call){
     await Write(name,new{call.Kind,call.Arguments,result.Success,result.Output,result.Error});
     Console.WriteLine(result.Success?result.Output:result.Error?.Split('\n')[0]);if(!result.Success)throw new IOException("Production tool failed: "+name);
 }
-async Task Audit(bool after){
+async Task Audit(bool after,string? resultName=null){
     var files=new SortedDictionary<string,string>(StringComparer.Ordinal);
     foreach(var id in new[]{"1b32758cf81b442dbee891d372b95752","c9eda7a1c44c4ea29e5b5d12c442b425","51e77f866d8d4337af0102a2a3c4233b"}){
         var path=".forgecore/unity/character-animation-evidence/"+id+".json";
@@ -61,6 +64,6 @@ async Task Audit(bool after){
     }
     if(after){using var prior=JsonDocument.Parse(await File.ReadAllBytesAsync(Path.Combine(evidence,"preservation-before.json")));var old=JsonSerializer.Deserialize<SortedDictionary<string,string>>(prior.RootElement.GetProperty("files").GetRawText())!;
         if(old.Count!=files.Count||old.Any(pair=>!files.TryGetValue(pair.Key,out var hash)||hash!=pair.Value))throw new IOException("Protected artifact or review set differs from before.");}
-    await Write(after?"preservation-after":"preservation-before",new{schemaVersion=1,files,artAccepted=false,freezeFixed=false});
+    await Write(resultName??(after?"preservation-after":"preservation-before"),new{schemaVersion=1,files,artAccepted=false,freezeFixed=false});
     Console.WriteLine("PRESERVATION_PASS "+files.Count+" exact hashes");
 }
