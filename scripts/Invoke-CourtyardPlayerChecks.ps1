@@ -1,8 +1,11 @@
 [CmdletBinding()]
-param([ValidateSet('Courtyard-v19','PowerBox-v20','PowerBox-v21','Demo-v22','Demo-v23','Demo-v24','Audio-v25','RecordedFootsteps-v26','NextSteps-v28','GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1','IndieHero-v1','IndieCharacter-v1','Connected-v1','Connected-v2','Connected-v3','Connected-v4','Connected-v5')][string]$Candidate='Courtyard-v19',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt)
+param([ValidateSet('Courtyard-v19','PowerBox-v20','PowerBox-v21','Demo-v22','Demo-v23','Demo-v24','Audio-v25','RecordedFootsteps-v26','NextSteps-v28','GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1','IndieHero-v1','IndieCharacter-v1','Connected-v1','Connected-v2','Connected-v3','Connected-v4','Connected-v5','Connected-v6')][string]$Candidate='Courtyard-v19',[ValidatePattern('^[a-z0-9-]{1,30}$')][string]$Attempt)
 $ErrorActionPreference='Stop'
 $checkRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
-if($Candidate -ceq 'Connected-v5'){
+if($Candidate -ceq 'Connected-v6'){
+    $checkGame='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Connected-Level-20261117-V6'
+    $checkExe=Join-Path $checkGame 'ForgeCore-Connected.exe'
+}elseif($Candidate -ceq 'Connected-v5'){
     $checkGame='D:\ForgeCore\Workspace\Games\ForgeCore\Builds\Connected-Level-20261116-V5'
     $checkExe=Join-Path $checkGame 'ForgeCore-Connected.exe'
 }elseif($Candidate -ceq 'Connected-v4'){
@@ -61,7 +64,7 @@ if($Attempt){$checkStem+='-'+$Attempt}
 $checkReceipt=Join-Path $checkEvidence ($checkStem+'-checks.json')
 if(Test-Path -LiteralPath $checkReceipt){throw 'Evidence exists; no replay or overwrite.'}
 $checkResults=[Collections.Generic.List[object]]::new()
-$checkModes=if($Candidate -cin @('GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1','IndieHero-v1','IndieCharacter-v1','Connected-v1','Connected-v2','Connected-v3','Connected-v4','Connected-v5') -or $Candidate.StartsWith('PowerBox-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Demo-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Audio-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('RecordedFootsteps-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('NextSteps-', [StringComparison]::Ordinal)){@('courtyard','powerbox','render','corpse')}else{@('courtyard','render','corpse')}
+$checkModes=if($Candidate -cin @('GraphicsBenchmark-v3','NightlyYard-v1','PolishedYard-v2','Retro64-v1','Retro64-v2','CurrentTiming-v1','CurrentTiming-v2','CurrentTiming-v3','StartupSplash-Off','Indie-v1','IndieHero-v1','IndieCharacter-v1','Connected-v1','Connected-v2','Connected-v3','Connected-v4','Connected-v5','Connected-v6') -or $Candidate.StartsWith('PowerBox-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Demo-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('Audio-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('RecordedFootsteps-', [StringComparison]::Ordinal) -or $Candidate.StartsWith('NextSteps-', [StringComparison]::Ordinal)){@('courtyard','powerbox','render','corpse')}else{@('courtyard','render','corpse')}
 foreach($checkMode in $checkModes) {
     $checkLog=Join-Path $checkEvidence ($checkStem+"-$checkMode.log")
     if(Test-Path -LiteralPath $checkLog){throw 'Diagnostic log exists; preserve it and explicitly select a fresh attempt.'}

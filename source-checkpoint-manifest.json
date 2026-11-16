@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "label": "20261117-connected-level-v5",
-  "createdUtc": "2026-11-16T17:55:38.0830967Z",
+  "label": "20261117-connected-polish-v6",
+  "createdUtc": "2026-11-16T18:34:18.6036086Z",
   "kind": "sanitized-source-checkpoint",
   "textEncoding": "Exact UTF-8 source bytes, original line endings and BOM if present; safe example substitutes live configuration.",
-  "fileCount": 392,
-  "totalBytes": 5127029.0,
+  "fileCount": 399,
+  "totalBytes": 5172811.0,
   "configuration": "Live Desktop configuration excluded; safe example substituted in this snapshot only.",
   "excluded": [
     "Full Git history",
@@ -439,6 +439,12 @@
       "gitBlobSha1": "a11b2c233e1b371206b7d88578f62a54458b2196"
     },
     {
+      "path": "docs/outcomes/S10-2026-11-17-connected-polish.md",
+      "bytes": 5976,
+      "sha256": "ebd66335507d25d6748e5445d57bed476eb3e1034defad8ddc5611a2eb357b3e",
+      "gitBlobSha1": "56dd45b3b1cb26d807a2513c2a071d7e0a3fb164"
+    },
+    {
       "path": "docs/outcomes/S11-S14-2026-10-30-next-steps.md",
       "bytes": 10715,
       "sha256": "54813529ca7fda282869f08ba90ca52268dcec2fd5ea9d1f898df7d928e9e25a",
@@ -482,9 +488,9 @@
     },
     {
       "path": "docs/Windows-delivery.md",
-      "bytes": 36375,
-      "sha256": "356958614d6d3eaa0778cbc320a711b2985e6f23bdce9689ea4a27e51f1d1b46",
-      "gitBlobSha1": "53269b2cc67d138a9fe35acb46d06bdbd4c0d4d9"
+      "bytes": 37482,
+      "sha256": "cf331c3b2dd60a2c318e76186e777f69dbfa8230d9d2cc25e7f471be34222300",
+      "gitBlobSha1": "06c2e128eba1e44b49ea1bc15d77c4e620c06602"
     },
     {
       "path": "ForgeCore.sln",
@@ -518,9 +524,9 @@
     },
     {
       "path": "OUTCOMES.md",
-      "bytes": 46797,
-      "sha256": "fc9e24d8152dac051c859588de65b6ec8658cc4f32e43f40da0870e8662c367e",
-      "gitBlobSha1": "af56ce20c11405c0cd5e5998c53689b2b8bde803"
+      "bytes": 47750,
+      "sha256": "911cb8210ad2180b52aa4404f2366e5177275083029e7c8529a1302cd75bf42b",
+      "gitBlobSha1": "c7e8fdbb9f5930a8bdcbacba2ad2fa2175b6da1a"
     },
     {
       "path": "README.md",
@@ -557,6 +563,12 @@
       "bytes": 5504,
       "sha256": "40e9a5c2b7d1615b82ba9fa54986ecdaef40d5524b95e740831f2aa2c4aa2f57",
       "gitBlobSha1": "e525d8f3d7bea6333ca4ece5f669db20af3f52bc"
+    },
+    {
+      "path": "scripts/Export-ConnectedPolishReview.ps1",
+      "bytes": 5576,
+      "sha256": "5f2d1909174ba9ed557708e10cfbd6ede8d8f258b203d2f9147971436edc4192",
+      "gitBlobSha1": "0d6d407fdd64a0063ec95ecd522a5d3dbf607320"
     },
     {
       "path": "scripts/Export-CourtyardGraphicsReview.ps1",
@@ -602,15 +614,15 @@
     },
     {
       "path": "scripts/Invoke-CourtyardPlayerChecks.ps1",
-      "bytes": 8488,
-      "sha256": "3427603e87795b64c05c389cbdc6ab239b9b0c94092547ef4b5d0ce867d4f3cf",
-      "gitBlobSha1": "5b662a4dc938026d2ab2063bf3eafcf3e6eb888a"
+      "bytes": 8711,
+      "sha256": "d8e7e947e38a9f7f6208eb0acf6c196c89cb532d6c3dcaa7cd95e4f417d2171e",
+      "gitBlobSha1": "d53c4a04274103e812b25c860f160ef64362df26"
     },
     {
       "path": "scripts/Invoke-DemoAcceptance.ps1",
-      "bytes": 10567,
-      "sha256": "0e3253e6825416dd96b035a915e72acbf548065089be6e035788d6af1c08fda8",
-      "gitBlobSha1": "507aa580ccf1af73cba6ea3b8cda64eba6ad6d84"
+      "bytes": 10853,
+      "sha256": "a857c49684fed39728238db799060c4d79db6058689b3e23b2f589d76979f63f",
+      "gitBlobSha1": "9bab2228d835a1e03ec505046811077a34f23ef1"
     },
     {
       "path": "scripts/Invoke-StartupCpuCapture.ps1",
@@ -710,9 +722,15 @@
     },
     {
       "path": "scripts/Test-CurrentGameTiming.ps1",
-      "bytes": 5686,
-      "sha256": "aef9b7d7e4a43b9f48ab70f83eec569c5ee82abf2211c7219869ec06a21b383a",
-      "gitBlobSha1": "d10d629032f5b0c6f1b1b9822c7bbe8f72914086"
+      "bytes": 5746,
+      "sha256": "fbe2c751d100ac3bf2c0471093cc3df8c3415abd5fb5e8b852ec0e5975469a1d",
+      "gitBlobSha1": "5e4da34cc515ab10ffb35b611f3a44b3d3ee8866"
+    },
+    {
+      "path": "scripts/Test-DeliveredConnectedGame.ps1",
+      "bytes": 5078,
+      "sha256": "dd131da51f33ad978611e27ab576a03fd2fa6b4dac38e5ca2cac44be7f58759a",
+      "gitBlobSha1": "c04e127fcefa8aa25c64823058dfb234515698ae"
     },
     {
       "path": "scripts/Test-DeliveredVisualGame.ps1",
@@ -800,6 +818,18 @@
     },
     {
       "path": "scripts/Verify-ConnectedLevel/Verify-ConnectedLevel.csproj",
+      "bytes": 371,
+      "sha256": "d641e302982dd170ef570308789ab8d57190cb5d57f9ccd74d011c35e441e1ea",
+      "gitBlobSha1": "150a9a86d2203e3d87ea0391daae14889350d45a"
+    },
+    {
+      "path": "scripts/Verify-ConnectedLevelPolish/Program.cs",
+      "bytes": 7580,
+      "sha256": "f530d3116ea8d30c139b5f2a3974ef4dfcdd4ab05e6493f36d754700920ef885",
+      "gitBlobSha1": "b0e2237507402baa77dfa1a681e21de0a0436633"
+    },
+    {
+      "path": "scripts/Verify-ConnectedLevelPolish/Verify-ConnectedLevelPolish.csproj",
       "bytes": 371,
       "sha256": "d641e302982dd170ef570308789ab8d57190cb5d57f9ccd74d011c35e441e1ea",
       "gitBlobSha1": "150a9a86d2203e3d87ea0391daae14889350d45a"
@@ -1682,15 +1712,15 @@
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.ConnectedLevelBuilder.cs",
-      "bytes": 14338,
-      "sha256": "e2b59d261a2cebc593df82e4f0562e7aaa306e5bfcf7d66abe07dac4936a1acd",
-      "gitBlobSha1": "afcf8d077bd7e63bfcdfb2447892c07c863b8ca9"
+      "bytes": 16243,
+      "sha256": "9b2f5df30954fc1af980cefa6cb1c8c15efcf574dc3c47629877a3c42dfd6cb0",
+      "gitBlobSha1": "2c72d0801cd4dc7a1cce63651f7ebaffeac9a4e3"
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.ConnectedLevelTests.cs",
-      "bytes": 6459,
-      "sha256": "44c1c8d37d6b80b97b652cee2d8cf31324a383e5b38830b38ed3fcf1f2a34e71",
-      "gitBlobSha1": "0da41d560524381608734306022951021f8b9f99"
+      "bytes": 9858,
+      "sha256": "ffbf57c833ee6fb64570b0d7382c9167e61df2b656e5443fd0fbd3695da6073f",
+      "gitBlobSha1": "ed787b353951230e44db64253d981eec88a08058"
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.Courtyard.cs",
@@ -1718,9 +1748,9 @@
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.cs",
-      "bytes": 629861,
-      "sha256": "707013f8d06b190908731635858c758715a8e166e567ecd1cb2363787fe60644",
-      "gitBlobSha1": "fb61a567d26a83055fe229f0b557e46c053f0c42"
+      "bytes": 640132,
+      "sha256": "b90e792a4e4ade25b7f183fc9bd095e7c10ad82990667b88d8ceff51a1005428",
+      "gitBlobSha1": "3413b1b1c3516125c8e25ac8808c640955d6a89b"
     },
     {
       "path": "src/ForgeCore.Tools/UnityGameTemplateKit.DemoAcceptanceProbe.cs",
@@ -1919,6 +1949,12 @@
       "bytes": 5793,
       "sha256": "557d5577cec24fcdb6929d9dde3f07508237933dbf3a0652257afd653f939f99",
       "gitBlobSha1": "66a6189a17c239252a824f09ef56b4167e0ec339"
+    },
+    {
+      "path": "src/ForgeCore.Tools/UnityGameTemplateKit.WorldSignShader.cs",
+      "bytes": 1264,
+      "sha256": "e86a72233966b43dc8279dbf0a4fca62f16dc8222d4e70def7eaae9b232e26fb",
+      "gitBlobSha1": "aa727bad73a3c2628cde223cc273d98f72f537b0"
     },
     {
       "path": "src/ForgeCore.Tools/UnityMapDemoTemplate.cs",
@@ -2263,6 +2299,12 @@
       "gitBlobSha1": "bbf72f47f386042443982bdde483fabc76f80330"
     },
     {
+      "path": "tests/ForgeCore.Security.Tests/ConnectedLevelTemplateTests.cs",
+      "bytes": 1733,
+      "sha256": "ef2cd1d74b38a6a589e7a7619c64871fb16285fa4e08025ed7dd6c722f88d48b",
+      "gitBlobSha1": "a7eda08e616f7a4bff110d43b2064f574f296477"
+    },
+    {
       "path": "tests/ForgeCore.Security.Tests/CourtyardPropKitTests.cs",
       "bytes": 3879,
       "sha256": "a87698442c085b26b8cfc1876d324632a4bf1cdd5398650fc9a59455c9c7f6a7",
@@ -2355,8 +2397,8 @@
     {
       "path": "tests/ForgeCore.Security.Tests/SecurityTests.cs",
       "bytes": 184802,
-      "sha256": "9023b505affa774d34a1cd7f79091e5d5a6d6a97ea97e4118a3f66a626509f5e",
-      "gitBlobSha1": "552d715960fca0350b8e9cb15edfe7b41881390f"
+      "sha256": "3f5339ec5833903f6c2f374775b15616e8692c85d14e0290db2b0c336f11e55d",
+      "gitBlobSha1": "6f0a5a9b6914ae0c5ecae4369a94c81043f80a0a"
     },
     {
       "path": "tests/ForgeCore.Security.Tests/SecurityVisualEvidenceTests.cs",

@@ -24,6 +24,35 @@ namespace ForgeCoreGameTemplates.Tests
             session.options.StartNewGame();session.SetPaused(false);Physics.SyncTransforms();session.Navigation.Refresh();
         }
         [TearDown]public void Cleanup(){PrototypeInput.ClearScriptedFrame();if(root!=null)UnityEngine.Object.DestroyImmediate(root);}
+        [Test]public void RetainedCourtyardBatchesHaveNoRooftopOrphanTriangles(){
+            foreach(var name in new[]{"Courtyard presentation — original template, not reviewed library art","Indie environment v1","Courtyard detail v1 — bounded original candidate"}){
+                var branch=root.transform.Find(name);Assert.NotNull(branch);
+                foreach(var filter in branch.GetComponentsInChildren<MeshFilter>()){
+                    var vertices=filter.sharedMesh.vertices;
+                    Assert.True(filter.sharedMesh.triangles.All(i=>filter.transform.TransformPoint(vertices[i]).z<17),name);
+                }
+            }
+        }
+        [UnityTest]public IEnumerator PhysicalWorldSignsRenderAndAreOccludedByOpaqueGeometry(){
+            var signs=root.GetComponentsInChildren<TextMesh>(true);Assert.Greater(signs.Length,3);
+            Assert.True(signs.All(t=>t.GetComponent<MeshRenderer>().sharedMaterial.shader.name=="ForgeCore/WorldSignText"));
+            var cameraObject=new GameObject("Owned sign occlusion camera");var camera=cameraObject.AddComponent<Camera>();
+            var textObject=new GameObject("Owned isolated sign");var text=textObject.AddComponent<TextMesh>();
+            var wall=GameObject.CreatePrimitive(PrimitiveType.Cube);var rt=new RenderTexture(256,128,24,RenderTextureFormat.ARGB32);var pixels=new Texture2D(256,128,TextureFormat.RGB24,false);
+            var wallMaterial=new Material(Shader.Find("Unlit/Color"));var previous=RenderTexture.active;
+            try {
+                camera.transform.position=new Vector3(0,0,-5);camera.orthographic=true;camera.orthographicSize=1;camera.nearClipPlane=.1f;camera.farClipPlane=10;camera.clearFlags=CameraClearFlags.SolidColor;camera.backgroundColor=Color.black;camera.cullingMask=1<<30;camera.targetTexture=rt;camera.allowHDR=false;
+                textObject.layer=30;text.font=signs[0].font;text.fontSize=48;text.characterSize=.15f;text.anchor=TextAnchor.MiddleCenter;text.text="WAREHOUSE";text.color=Color.white;
+                text.font.RequestCharactersInTexture(text.text,text.fontSize,text.fontStyle);text.GetComponent<MeshRenderer>().sharedMaterial=signs[0].GetComponent<MeshRenderer>().sharedMaterial;
+                wall.layer=30;wall.transform.position=new Vector3(0,0,-1);wall.transform.localScale=new Vector3(4,2,.1f);wallMaterial.color=Color.black;wall.GetComponent<Renderer>().sharedMaterial=wallMaterial;wall.SetActive(false);
+                yield return null;
+                int BrightPixels(){camera.Render();RenderTexture.active=rt;pixels.ReadPixels(new Rect(0,0,256,128),0,0);pixels.Apply();return pixels.GetPixels32().Count(c=>c.r>180&&c.g>180&&c.b>180);}
+                var visible=BrightPixels();Assert.Greater(visible,30,"The test must first prove the actual font shader renders visible text.");
+                wall.SetActive(true);var hidden=BrightPixels();Assert.Less(hidden,visible/20,"A physical sign must not bleed through the opaque wall.");
+            } finally {
+                RenderTexture.active=previous;camera.targetTexture=null;UnityEngine.Object.DestroyImmediate(cameraObject);UnityEngine.Object.DestroyImmediate(textObject);UnityEngine.Object.DestroyImmediate(wall);UnityEngine.Object.DestroyImmediate(wallMaterial);rt.Release();UnityEngine.Object.DestroyImmediate(rt);UnityEngine.Object.DestroyImmediate(pixels);
+            }
+        }
         [Test]public void ExpandedSingleFloorHasThreeNamedReachableZonesAndNoVoidShortcut(){
             Assert.AreSame(level,session.GetComponentInParent<ConnectedIndustrialLevel>(),"The session is a child, not the level-component owner.");
             Assert.True(session.ConnectedLayout);Assert.AreEqual("SERVICE YARD",level.Zone(new Vector3(0,0,-10)));Assert.AreEqual("WAREHOUSE",level.Zone(new Vector3(-10,0,30)));Assert.AreEqual("CONTROL ROOM",level.Zone(new Vector3(32,0,32)));
