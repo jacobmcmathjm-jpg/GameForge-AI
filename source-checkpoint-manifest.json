@@ -1,11 +1,11 @@
 {
   "schemaVersion": 2,
-  "label": "20261117-final-handoff-v1",
-  "createdUtc": "2026-11-16T19:54:05.6637965Z",
+  "label": "20261117-approved-preparation-v1",
+  "createdUtc": "2026-11-17T06:55:16.0963041Z",
   "kind": "sanitized-source-checkpoint",
   "textEncoding": "Exact UTF-8 source bytes, original line endings and BOM if present; safe example substitutes live configuration.",
-  "fileCount": 415,
-  "totalBytes": 5283805.0,
+  "fileCount": 418,
+  "totalBytes": 5294445.0,
   "configuration": "Live Desktop configuration excluded; safe example substituted in this snapshot only.",
   "excluded": [
     "Full Git history",
@@ -248,9 +248,9 @@
     },
     {
       "path": "docs/outcomes/2026-11-17-final-handoff.md",
-      "bytes": 5285,
-      "sha256": "1b2251dadc43ef09b873fc949beab65d2ad438cc235caf93bcfbc19c6ce0985c",
-      "gitBlobSha1": "afa8eaf8d791d6c34ad51958af8fc33cd6eb4a66"
+      "bytes": 5454,
+      "sha256": "5821e588dd48636d454409116d7e60fa0b7b396498ce1b85f45b4f24a099f2a7",
+      "gitBlobSha1": "93d767f4d09dcc76fc5bd3e636adff6b650d54f5"
     },
     {
       "path": "docs/outcomes/REFINED-INDUSTRIAL-REVIEW-2026-10-30.md",
@@ -445,6 +445,12 @@
       "gitBlobSha1": "a11b2c233e1b371206b7d88578f62a54458b2196"
     },
     {
+      "path": "docs/outcomes/S10-2026-11-17-approved-preparation.md",
+      "bytes": 2589,
+      "sha256": "d2b622424fce32707e00be7d76f9cc102396190d0dba00d4e99e412678b060a5",
+      "gitBlobSha1": "ba040518ab22a2f7b09691e010da275f542719ad"
+    },
+    {
       "path": "docs/outcomes/S10-2026-11-17-connected-interiors.md",
       "bytes": 7922,
       "sha256": "5d0fb135dce5953f1e78ec63378c9a34a33664d578ae04cbaed06951a6ecd236",
@@ -542,9 +548,9 @@
     },
     {
       "path": "OUTCOMES.md",
-      "bytes": 50762,
-      "sha256": "c15b1be0960568b3bb7d8a915d26fa96afb4026155c0d7bd961f336505427ac4",
-      "gitBlobSha1": "27220fd82f74db28591af64e6520274f06107d37"
+      "bytes": 51242,
+      "sha256": "209a299e12af432a6d98b2e6ca620048afd07c8350a2cc8e3aa884acdc5bff0f",
+      "gitBlobSha1": "2efeb9c39abd38231b645839e8f39c03c0624f29"
     },
     {
       "path": "README.md",
@@ -815,6 +821,18 @@
       "bytes": 4337,
       "sha256": "21de13f1f3518e20e239cc866d37274546d3f2e890d92a0ee66056b229e14cfc",
       "gitBlobSha1": "dda5f528c05ce14faacfdaec12cae877f8eecbf2"
+    },
+    {
+      "path": "scripts/Verify-ApprovedConnectedPreparation/Program.cs",
+      "bytes": 7031,
+      "sha256": "6bf62ded58968cb6dd0e3a69d11269809b6c892221a20646ee1cba3f20690857",
+      "gitBlobSha1": "d767dad7f4cc0ba19a6ce9dfc1e908a3b1d2c8c5"
+    },
+    {
+      "path": "scripts/Verify-ApprovedConnectedPreparation/Verify-ApprovedConnectedPreparation.csproj",
+      "bytes": 371,
+      "sha256": "d641e302982dd170ef570308789ab8d57190cb5d57f9ccd74d011c35e441e1ea",
+      "gitBlobSha1": "150a9a86d2203e3d87ea0391daae14889350d45a"
     },
     {
       "path": "scripts/Verify-AssetLearning/Program.cs",
