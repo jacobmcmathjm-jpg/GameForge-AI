@@ -1,12 +1,13 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][ValidateSet('V5','V6','V7','V8')][string]$Candidate,
+    [Parameter(Mandatory)][ValidateSet('V5','V6','V7','V8','Encounters-v1')][string]$Candidate,
     [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedManifestSha256,
     [ValidatePattern('^[a-z0-9-]{1,24}$')][string]$Attempt='delivered'
 )
 $ErrorActionPreference='Stop'
 $connectedRepo=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $source=Join-Path $connectedRepo ('outputs/ForgeCore-TestGame-20261117-ConnectedLevel'+$Candidate)
+if($Candidate -ceq 'Encounters-v1'){$source=Join-Path $connectedRepo 'outputs/ForgeCore-TestGame-20261117-ConnectedEncountersV1'}
 $copy=Join-Path $connectedRepo ('work/delivered-connected-'+$Candidate.ToLowerInvariant()+'-'+$Attempt)
 $stem='standalone-demo-connected-'+$Candidate.ToLowerInvariant()+'-'+$Attempt
 $receipt=Join-Path $connectedRepo ('work/s08-s10-verification/'+$stem+'.json')

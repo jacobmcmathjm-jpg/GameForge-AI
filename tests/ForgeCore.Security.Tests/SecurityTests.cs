@@ -684,6 +684,25 @@ public sealed partial class SecurityTests : IDisposable
         Assert.Equal(changed, await File.ReadAllTextAsync(player));
     }
 
+    [Fact]public async Task ConnectedEncounterDiagnostics_AreExplicitBoundedDevelopmentFixturesNotBalanceAcceptance()
+    {
+        await CreateBareUnityProjectAsync();var guard=new WorkspacePathGuard(_root);
+        using var executor=new ToolExecutor(guard,[]);
+        var result=await executor.ExecuteAsync(ToolCall.Create(ToolKind.ScaffoldUnityGameTemplate,PermissionKind.Write,"install bounded diagnostic fixture",("project_path","Game"),("template_id","first_person_action")),default);
+        Assert.True(result.Success,result.Error);
+        var root=Path.Combine(_root,"Game","Assets","ForgeCoreGameTemplates");
+        var source=await File.ReadAllTextAsync(Path.Combine(root,"Runtime","ConnectedEncounterProbe.cs"));
+        Assert.StartsWith("#if DEVELOPMENT_BUILD && !UNITY_EDITOR",source);
+        Assert.Contains("-forgecore-connected-encounters-probe",source);Assert.Contains("Time.realtimeSinceStartup-start<6",source);
+        Assert.Contains("if(!Environment.GetCommandLineArgs().Contains",source);Assert.Contains("Normal save root refused",source);
+        Assert.Contains("controlledRepositioning=true",source);Assert.Contains("directDamageUsed=false",source);
+        Assert.Contains("missionTraversalAccepted=false,humanBalanceAccepted=false",source);
+        Assert.DoesNotContain(".Damage(",source);Assert.DoesNotContain("UnityWebRequest",source);
+        var tests=await File.ReadAllTextAsync(Path.Combine(root,"Tests","PlayMode","ConnectedLevelTests.cs"));
+        Assert.Contains("ConnectedRoomGuardAnimationLaunchesProjectileAndDamagesPlayer",tests);
+        Assert.Contains("ConnectedRoomPausePreventsReturnFire",tests);Assert.Contains("ConnectedRoomMuzzleMarkerRechecksNewOpaqueCover",tests);
+    }
+
     [Theory]
     [InlineData("first_person_action")]
     [InlineData("platformer")]
@@ -1170,7 +1189,7 @@ public sealed partial class SecurityTests : IDisposable
         using (var provenance = JsonDocument.Parse(await File.ReadAllBytesAsync(provenancePath)))
         {
             Assert.Equal(3, provenance.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.107", provenance.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.108", provenance.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(64, provenance.RootElement.GetProperty("templateKitManifestSha256").GetString()!.Length);
         }
         var policyResult = await policy.ValidateAsync(profile, default);
@@ -1191,7 +1210,7 @@ public sealed partial class SecurityTests : IDisposable
             await File.WriteAllTextAsync(resultPath, JsonSerializer.Serialize(new
             {
                 schemaVersion = 3, requestId = requestIdOverride ?? root.GetProperty("requestId").GetString(), requestSha256,
-                templateKitVersion = "0.16.107", environment = "standalone_player",
+                templateKitVersion = "0.16.108", environment = "standalone_player",
                 executableSha256 = root.GetProperty("executableSha256").GetString(), level0Sha256 = root.GetProperty("level0Sha256").GetString(),
                 buildProvenanceSha256 = root.GetProperty("buildProvenanceSha256").GetString(), scenePath = root.GetProperty("scenePath").GetString(),
                 sceneSha256 = root.GetProperty("sceneSha256").GetString(), durationSeconds = root.GetProperty("durationSeconds").GetInt32(),
@@ -1235,7 +1254,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.False(evidence.RootElement.GetProperty("gpuTimingAvailable").GetBoolean());
             Assert.False(evidence.RootElement.GetProperty("gpuBudgetPassed").GetBoolean());
             Assert.Equal(3, evidence.RootElement.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal("0.16.107", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.108", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal("scripted_gameplay_v1", evidence.RootElement.GetProperty("profileScenario").GetString());
             Assert.Equal("first_person_action", evidence.RootElement.GetProperty("templateId").GetString());
             Assert.Equal(17.5, evidence.RootElement.GetProperty("playerTravelMetres").GetDouble());
@@ -1470,7 +1489,7 @@ public sealed partial class SecurityTests : IDisposable
             Assert.Equal("Assets/Scenes/Platformer.unity", evidence.RootElement.GetProperty("scenePath").GetString());
             Assert.Equal("platformer", evidence.RootElement.GetProperty("templateId").GetString());
             Assert.Equal("0.17.23", evidence.RootElement.GetProperty("bridgeVersion").GetString());
-            Assert.Equal("0.16.107", evidence.RootElement.GetProperty("templateKitVersion").GetString());
+            Assert.Equal("0.16.108", evidence.RootElement.GetProperty("templateKitVersion").GetString());
             Assert.Equal(2.5, evidence.RootElement.GetProperty("movementMetres").GetDouble());
             Assert.Equal(5, evidence.RootElement.GetProperty("completedObjectives").GetInt32());
             Assert.Equal(64, evidence.RootElement.GetProperty("sceneSha256").GetString()!.Length);
@@ -1591,7 +1610,7 @@ public sealed partial class SecurityTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(directory, "valid.json"), JsonSerializer.Serialize(new
         {
             schemaVersion = 1, scenePath = "Assets/Scenes/Platformer.unity", editorVersion = "6000.0.50f1",
-            bridgeVersion = "0.17.23", templateKitVersion = "0.16.107", sceneSha256 = await HashAsync(scene),
+            bridgeVersion = "0.17.23", templateKitVersion = "0.16.108", sceneSha256 = await HashAsync(scene),
             templateKitManifestSha256 = await HashAsync(manifest), durationSeconds = 5, templateId = "platformer",
             movementMetres = 2.5, completedObjectives = 5, requiredObjectives = 5,
             summary = "Deterministic runtime gameplay check passed for platformer: movement=2.50m, respawn=passed, objectives=5/5.",

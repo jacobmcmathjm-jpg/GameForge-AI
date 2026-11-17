@@ -23,7 +23,54 @@ namespace ForgeCoreGameTemplates.Tests
             foreach(var enemy in session.enemies)enemy.enabled=false;foreach(var motion in root.GetComponentsInChildren<PrototypeSkinnedAnimator>(true))motion.enabled=false;
             session.options.StartNewGame();session.SetPaused(false);Physics.SyncTransforms();session.Navigation.Refresh();
         }
-        [TearDown]public void Cleanup(){PrototypeInput.ClearScriptedFrame();if(root!=null)UnityEngine.Object.DestroyImmediate(root);}
+        [TearDown]public void Cleanup(){PrototypeInput.ClearScriptedFrame();foreach(var bullet in UnityEngine.Object.FindObjectsByType<SecurityCombatBullet>(FindObjectsSortMode.None))UnityEngine.Object.DestroyImmediate(bullet.gameObject);if(root!=null)UnityEngine.Object.DestroyImmediate(root);}
+        // Controlled room fixtures, not a traversal or human combat-balance acceptance.
+        private SecurityCombatEnemy ArrangeEncounter(int guardIndex){
+            session.mission.RestoreCheckpoint(guardIndex==2?2:1,guardIndex==2?3:0);
+            var enemy=session.enemies[guardIndex];enemy.EnsureInitialized();
+            foreach(var other in session.enemies)if(other!=enemy)other.gameObject.SetActive(false);
+            session.player.RestoreCheckpoint(100,60,6,enemy.transform.position-Vector3.forward*6,0,0);
+            session.SetPaused(false);Physics.SyncTransforms();
+            Assert.AreEqual(guardIndex==2?"CONTROL ROOM":"WAREHOUSE",level.Zone(session.player.transform.position));
+            Assert.True(enemy.CanSee(session.player.transform.position+Vector3.up*1.1f,session.player.transform),"Fixture must first prove a clear real-room firing lane.");
+            return enemy;
+        }
+        private void StepEncounter(SecurityCombatEnemy enemy,float dt,bool ai=true){
+            if(ai)enemy.Tick(dt,session);
+            enemy.motion.Tick(dt);enemy.motion.animator.Update(dt);enemy.motion.FlushShotMarkerForTest();
+            foreach(var bullet in UnityEngine.Object.FindObjectsByType<SecurityCombatBullet>(FindObjectsSortMode.None))bullet.Advance(dt);
+        }
+        [TestCase(0,30)][TestCase(0,60)][TestCase(0,120)]
+        [TestCase(1,30)][TestCase(1,60)][TestCase(1,120)]
+        [TestCase(2,30)][TestCase(2,60)][TestCase(2,120)]
+        public void ConnectedRoomGuardAnimationLaunchesProjectileAndDamagesPlayer(int guardIndex,int rate){
+            var enemy=ArrangeEncounter(guardIndex);var markers=0;Action<Vector3,Vector3> marker=(p,d)=>markers++;
+            enemy.motion.ShotEmitted+=marker;
+            try{for(var frame=0;frame<rate*5;frame++)StepEncounter(enemy,1f/rate);}
+            finally{enemy.motion.ShotEmitted-=marker;}
+            Assert.Greater(markers,0);Assert.Greater(enemy.Shots,0,"Actual AI -> evaluated animation marker -> muzzle recheck -> projectile route.");
+            Assert.Less(session.player.Health,100,"Damage must come from swept projectile arrival, never a direct test Damage call.");
+            Assert.Greater(session.player.Health,0);Assert.AreEqual(3,enemy.Health);
+        }
+        [TestCase(0)][TestCase(1)][TestCase(2)]public void ConnectedRoomPausePreventsReturnFire(int guardIndex){
+            var enemy=ArrangeEncounter(guardIndex);session.SetPaused(true);var pose=enemy.transform.position;
+            for(var frame=0;frame<180;frame++)StepEncounter(enemy,1f/60);
+            Assert.AreEqual(0,enemy.Shots);Assert.AreEqual(100,session.player.Health);Assert.AreEqual(pose,enemy.transform.position);
+            session.SetPaused(false);for(var frame=0;frame<300;frame++)StepEncounter(enemy,1f/60);
+            Assert.Greater(enemy.Shots,0);Assert.Less(session.player.Health,100);
+        }
+        [TestCase(0)][TestCase(1)][TestCase(2)]public void ConnectedRoomMuzzleMarkerRechecksNewOpaqueCover(int guardIndex){
+            var enemy=ArrangeEncounter(guardIndex);enemy.transform.rotation=Quaternion.LookRotation(session.player.transform.position-enemy.transform.position);
+            var wall=GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try{
+                wall.name="Owned inserted-cover fixture, not authored map cover";wall.layer=8;
+                wall.transform.position=(enemy.transform.position+session.player.transform.position)*.5f+Vector3.up*1.5f;wall.transform.localScale=new Vector3(3,3,.2f);Physics.SyncTransforms();
+                Assert.False(enemy.CanSee(session.player.transform.position+Vector3.up*1.1f,session.player.transform));
+                Assert.True(enemy.motion.TryFire(),"Deliberately queue a marker despite newly blocked LOS to test the final muzzle recheck.");
+                for(var frame=0;frame<60;frame++)StepEncounter(enemy,1f/60,false);
+                Assert.AreEqual(0,enemy.Shots);Assert.AreEqual(100,session.player.Health);Assert.Greater(session.ShotsBlockedByCover,0);
+            }finally{UnityEngine.Object.DestroyImmediate(wall);}
+        }
         [Test]public void ConnectedInteriorScreensAreBoundedAndDoNotAddCollision(){
             var material=AssetDatabase.LoadAssetAtPath<Material>(assetFolder+"/ConnectedScreen.mat");Assert.NotNull(material);Assert.AreEqual("Standard",material.shader.name);
             var texture=material.mainTexture;Assert.NotNull(texture);Assert.AreEqual(256,texture.width);Assert.AreEqual(128,texture.height);
